@@ -43,7 +43,7 @@ const VideoCallDetail = () => {
     const fetchReport = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:8000/api/video-reports/${reportId}`);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com'}/api/video-reports/${reportId}`);
         if (!response.ok) throw new Error('Failed to fetch report');
         const data = await response.json();
         setAnalysis(data.analysis || data);
@@ -561,3 +561,4 @@ const VideoCallDetail = () => {
 };
 
 export default VideoCallDetail;
+

@@ -15,7 +15,7 @@ export default function VideoCallsList() {
   const fetchVideoReports = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/video-reports');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com'}/api/video-reports`);
       const data = await response.json();
       
       if (data.status === 'success') {
@@ -209,3 +209,4 @@ export default function VideoCallsList() {
     </div>
   );
 }
+
