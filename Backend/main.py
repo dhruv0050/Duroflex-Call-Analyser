@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -8,11 +8,38 @@ from pathlib import Path
 import uvicorn
 from datetime import timedelta
 import asyncio
+import tempfile
+import math
+from json import JSONEncoder
 
-from csv_analysis_service import load_call_reports, get_call_report_by_id, get_call_stats
+from csv_analysis_service import load_call_reports, get_call_report_by_id, get_call_stats, save_call_to_mongodb, save_calls_to_json
 from video_analysis_service import analyze_video_with_gemini, get_all_video_reports_with_metadata, get_video_analysis_by_id, save_video_analysis
 from auth_service import authenticate_admin, create_access_token, create_admin_in_db
 from preprocess_videos import preprocess_all_videos
+from call_upload_service import CallUploadProcessor
+
+
+def sanitize_nan(obj):
+    """Recursively replace NaN values with None for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: sanitize_nan(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_nan(item) for item in obj]
+    elif isinstance(obj, float) and math.isnan(obj):
+        return None
+    return obj
+
+
+# Custom JSON encoder to handle NaN values (fallback)
+class NaNEncoder(JSONEncoder):
+    def encode(self, o):
+        if isinstance(o, float) and math.isnan(o):
+            return 'null'
+        return super().encode(o)
+    
+    def iterencode(self, o, _one_shot=False):
+        for chunk in super().iterencode(o, _one_shot):
+            yield chunk
 
 
 app = FastAPI(title="Duroflex Video Analysis API")
@@ -211,11 +238,13 @@ async def get_all_call_reports():
     """Get all call analysis reports from CSV"""
     try:
         reports = load_call_reports()
-        return {
+        response = {
             "status": "success",
             "total": len(reports),
             "reports": reports
         }
+        # Sanitize NaN values before returning
+        return sanitize_nan(response)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -227,10 +256,12 @@ async def get_call_report(call_id: str):
         report = get_call_report_by_id(call_id)
         if not report:
             raise HTTPException(status_code=404, detail=f"Call report not found for ID {call_id}")
-        return {
+        response = {
             "status": "success",
             "report": report
         }
+        # Sanitize NaN values before returning
+        return sanitize_nan(response)
     except HTTPException:
         raise
     except Exception as e:
@@ -242,9 +273,116 @@ async def get_call_reports_stats():
     """Get aggregate statistics for all call reports"""
     try:
         stats = get_call_stats()
-        return {
+        response = {
             "status": "success",
             "stats": stats
+        }
+        # Sanitize NaN values before returning
+        return sanitize_nan(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== CSV AUDIO CALL UPLOAD ENDPOINTS =====
+
+@app.post("/api/call-reports/upload")
+async def upload_audio_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV file with audio call recordings for processing.
+    
+    CSV must contain columns:
+    - Store Name
+    - Locality
+    - City
+    - State
+    - Region
+    - Recording URL
+    - Duration
+    - Date
+    
+    Processing is done asynchronously and can be tracked with job_id.
+    """
+    try:
+        # Validate file type
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
+
+        # Save temporarily
+        temp_path = None
+        try:
+            # Read file content
+            content = await file.read()
+            
+            # Save to temp file
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as temp_file:
+                temp_file.write(content)
+                temp_path = temp_file.name
+
+            # Initialize processor
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+            processor = CallUploadProcessor(api_key=api_key)
+
+            # Start processing (returns job_id immediately)
+            job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=2.0)
+
+            # Save processed calls to MongoDB and JSON backup
+            processed_calls = processor.get_processed_calls()
+            
+            if processed_calls:
+                # Save to MongoDB
+                for call in processed_calls:
+                    save_call_to_mongodb(call)
+                
+                # Also save to JSON backup
+                save_calls_to_json(processed_calls)
+                
+                print(f"[API] Saved {len(processed_calls)} calls to storage")
+
+            # Get job status
+            job_status = processor.get_job_status(job_id)
+
+            return {
+                "status": "processing_complete",
+                "job_id": job_id,
+                "filename": file.filename,
+                "total_records": job_status.get('total_records'),
+                "processed": job_status.get('processed'),
+                "successful": job_status.get('successful'),
+                "failed": job_status.get('failed'),
+                "errors": job_status.get('errors')[:10]  # Return first 10 errors
+            }
+
+        finally:
+            # Cleanup temp file
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API] Upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@app.get("/api/call-reports/upload-status/{job_id}")
+async def get_upload_status(job_id: str):
+    """
+    Get the processing status of an uploaded CSV file.
+    
+    Returns job status including total, processed, successful, and failed counts.
+    """
+    try:
+        # This is a simplified version - in production you'd store job state in Redis/MongoDB
+        return {
+            "status": "success",
+            "message": "Job status tracking requires job persistence. Calls are saved to MongoDB after upload.",
+            "note": "Query /api/call-reports to see all available calls"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

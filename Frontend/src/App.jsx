@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import CallAggregatedDashboard from './components/CallAggregatedDashboard';
 import CallReportsList from './components/CallReportsList';
 import CallReportDetail from './components/CallReportDetail';
+import AudioCallUpload from './components/AudioCallUpload';
 import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
 import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
@@ -30,6 +31,7 @@ function App() {
 
           {/* Audio Call Reports Routes */}
           <Route path="/call-reports" element={<ProtectedRoute><CallReportsList /></ProtectedRoute>} />
+          <Route path="/call-reports/upload" element={<ProtectedRoute><AudioCallUpload /></ProtectedRoute>} />
           <Route path="/call-reports/:callId" element={<ProtectedRoute><CallReportDetail /></ProtectedRoute>} />
           <Route path="/call-reports/analytics" element={<ProtectedRoute><CallAggregatedDashboard /></ProtectedRoute>} />
 
