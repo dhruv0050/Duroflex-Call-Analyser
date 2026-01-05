@@ -8,6 +8,7 @@ import CallReportsList from './components/CallReportsList';
 import CallReportDetail from './components/CallReportDetail';
 import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
+import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -35,6 +36,7 @@ function App() {
           {/* Video Call Reports Routes */}
           <Route path="/video-reports" element={<ProtectedRoute><VideoCallsList /></ProtectedRoute>} />
           <Route path="/video-reports/:reportId" element={<ProtectedRoute><VideoCallDetail /></ProtectedRoute>} />
+          <Route path="/video-reports/analytics" element={<ProtectedRoute><VideoAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

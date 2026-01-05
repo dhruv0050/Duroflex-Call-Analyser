@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight } from 'lucide-react';
+import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight, BarChart3 } from 'lucide-react';
 
 export default function VideoCallsList() {
   const [reports, setReports] = useState([]);
@@ -66,13 +66,22 @@ export default function VideoCallsList() {
             <h1 className="text-4xl font-serif font-bold text-white mb-3">Video Call Reports</h1>
             <p className="text-gray-400 text-lg">Review and analyze all video sales interactions</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-5 py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl transition-all duration-200 border border-red-500/20 hover:border-red-500/40"
-          >
-            <LogOut size={18} />
-            <span className="font-medium">Logout</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/video-reports/analytics')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 rounded-xl transition-all duration-200 border border-purple-500/20 hover:border-purple-500/40"
+            >
+              <BarChart3 size={18} />
+              <span className="font-medium">Analytics Dashboard</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-5 py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl transition-all duration-200 border border-red-500/20 hover:border-red-500/40"
+            >
+              <LogOut size={18} />
+              <span className="font-medium">Logout</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards Row */}
