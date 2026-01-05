@@ -35,6 +35,17 @@ async def preprocess_all_videos():
         
         print(f"✓ Already analyzed: {already_analyzed}")
         print(f"⏳ Pending analysis: {len(df) - already_analyzed}")
+
+        # If we already have analyses (from Mongo or seeded JSON), skip Gemini processing
+        if already_analyzed > 0:
+            print("✅ Analyses already available; skipping Gemini processing")
+            return {
+                "status": "complete",
+                "newly_analyzed": 0,
+                "already_analyzed": already_analyzed,
+                "errors": 0,
+                "total": already_analyzed
+            }
         
         # Process each video
         analyzed_count = 0

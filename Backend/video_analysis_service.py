@@ -6,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import List, Dict
 import re
+from pymongo import MongoClient
 
 # Load environment variables
 load_dotenv()
@@ -13,6 +14,8 @@ load_dotenv()
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = os.getenv("MODEL", "gemini-1.5-flash")
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_NAME = os.getenv("MONGODB_NAME", "Duroflex")
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
@@ -23,6 +26,26 @@ genai.configure(api_key=GEMINI_API_KEY)
 VIDEO_ANALYSIS_DIR = Path("video_analysis")
 VIDEO_ANALYSIS_DIR.mkdir(exist_ok=True)
 VIDEO_ANALYSIS_FILE = VIDEO_ANALYSIS_DIR / "video_reports.json"
+
+# Mongo helpers
+_mongo_client = None
+
+
+def get_video_collection():
+  """Return Mongo collection for video analyses, or None if unavailable."""
+  global _mongo_client
+  if not MONGODB_URI:
+    return None
+  try:
+    if _mongo_client is None:
+      _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
+      # Trigger a lightweight ping to validate connectivity
+      _mongo_client.admin.command("ping")
+    db = _mongo_client[MONGODB_NAME]
+    return db["video_reports"]
+  except Exception as exc:  # Fallback silently to file storage if Mongo is not reachable
+    print(f"MongoDB not available, falling back to JSON file storage: {exc}")
+    return None
 
 
 # The exact prompt from user
@@ -351,33 +374,56 @@ def load_video_csv():
 
 
 def save_video_analysis(report_id: str, analysis_data: dict):
-    """Save video analysis to JSON file"""
+  """Save video analysis to MongoDB if available; otherwise JSON file."""
+  collection = get_video_collection()
+
+  if collection is not None:
     try:
-        # Load existing reports
-        if VIDEO_ANALYSIS_FILE.exists():
-            with open(VIDEO_ANALYSIS_FILE, 'r', encoding='utf-8') as f:
-                reports = json.load(f)
-        else:
-            reports = {}
-        
-        # Add/update report
-        reports[report_id] = analysis_data
-        
-        # Save back
-        with open(VIDEO_ANALYSIS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(reports, f, indent=2, ensure_ascii=False)
-        
-        return True
-    except Exception as e:
-        print(f"Error saving video analysis: {e}")
-        return False
+      collection.update_one(
+        {"report_id": report_id},
+        {"$set": {"report_id": report_id, "analysis": analysis_data}},
+        upsert=True,
+      )
+      return True
+    except Exception as exc:
+      print(f"Error saving video analysis to MongoDB, falling back to file: {exc}")
+
+  # Fallback: JSON file storage
+  try:
+    if VIDEO_ANALYSIS_FILE.exists():
+      with open(VIDEO_ANALYSIS_FILE, 'r', encoding='utf-8') as f:
+        reports = json.load(f)
+    else:
+      reports = {}
+
+    reports[report_id] = analysis_data
+
+    with open(VIDEO_ANALYSIS_FILE, 'w', encoding='utf-8') as f:
+      json.dump(reports, f, indent=2, ensure_ascii=False)
+
+    return True
+  except Exception as e:
+    print(f"Error saving video analysis: {e}")
+    return False
 
 
 def load_all_video_analyses():
-    """Load all video analyses"""
+    """Load all video analyses from MongoDB if available, else JSON file."""
+    collection = get_video_collection()
+
+    if collection is not None:
+        try:
+            docs = list(collection.find({}))
+            if docs:
+                return {doc["report_id"]: doc.get("analysis", {}) for doc in docs}
+            # If Mongo is reachable but empty, fall back to file seed
+            print("MongoDB video_reports collection is empty; using JSON file fallback")
+        except Exception as exc:
+            print(f"Error loading video analyses from MongoDB, falling back to file: {exc}")
+
     if not VIDEO_ANALYSIS_FILE.exists():
         return {}
-    
+
     try:
         with open(VIDEO_ANALYSIS_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -387,9 +433,19 @@ def load_all_video_analyses():
 
 
 def get_video_analysis_by_id(report_id: str):
-    """Get a specific video analysis by ID"""
-    all_analyses = load_all_video_analyses()
-    return all_analyses.get(report_id)
+  """Get a specific video analysis by ID"""
+  collection = get_video_collection()
+
+  if collection is not None:
+    try:
+      doc = collection.find_one({"report_id": report_id})
+      if doc:
+        return doc.get("analysis")
+    except Exception as exc:
+      print(f"Error fetching analysis from MongoDB, falling back to file: {exc}")
+
+  all_analyses = load_all_video_analyses()
+  return all_analyses.get(report_id)
 
 
 def analyze_video_with_gemini(video_url: str, store_name: str = "Unknown Store") -> dict:
