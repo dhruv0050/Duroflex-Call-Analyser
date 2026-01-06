@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight, BarChart3 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight, BarChart3, Upload } from 'lucide-react';
 
 export default function VideoCallsList() {
   const [reports, setReports] = useState([]);
@@ -67,6 +67,13 @@ export default function VideoCallsList() {
             <p className="text-gray-400 text-lg">Review and analyze all video sales interactions</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              to="/video-reports/upload"
+              className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl transition-all duration-200 border border-purple-500/40 hover:border-purple-500/60"
+            >
+              <Upload size={18} />
+              <span className="font-medium">Upload CSV</span>
+            </Link>
             <button
               onClick={() => navigate('/video-reports/analytics')}
               className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 rounded-xl transition-all duration-200 border border-purple-500/20 hover:border-purple-500/40"

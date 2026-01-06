@@ -17,6 +17,7 @@ from video_analysis_service import analyze_video_with_gemini, get_all_video_repo
 from auth_service import authenticate_admin, create_access_token, create_admin_in_db
 from preprocess_videos import preprocess_all_videos
 from call_upload_service import CallUploadProcessor
+from video_upload_service import VideoUploadProcessor
 
 
 def sanitize_nan(obj):
@@ -74,28 +75,10 @@ class TokenResponse(BaseModel):
 
 # ===== STARTUP EVENT =====
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize admin user and preprocess videos on startup"""
-    print("\n🚀 APPLICATION STARTUP")
-    print("=" * 80)
-    
-    # Create admin user
-    print("👤 Initializing admin user...")
-    create_admin_in_db()
-    
-    # Preprocess all videos
-    print("🎬 Starting video preprocessing...")
-    print("=" * 80)
-    try:
-        await preprocess_all_videos()
-    except Exception as e:
-        print(f"⚠️  Warning: Video preprocessing encountered an issue: {e}")
-        print("   System will continue, but some videos may not be analyzed")
-    
-    print("=" * 80)
-    print("✅ APPLICATION READY")
-    print("=" * 80 + "\n")
+# Startup event disabled to prevent crashes - admin user already exists
+# @app.on_event("startup")
+# async def startup_event():
+#     create_admin_in_db()
 
 
 # ===== AUTHENTICATION ENDPOINTS =====
@@ -209,9 +192,17 @@ async def analyze_video_report(report_id: str):
         
         # Analyze the video
         print(f"Starting analysis for {report_id}...")
+        
+        # Build metadata from target_report
+        metadata = {
+            "store_name": target_report.get("store_name"),
+            "recording_url": target_report.get("recording_url"),
+        }
+        
         analysis_result = analyze_video_with_gemini(
             video_url=target_report["recording_url"],
-            store_name=target_report["store_name"]
+            store_name=target_report["store_name"],
+            metadata=metadata
         )
         
         # Save the analysis
@@ -229,6 +220,67 @@ async def analyze_video_report(report_id: str):
     except Exception as e:
         print(f"Error analyzing video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
+
+
+# ===== VIDEO CSV UPLOAD ENDPOINT =====
+
+@app.post("/api/video-reports/upload")
+async def upload_video_csv(file: UploadFile = File(...)):
+    """Upload a CSV of video calls and store analyses in MongoDB."""
+    try:
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
+
+        temp_path = None
+        try:
+            content = await file.read()
+
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as temp_file:
+                temp_file.write(content)
+                temp_path = temp_file.name
+
+            processor = VideoUploadProcessor()
+
+            try:
+                job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=1.0)
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
+
+            processed_videos = [sanitize_nan(v) for v in processor.get_processed_videos()]
+
+            for video in processed_videos:
+                metadata = video.get("metadata")
+                save_video_analysis(
+                    report_id=video.get("report_id"),
+                    analysis_data=video.get("analysis", {}),
+                    metadata=metadata,
+                )
+
+            job_status = processor.get_job_status(job_id)
+
+            response = {
+                "status": "processing_complete",
+                "job_id": job_id,
+                "filename": file.filename,
+                "total_records": job_status.get('total_records'),
+                "processed": job_status.get('processed'),
+                "successful": job_status.get('successful'),
+                "failed": job_status.get('failed'),
+                "errors": job_status.get('errors')[:10] if isinstance(job_status.get('errors'), list) else job_status.get('errors')
+            }
+
+            return sanitize_nan(response)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API] Video upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 # ===== CSV CALL ANALYSIS ENDPOINTS =====
@@ -398,4 +450,4 @@ if __name__ == "__main__":
     print("API will be available at http://localhost:8000")
     print("API docs at http://localhost:8000/docs")
     # Use import string form to allow reload without warnings
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

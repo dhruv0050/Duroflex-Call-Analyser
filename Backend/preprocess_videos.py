@@ -72,10 +72,19 @@ async def preprocess_all_videos():
             try:
                 print(f"🔄 [{idx + 1}/{len(df)}] Analyzing {store_name}...", end=" ")
                 
+                # Build metadata from row data
+                metadata = {
+                    "store_name": store_name,
+                    "recording_url": recording_url,
+                    "date": row.get('Date'),
+                    "clean_datetime": row.get('CleanDateTime'),
+                }
+                
                 # Analyze video
                 analysis_result = analyze_video_with_gemini(
                     video_url=recording_url,
-                    store_name=store_name
+                    store_name=store_name,
+                    metadata=metadata
                 )
                 
                 # Save result

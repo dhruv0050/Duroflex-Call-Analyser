@@ -167,9 +167,12 @@ const VideoAggregatedDashboard = () => {
       filtered = filtered.filter((c) => c.region === selectedRegion);
     } else if (view === 'city') {
       filtered = filtered.filter((c) => c.city === selectedCity);
+    } else if (view === 'store' && selectedStore) {
+      // Only filter by store if a specific store is selected
+      filtered = filtered.filter((c) => c.store === selectedStore);
     }
     return filtered;
-  }, [videoCalls, view, selectedRegion, selectedCity]);
+  }, [videoCalls, view, selectedRegion, selectedCity, selectedStore]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;

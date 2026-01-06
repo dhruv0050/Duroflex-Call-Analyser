@@ -31,6 +31,74 @@ const intentClass = (value) => {
   return 'low';
 };
 
+const firstDefined = (...values) => values.find((v) => v !== undefined && v !== null && v !== '');
+
+const normalizeAnalysis = (raw, reportId) => {
+  if (!raw || typeof raw !== 'object') return {};
+
+  // Extract nested structures from the MongoDB document
+  const metadata = raw.metadata || raw.MetaData || {};
+  const callAnalysis = raw.call_analysis || raw.callAnalysis || {};
+  const agentDetails = callAnalysis.agent_details || raw.agent_details || raw.agentDetails || {};
+  const customerInfo = callAnalysis.customer_info || raw.Customer_Information || raw.customer_info || raw.customerInfo || {};
+  const performance = callAnalysis.performance_ratings || raw.performance_ratings || raw.performance || {};
+
+  const functional = { ...(raw.Functional || {}) };
+  functional.Call_ID = firstDefined(functional.Call_ID, raw.report_id, callAnalysis.report_id, metadata.report_id, reportId);
+  functional.Call_Time = firstDefined(functional.Call_Time, callAnalysis.call_time, metadata.clean_datetime, metadata.date, raw.clean_datetime, raw.date);
+  functional.Store_Location = firstDefined(functional.Store_Location, callAnalysis.store_location, raw.store_location, agentDetails.store_location, metadata.store_name);
+  functional.Customer_Name = firstDefined(functional.Customer_Name, customerInfo.customer_name, customerInfo.name, agentDetails.customer_name);
+  functional.Agent_Name = firstDefined(functional.Agent_Name, agentDetails.agent_name, agentDetails.name);
+  functional.Customer_Location = firstDefined(functional.Customer_Location, customerInfo.customer_location, customerInfo.location);
+  functional.Customer_Language = firstDefined(functional.Customer_Language, customerInfo.language, customerInfo.customer_language);
+  functional.Call_Objective_Theme = firstDefined(functional.Call_Objective_Theme, callAnalysis.call_type, callAnalysis.intent, callAnalysis.category, customerInfo.query_product);
+  functional.Product_of_Interest = firstDefined(functional.Product_of_Interest, callAnalysis.product_of_interest, customerInfo.product_of_interest, customerInfo.product, customerInfo.query_product);
+  functional.Agent_Video_Quality_Rating = firstDefined(functional.Agent_Video_Quality_Rating, performance.agent_video_quality, performance.agent_video_quality_rating);
+  functional.Agent_Audio_Quality_Rating = firstDefined(functional.Agent_Audio_Quality_Rating, performance.agent_audio_quality, performance.agent_audio_quality_rating);
+  functional.Customer_Audio_Quality_Rating = firstDefined(functional.Customer_Audio_Quality_Rating, performance.customer_audio_quality, performance.customer_audio_quality_rating);
+
+  const customer = { ...(raw.Customer_Information || {}) };
+  if (Object.keys(customer).length === 0) Object.assign(customer, customerInfo);
+  customer.Type_of_Call = firstDefined(customer.Type_of_Call, callAnalysis.call_type, callAnalysis.type_of_call);
+  customer.Intent_to_Visit_Rating = firstDefined(customer.Intent_to_Visit_Rating, performance.intent_to_visit, performance.intent_to_visit_rating, callAnalysis.intent_to_visit, 'LOW');
+  customer.Intent_to_Purchase_Rating = firstDefined(customer.Intent_to_Purchase_Rating, performance.intent_to_purchase, performance.intent_to_purchase_rating, callAnalysis.intent_to_purchase, 'N/A');
+  customer.Customer_Stage_AIDA = firstDefined(customer.Customer_Stage_AIDA, callAnalysis.customer_stage, performance.customer_stage);
+  customer.Timeline_to_Purchase = firstDefined(customer.Timeline_to_Purchase, callAnalysis.purchase_timeline, performance.purchase_timeline, 'N/A');
+  customer.Barriers_to_Conversion = firstDefined(customer.Barriers_to_Conversion, callAnalysis.barriers_to_conversion, performance.barriers_to_conversion, callAnalysis.barriers, 'None identified');
+  customer.Customer_Satisfaction_Score = firstDefined(customer.Customer_Satisfaction_Score, performance.customer_satisfaction, performance.customer_satisfaction_score, 0);
+  customer.Business_Satisfaction_Score = firstDefined(customer.Business_Satisfaction_Score, performance.business_satisfaction, performance.business_satisfaction_score, 0);
+  customer.Primary_Questions_Asked = customer.Primary_Questions_Asked || callAnalysis.primary_questions || customerInfo.primary_questions || customerInfo.key_interests || [];
+
+  const agentAreas = { ...(raw.Agent_Areas || {}) };
+  agentAreas.Product_Demonstration = agentAreas.Product_Demonstration || agentDetails.product_demonstration || {};
+  agentAreas.The_Invitation_to_Visit = agentAreas.The_Invitation_to_Visit || agentDetails.invitation || {};
+  agentAreas.RELAX_Framework = agentAreas.RELAX_Framework || agentDetails.relax_framework || {};
+  agentAreas.SoftSkills = agentAreas.SoftSkills || agentAreas.SoftSkills_Etiquette || agentAreas.SoftSkills_Rating || {};
+  agentAreas.Agent_Language_Fluency = agentAreas.Agent_Language_Fluency || agentDetails.language_fluency || {};
+  agentAreas.Transcript = agentAreas.Transcript || raw.Transcript_Log || raw.transcript || callAnalysis.transcript || agentDetails.transcript || {};
+
+  const overallSummary = { ...(raw.Overall_Summary || {}) };
+  overallSummary.Chronological_Call_Summary = firstDefined(
+    overallSummary.Chronological_Call_Summary,
+    raw.summary,
+    callAnalysis.summary,
+    callAnalysis.call_summary
+  );
+  overallSummary.Agent_Handling_Summary = firstDefined(
+    overallSummary.Agent_Handling_Summary,
+    agentDetails.performance_notes
+  );
+
+  return {
+    ...raw,
+    Functional: functional,
+    Customer_Information: customer,
+    Agent_Areas: agentAreas,
+    Overall_Summary: overallSummary,
+    metadata,
+  };
+};
+
 const VideoCallDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
@@ -46,7 +114,7 @@ const VideoCallDetail = () => {
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com'}/api/video-reports/${reportId}`);
         if (!response.ok) throw new Error('Failed to fetch report');
         const data = await response.json();
-        setAnalysis(data.analysis || data);
+        setAnalysis(normalizeAnalysis(data.analysis || data, reportId));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -83,7 +151,7 @@ const VideoCallDetail = () => {
   const softSkills = agentAreas.SoftSkills || {};
   const invitation = agentAreas.The_Invitation_to_Visit || {};
   const languageFluency = agentAreas.Agent_Language_Fluency || {};
-  const overallSummary = agentAreas.Overall_Summary || {};
+  const overallSummary = analysis.Overall_Summary || {};
   const transcript = agentAreas.Transcript || {};
   const presentability = functional.Agent_Presentability || {};
 
@@ -470,7 +538,7 @@ const VideoCallDetail = () => {
         </section>
 
         {/* Section 7: Improvement Areas */}
-        {softSkills.Top_3_Improvement_Areas && softSkills.Top_3_Improvement_Areas.length > 0 && (
+        {/* {softSkills.Top_3_Improvement_Areas && softSkills.Top_3_Improvement_Areas.length > 0 && (
           <section className="rounded-2xl border border-white/10 bg-[#0f0f14] p-7 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-['Fraunces',serif] font-semibold">Top 3 Improvement Areas</h2>
@@ -490,7 +558,7 @@ const VideoCallDetail = () => {
               ))}
             </div>
           </section>
-        )}
+        )} */}
 
         {/* Section 8: Summary */}
         <section className="rounded-2xl border border-white/10 bg-[#0f0f14] p-7 space-y-5">
