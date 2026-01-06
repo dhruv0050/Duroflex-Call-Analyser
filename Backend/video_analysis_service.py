@@ -73,10 +73,12 @@ EXACT_ANALYSIS_PROMPT = """{
     "sections": {
       "Functional": {
         "Call_ID": "Unique identifier for the call being analyzed.",
-        "Call_Time": "Timestamp of when the call took place (e.g., 2025-10-21 14:35 IST). Use N/A if not available.",
-        "Customer_Name": "Name of the customer (if mentioned in the call transcript by the customer or agent). IMPORTANT: Check the Transcript_Log carefully - the customer often introduces themselves by name. Use N/A only if no name is mentioned anywhere in the call.",
-        "Agent_Name": "Name of the sales agent (as per video or introduction). Use N/A if not mentioned.",
+        "Call_Time": "Timestamp of when the call took place (e.g., 2025-10-21 14:35 IST).",
+        "Customer_Name": "Name of the customer (if mentioned in call).",
+        "Agent_Name": "Name of the sales agent (as per video or introduction).",
         "Store_Location": "Store location from which the video call is happening.",
+        "Customer_Location": "City or specific location mentioned by the customer (e.g., 'Bangalore', 'Indiranagar'). If not mentioned, return 'N/A'.",
+        "Customer_Language": "Primary language spoken by the customer during the call (e.g., English, Hindi, Tamil, Mixed).",
         "Agent_Presentability": {
           "Score": "1 to 5",
           "Reason_for_Score": "Reason for how presentable the sales agent appeared (looks, tidiness, grooming, being presentation ready)."
@@ -131,6 +133,14 @@ EXACT_ANALYSIS_PROMPT = """{
             "5": "Excellent: Customer expresses explicit satisfaction.",
             "3": "Average: Neutral tone, transactional.",
             "1": "Poor: Explicit frustration or ends call abruptly."
+          }
+        },
+        "Business_Satisfaction_Score": {
+          "question": "On a scale of 1 to 5, if the Brand Leadership (CEO/CMO/CSO) watched this call, how would they rate it as a representation of the brand?",
+          "criteria": {
+            "5": "Brand Ambassador: Perfect pitch, excellent etiquette, high conversion effort.",
+            "3": "Standard: Did the job, but nothing memorable. Basic hygiene met.",
+            "1": "Brand Risk: Rude, incorrect info, sloppy appearance, or lost a hot lead."
           }
         }
       },
@@ -212,9 +222,10 @@ EXACT_ANALYSIS_PROMPT = """{
             "score": "1-5",
             "criteria": "Did the agent manage time effectively when checking stock/moving product? Did they keep the customer engaged or leave them looking at a blank screen?"
           },
-          "Agent_Language_Fluency_Score": {
+          "Agent_Language_Fluency": {
             "score": "1-5",
-            "criteria": "Did the agent communicate clearly in the customer's preferred language? (5=Fluent/Native, 1=Struggled/Language Barrier)."
+            "reason": "Specific observations on grammar, vocabulary, and ease of speech in the customer's language.",
+            "comment": "A crisp, 2-line comment summarizing the agent's language proficiency."
           }
         },
         "Top_3_Improvement_Areas": "List the top three areas where the agent scored lowest, providing specific, actionable advice for coaching."
@@ -236,6 +247,8 @@ EXACT_ANALYSIS_PROMPT = """{
         "Customer_Name": "",
         "Agent_Name": "",
         "Store_Location": "",
+        "Customer_Location": "",
+        "Customer_Language": "",
         "Agent_Presentability": {
           "Score": 0,
           "Reason_for_Score": ""
@@ -266,7 +279,11 @@ EXACT_ANALYSIS_PROMPT = """{
         "Customer_Satisfaction_Score": 0,
         "Customer_Satisfaction_Score_Reasons": [
           ""
-        ]
+        ],
+        "Business_Satisfaction_Score": {
+          "Score": 0,
+          "Reason": ""
+        }
       },
       "Agent_Areas": {
         "Product_Demonstration": {
@@ -344,25 +361,29 @@ EXACT_ANALYSIS_PROMPT = """{
           "Hold_and_Dead_Air_Management_Reasons": [
             ""
           ],
-          "Agent_Language_Fluency_Score": 0,
+          "Agent_Language_Fluency": {
+            "Score": 0,
+            "Reason": "",
+            "Comment": ""
+          },
           "Top_3_Improvement_Areas": [
             ""
           ]
-        }
-      },
-      "Overall_Summary": {
-        "Chronological_Call_Summary": "",
-        "Agent_Handling_Summary": "",
-        "Customer_Satisfaction_Summary": "",
-        "Next_Action": ""
-      },
-      "Transcript_Log": [
-        {
-          "Speaker": "Agent/Customer",
-          "Text": "...",
-          "Timestamp": "00:00"
-        }
-      ]
+        },
+        "Overall_Summary": {
+          "Chronological_Call_Summary": "",
+          "Agent_Handling_Summary": "",
+          "Customer_Satisfaction_Summary": "",
+          "Next_Action": ""
+        },
+        "Transcript_Log": [
+          {
+            "Speaker": "Agent/Customer",
+            "Text": "...",
+            "Timestamp": "00:00"
+          }
+        ]
+      }
     }
   }
 }"""
@@ -626,8 +647,17 @@ def download_video(url: str, timeout: int = 120) -> tuple:
     Returns: (temp_file_path, error_message)
     """
     try:
-        if not url or not isinstance(url, str):
+        # Check for NaN, None, or non-string types
+        if url is None or not isinstance(url, str) or not url.strip():
             return None, "Invalid URL provided"
+        
+        # Additional check for pandas NaN (float type)
+        try:
+            import math
+            if isinstance(url, float) and math.isnan(url):
+                return None, "Invalid URL provided (NaN)"
+        except (TypeError, ValueError):
+            pass
 
         print(f"[VIDEO] Downloading from URL...")
         response = requests.get(url, timeout=timeout, stream=True, allow_redirects=True)
@@ -765,6 +795,8 @@ def analyze_video_with_gemini(video_url: str, store_name: str = "Unknown Store",
                     "Call_Time": "N/A",
                     "Agent_Name": "N/A",
                     "Customer_Name": "N/A",
+                    "Customer_Location": "N/A",
+                    "Customer_Language": "N/A",
                     "Agent_Presentability": {
                         "Score": 3,
                         "Reason_for_Score": ["Unable to analyze video"]
@@ -787,7 +819,11 @@ def analyze_video_with_gemini(video_url: str, store_name: str = "Unknown Store",
                     "Intent_to_Purchase_Rating_Reasons": [],
                     "Barriers_to_Conversion": "Unable to analyze",
                     "Customer_Satisfaction_Score": 3,
-                    "Customer_Satisfaction_Score_Reasons": []
+                    "Customer_Satisfaction_Score_Reasons": [],
+                    "Business_Satisfaction_Score": {
+                        "Score": 3,
+                        "Reason": "Unable to analyze"
+                    }
                 },
                 "Agent_Areas": {
                     "Product_Demonstration": {
@@ -841,7 +877,11 @@ def analyze_video_with_gemini(video_url: str, store_name: str = "Unknown Store",
                         "Objection_Handling_Reasons": ["Unable to analyze"],
                         "Hold_and_Dead_Air_Management_Rating": 0,
                         "Hold_and_Dead_Air_Management_Reasons": ["Unable to analyze"],
-                        "Agent_Language_Fluency_Score": 0,
+                        "Agent_Language_Fluency": {
+                            "Score": 0,
+                            "Reason": "Unable to analyze",
+                            "Comment": "Analysis incomplete"
+                        },
                         "Top_3_Improvement_Areas": ["Unable to analyze video"]
                     }
                 },

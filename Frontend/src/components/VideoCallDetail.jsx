@@ -45,6 +45,9 @@ const normalizeAnalysis = (raw, reportId) => {
 
   const functional = { ...(raw.Functional || {}) };
   functional.Call_ID = firstDefined(functional.Call_ID, raw.report_id, callAnalysis.report_id, metadata.report_id, reportId);
+  if (!functional.Call_ID || functional.Call_ID === 'N/A') {
+    functional.Call_ID = reportId;
+  }
   functional.Call_Time = firstDefined(functional.Call_Time, callAnalysis.call_time, metadata.clean_datetime, metadata.date, raw.clean_datetime, raw.date);
   functional.Store_Location = firstDefined(functional.Store_Location, callAnalysis.store_location, raw.store_location, agentDetails.store_location, metadata.store_name);
   functional.Customer_Name = firstDefined(functional.Customer_Name, customerInfo.customer_name, customerInfo.name, agentDetails.customer_name);
@@ -155,6 +158,24 @@ const VideoCallDetail = () => {
   const transcript = agentAreas.Transcript || {};
   const presentability = functional.Agent_Presentability || {};
 
+  // Derived customer satisfaction fields
+  const businessSatisfactionRaw = customer.Business_Satisfaction_Score;
+  const businessSatisfactionValue = typeof businessSatisfactionRaw === 'object' && businessSatisfactionRaw !== null
+    ? businessSatisfactionRaw.Score
+    : businessSatisfactionRaw;
+  const businessSatisfactionReason = typeof businessSatisfactionRaw === 'object' && businessSatisfactionRaw !== null
+    ? businessSatisfactionRaw.Reason
+    : undefined;
+
+  const purchaseIntent = customer.Intent_to_Purchase_Rating || 'LOW';
+  const customerSatisfactionScore = customer.Customer_Satisfaction_Score || 0;
+
+  const getScoreTheme = (score) => {
+    if (score >= 4) return { valueClass: 'text-green-400', badgeClass: 'bg-green-500/15 text-green-300' };
+    if (score >= 3) return { valueClass: 'text-amber-300', badgeClass: 'bg-amber-500/15 text-amber-300' };
+    return { valueClass: 'text-red-400', badgeClass: 'bg-red-500/15 text-red-300' };
+  };
+
   const noiseBg = "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
 
   return (
@@ -261,72 +282,109 @@ const VideoCallDetail = () => {
             <h2 className="text-xl font-['Fraunces',serif] font-semibold">Customer Insights</h2>
             <span className="text-sm text-gray-500">Intent & Satisfaction</span>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {(() => {
+              const purchaseIntentClass = intentClass(purchaseIntent);
+              const csatTheme = getScoreTheme(customerSatisfactionScore);
+              const bsatTheme = getScoreTheme(businessSatisfactionValue || 0);
 
-          <div className="flex flex-col xl:flex-row gap-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
-              {[{
-                label: 'Intent to Purchase',
-                value: customer.Intent_to_Purchase_Rating,
-                badge: customer.Intent_to_Purchase_Rating,
-                className: intentClass(customer.Intent_to_Purchase_Rating)
-              }, {
-                label: 'Customer Satisfaction',
-                value: `${customer.Customer_Satisfaction_Score || 0}/5`,
-                badge: 'Satisfied',
-                className: 'high'
-              }, {
-                label: 'Business Satisfaction',
-                value: `${customer.Business_Satisfaction_Score || 0}/5`,
-                badge: 'Visit Secured',
-                className: 'high'
-              }].map((card, idx) => (
-                <div key={idx} className={`rounded-xl border border-white/10 bg-[#16161d] px-6 py-5 text-center`}> 
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500 mb-2">{card.label}</p>
-                  <div className={`text-4xl font-['Fraunces',serif] font-semibold mb-2 ${card.className === 'high' ? 'text-green-400' : card.className === 'medium' ? 'text-amber-400' : 'text-red-400'}`}>
-                    {card.value || 'N/A'}
-                  </div>
-                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${card.className === 'high' ? 'bg-green-500/15 text-green-300' : card.className === 'medium' ? 'bg-amber-500/15 text-amber-300' : 'bg-red-500/15 text-red-300'}`}>
+              return ([
+                {
+                  label: 'Intent to Purchase',
+                  value: purchaseIntent,
+                  valueClass: purchaseIntentClass === 'high' ? 'text-green-400' : purchaseIntentClass === 'medium' ? 'text-amber-300' : 'text-red-400',
+                  badgeClass: purchaseIntentClass === 'high'
+                    ? 'bg-green-500/15 text-green-300'
+                    : purchaseIntentClass === 'medium'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-red-500/15 text-red-300',
+                  badge: purchaseIntent,
+                  subtext: null
+                },
+                {
+                  label: 'Customer Satisfaction',
+                  value: `${customerSatisfactionScore}/5`,
+                  valueClass: csatTheme.valueClass,
+                  badgeClass: csatTheme.badgeClass,
+                  badge: 'Satisfied',
+                  subtext: null
+                },
+                {
+                  label: 'Business Satisfaction',
+                  value: `${businessSatisfactionValue || 0}/5`,
+                  valueClass: bsatTheme.valueClass,
+                  badgeClass: bsatTheme.badgeClass,
+                  badge: 'Reason',
+                  subtext: businessSatisfactionReason
+                },
+                {
+                  label: 'Intent to Visit',
+                  value: customer.Intent_to_Visit_Rating || 'LOW',
+                  valueClass: 'text-amber-300',
+                  badgeClass: getIntentBadgeColor(customer.Intent_to_Visit_Rating || 'LOW'),
+                  badge: customer.Intent_to_Visit_Rating || 'LOW',
+                  subtext: null
+                },
+                {
+                  label: 'Purchase Timeline',
+                  value: customer.Timeline_to_Purchase || 'N/A',
+                  valueClass: 'text-amber-200',
+                  badgeClass: 'bg-amber-500/10 text-amber-200 border border-amber-500/20',
+                  badge: customer.Timeline_to_Purchase || 'N/A',
+                  subtext: null
+                },
+                {
+                  label: 'Customer Stage (AIDA)',
+                  value: customer.Customer_Stage_AIDA || 'Awareness',
+                  valueClass: 'text-amber-300',
+                  badgeClass: 'bg-amber-500/15 text-amber-200',
+                  badge: customer.Customer_Stage_AIDA || 'A',
+                  subtext: null,
+                  render: (
+                    <div className="flex items-center gap-1 justify-center">
+                      {getAidaSteps(customer.Customer_Stage_AIDA).map((step, idx) => (
+                        <React.Fragment key={idx}>
+                          <span className={`px-3 py-2 rounded-md text-[11px] font-semibold tracking-wide ${step.active ? 'bg-amber-500 text-[#0b0b10]' : 'bg-[#1f1f29] text-gray-500'}`}>
+                            {step.letter}
+                          </span>
+                          {idx < 3 && <span className="w-3 h-0.5 bg-white/10" />}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )
+                },
+                {
+                  label: 'Barriers',
+                  value: customer.Barriers_to_Conversion || 'None identified',
+                  valueClass: 'text-orange-200',
+                  badgeClass: customer.Barriers_to_Conversion ? 'bg-orange-500/10 text-orange-300 border border-orange-500/30' : 'bg-white/5 text-gray-300 border border-white/10',
+                  badge: null,
+                  subtext: null,
+                  isLong: true
+                }
+              ]);
+            })().map((card, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-white/10 bg-[#16161d] px-6 py-5 text-center flex flex-col gap-3 min-h-[180px]"
+              >
+                <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">{card.label}</p>
+                <div className={`${card.isLong ? 'text-base font-semibold leading-snug line-clamp-2 text-amber-200 min-h-[48px]' : `text-3xl font-['Fraunces',serif] font-semibold ${card.valueClass}`}`}>
+                  {card.value || 'N/A'}
+                </div>
+                {card.render ? (
+                  card.render
+                ) : card.badge !== null ? (
+                  <span className={`inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${card.badgeClass} max-w-full whitespace-nowrap overflow-hidden text-ellipsis mx-auto`}>
                     <span className="w-2 h-2 rounded-full bg-current" />
-                    {card.badge || 'LOW'}
+                    <span className="truncate">{card.badge || 'LOW'}</span>
                   </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-[1.2]">
-              <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">Intent to Visit</p>
-                <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold ${getIntentBadgeColor(customer.Intent_to_Visit_Rating || 'LOW')}`}>
-                  <span className="w-2 h-2 rounded-full bg-current" />
-                  {customer.Intent_to_Visit_Rating || 'LOW'}
-                </span>
+                ) : null}
+                {card.subtext && (
+                  <p className="text-[11px] text-gray-400 leading-snug line-clamp-2">{card.subtext}</p>
+                )}
               </div>
-              <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">Purchase Timeline</p>
-                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold bg-amber-500/10 text-amber-200 border border-amber-500/20">
-                  {customer.Timeline_to_Purchase || 'N/A'}
-                </span>
-              </div>
-              <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">Customer Stage (AIDA)</p>
-                <div className="flex items-center gap-1">
-                  {getAidaSteps(customer.Customer_Stage_AIDA).map((step, idx) => (
-                    <React.Fragment key={idx}>
-                      <span className={`px-3 py-2 rounded-md text-[11px] font-semibold tracking-wide ${step.active ? 'bg-amber-500 text-[#0b0b10]' : 'bg-[#1f1f29] text-gray-500'}`}>
-                        {step.letter}
-                      </span>
-                      {idx < 3 && <span className="w-3 h-0.5 bg-white/10" />}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-gray-500">Barriers</p>
-                <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold ${customer.Barriers_to_Conversion ? 'bg-orange-500/10 text-orange-300 border border-orange-500/30' : 'bg-white/5 text-gray-300 border border-white/10'}`}>
-                  {customer.Barriers_to_Conversion || 'None identified'}
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
 
           {customer.Primary_Questions_Asked && customer.Primary_Questions_Asked.length > 0 && (

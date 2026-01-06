@@ -128,10 +128,14 @@ class VideoUploadProcessor:
         """Process a single video row and return the stored record."""
         store_name = row_data.get("Store Name", "Unknown")
         url = row_data.get("Recording URL")
-
-        if not url:
-            job.add_error(row_num, store_name, "No recording URL provided")
+        
+        # Handle NaN values from pandas (which are float type)
+        if pd.isna(url) or not url or not isinstance(url, str):
+            job.add_error(row_num, store_name, "No recording URL provided or invalid URL")
             return None
+        
+        if pd.isna(store_name) or not store_name:
+            store_name = "Unknown"
 
         # Build metadata first (needed for filling N/A values in analysis)
         metadata = {
