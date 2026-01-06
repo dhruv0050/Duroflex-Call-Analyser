@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Download, FileDown } from 'lucide-react';
 
 const getScoreColor = (score) => {
   if (score === 5) return 'text-green-500';
@@ -128,6 +128,136 @@ const VideoCallDetail = () => {
     fetchReport();
   }, [reportId]);
 
+  const downloadCSV = () => {
+    if (!analysis) return;
+
+    const functional = analysis.Functional || {};
+    const customer = analysis.Customer_Information || {};
+    const agentAreas = analysis.Agent_Areas || {};
+    const overall = analysis.Overall_Summary || {};
+    const relax = agentAreas.RELAX_Framework || {};
+    const softSkills = agentAreas.SoftSkills || agentAreas.SoftSkills_Etiquette || {};
+    const invitation = agentAreas.The_Invitation_to_Visit || {};
+    const demo = agentAreas.Product_Demonstration || {};
+
+    const callId = functional.Call_ID || reportId;
+
+    const headers = [
+      'Call_ID', 'Store_Location', 'Call_Time', 'Customer_Name', 'Agent_Name', 'Customer_Location', 'Customer_Language',
+      'Call_Objective', 'Intent_to_Visit', 'Intent_to_Purchase', 'Customer_Stage_AIDA', 'Purchase_Timeline', 'Barriers_to_Conversion',
+      'Customer_Satisfaction_Score', 'Business_Satisfaction_Score',
+      'Demo_Done', 'Demo_Quality', 'Invitation_Attempted', 'Invitation_Quality',
+      'R_Reach_Out', 'E_Explore', 'L_Link_Demo', 'A_Add_Value', 'X_Express_Offers',
+      'Active_Listening', 'Empathy_Rapport', 'Clarity_Confidence', 'Objection_Handling', 'Hold_Dead_Air', 'Language_Fluency_Score',
+      'Chronological_Summary', 'Agent_Handling_Summary', 'Next_Action'
+    ];
+
+    const row = [
+      callId,
+      functional.Store_Location || '',
+      functional.Call_Time || '',
+      functional.Customer_Name || '',
+      functional.Agent_Name || '',
+      functional.Customer_Location || '',
+      functional.Customer_Language || '',
+      functional.Call_Objective_Theme || '',
+      customer.Intent_to_Visit_Rating || '',
+      customer.Intent_to_Purchase_Rating || '',
+      customer.Customer_Stage_AIDA || '',
+      customer.Timeline_to_Purchase || '',
+      customer.Barriers_to_Conversion || '',
+      customer.Customer_Satisfaction_Score || '',
+      typeof customer.Business_Satisfaction_Score === 'object'
+        ? customer.Business_Satisfaction_Score.Score || ''
+        : customer.Business_Satisfaction_Score || '',
+      demo.Done ? 'Yes' : 'No',
+      demo.Quality_Rating || '',
+      invitation.Attempted ? 'Yes' : 'No',
+      invitation.Quality_Rating || '',
+      relax.R_Reach_Out?.Rating || '',
+      relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating || '',
+      relax.L_Link_Demo?.Rating || relax.L_Link_Experience?.Rating || '',
+      relax.A_Add_Value?.Rating || '',
+      relax.X_Express_Offers?.Rating || relax.X_Express_Closing?.Rating || '',
+      softSkills.Active_Listening_Rating || '',
+      softSkills.Empathy_Rapport_Rating || '',
+      softSkills.Clarity_Confidence_Rating || '',
+      softSkills.Objection_Handling_Rating || '',
+      softSkills.Hold_and_Dead_Air_Management_Rating || '',
+      softSkills.Agent_Language_Fluency?.Score || softSkills.Agent_Language_Fluency_Score || '',
+      overall.Chronological_Call_Summary || '',
+      overall.Agent_Handling_Summary || '',
+      overall.Next_Action || ''
+    ];
+
+    const escapeCSVField = (field) => {
+      const str = String(field ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    const csvContent = [
+      headers.join(','),
+      row.map(escapeCSVField).join(',')
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `video_report_${callId}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const downloadTranscript = () => {
+    if (!analysis) return;
+
+    const functional = analysis.Functional || {};
+    const agentAreas = analysis.Agent_Areas || {};
+    const transcriptRaw = analysis.Transcript_Log || agentAreas.Transcript || [];
+    const messages = Array.isArray(transcriptRaw)
+      ? transcriptRaw
+      : Array.isArray(transcriptRaw.messages)
+        ? transcriptRaw.messages
+        : [];
+
+    if (!messages || messages.length === 0) {
+      alert('No transcript available for this video');
+      return;
+    }
+
+    const callId = functional.Call_ID || reportId;
+
+    let textContent = `VIDEO CALL TRANSCRIPT\n`;
+    textContent += `${'='.repeat(80)}\n\n`;
+    textContent += `Call ID: ${callId}\n`;
+    textContent += `Store: ${functional.Store_Location || 'Unknown'}\n`;
+    textContent += `Call Time: ${functional.Call_Time || 'N/A'}\n`;
+    textContent += `Customer: ${functional.Customer_Name || 'Unknown'}\n`;
+    textContent += `Agent: ${functional.Agent_Name || 'Unknown'}\n`;
+    textContent += `Customer Location: ${functional.Customer_Location || 'N/A'}\n`;
+    textContent += `Language: ${functional.Customer_Language || 'N/A'}\n\n`;
+    textContent += `${'='.repeat(80)}\n\n`;
+
+    messages.forEach((entry, index) => {
+      const ts = entry.Timestamp || entry.time || entry.Time || entry.timestamp || `${index + 1}`;
+      const speaker = entry.Speaker || entry.speaker_name || entry.speaker || entry.role || 'Unknown';
+      const text = entry.Text || entry.text || entry.message || entry.content || '';
+      textContent += `[${ts}] ${speaker}:\n${text}\n\n`;
+    });
+
+    textContent += `${'='.repeat(80)}\nEnd of Transcript\n`;
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `video_transcript_${callId}.txt`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#08080c] flex items-center justify-center text-white text-lg">Loading report...</div>
@@ -186,14 +316,35 @@ const VideoCallDetail = () => {
       />
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 relative z-10">
 
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back to Reports</span>
-        </button>
+        {/* Back and Download Buttons */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back to Reports</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={downloadCSV}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+              title="Download Video Report as CSV"
+            >
+              <Download className="w-4 h-4" />
+              Download CSV
+            </button>
+            <button
+              onClick={downloadTranscript}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+              title="Download Video Transcript as TXT"
+            >
+              <FileDown className="w-4 h-4" />
+              Download Transcript
+            </button>
+          </div>
+        </div>
 
         {/* Section 1: Call Metadata */}
         <header className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f0f14] to-[#16161d] p-8 shadow-2xl">
