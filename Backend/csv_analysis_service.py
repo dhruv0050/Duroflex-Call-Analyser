@@ -21,7 +21,7 @@ JSON_BACKUP_PATH = Path(__file__).parent / "uploaded_call_reports.json"
 
 # MongoDB Connection
 MONGODB_URI = os.getenv("MONGODB_URI")
-MONGODB_NAME = os.getenv("MONGODB_NAME", "duroflex")
+MONGODB_NAME = os.getenv("MONGODB_NAME", "Duroflex")
 _mongo_client = None
 
 
@@ -29,16 +29,20 @@ def get_call_collection():
     """Return MongoDB collection for call reports, or None if unavailable."""
     global _mongo_client
     if not MONGODB_URI:
+        print(f"[MONGODB] Connection not available - MONGODB_URI is not set")
         return None
     try:
         if _mongo_client is None:
-            _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
+            print(f"[MONGODB] Connecting to: {MONGODB_URI[:50]}...")
+            print(f"[MONGODB] Database name: {MONGODB_NAME}")
+            _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
             # Trigger a lightweight ping to validate connectivity
             _mongo_client.admin.command("ping")
+            print(f"[MONGODB] Connection successful!")
         db = _mongo_client[MONGODB_NAME]
         return db["call_reports"]
     except Exception as exc:
-        print(f"[MONGODB] Not available, falling back to JSON: {exc}")
+        print(f"[MONGODB] Connection error: {exc}")
         return None
 
 
@@ -147,62 +151,45 @@ def load_call_reports_from_csv() -> List[Dict]:
 
 def load_call_reports():
     """
-    Load all call reports from MongoDB (with JSON and CSV fallbacks).
-    Tries in order: MongoDB → JSON backup → Original CSV
+    Load all call reports from MongoDB only.
     """
-    # Try MongoDB first
     collection = get_call_collection()
-    if collection is not None:
-        try:
-            docs = list(collection.find({}))
-            if len(docs) > 0:
-                print(f"[MONGODB] Loaded {len(docs)} call reports")
-                # Convert ObjectId to string and sanitize NaN values
-                sanitized_docs = []
-                for doc in docs:
-                    if '_id' in doc:
-                        doc['_id'] = str(doc['_id'])
-                    # Sanitize NaN values and append sanitized version
-                    sanitized_docs.append(sanitize_nan(doc))
-                return sanitized_docs
-        except Exception as e:
-            print(f"[MONGODB] Load error: {e}")
-
-    # Fallback to JSON backup file
-    print("[FALLBACK] Loading from JSON backup")
-    json_calls = load_calls_from_json()
-    if json_calls:
-        return [sanitize_nan(call) for call in json_calls]
-
-    # Fallback to original CSV
-    print("[FALLBACK] Loading from original CSV")
-    return load_call_reports_from_csv()
+    if collection is None:
+        print("[MONGODB] Connection not available")
+        return []
+    
+    try:
+        docs = list(collection.find({}))
+        print(f"[MONGODB] Loaded {len(docs)} call reports")
+        # Convert ObjectId to string and sanitize NaN values
+        sanitized_docs = []
+        for doc in docs:
+            if '_id' in doc:
+                doc['_id'] = str(doc['_id'])
+            # Sanitize NaN values and append sanitized version
+            sanitized_docs.append(sanitize_nan(doc))
+        return sanitized_docs
+    except Exception as e:
+        print(f"[MONGODB] Load error: {e}")
+        return []
 
 
 def get_call_report_by_id(call_id: str) -> Optional[Dict]:
-    """Fetch a single call report by call_id using the same fallback chain."""
-    # Try MongoDB first
+    """Fetch a single call report by call_id from MongoDB only."""
     collection = get_call_collection()
-    if collection is not None:
-        try:
-            doc = collection.find_one({"call_id": call_id})
-            if doc:
-                if "_id" in doc:
-                    doc["_id"] = str(doc["_id"])
-                return sanitize_nan(doc)
-        except Exception as e:
-            print(f"[MONGODB] Load by id error: {e}")
-
-    # Fallback to JSON backup
-    for report in load_calls_from_json():
-        if report.get("call_id") == call_id:
-            return sanitize_nan(report)
-
-    # Fallback to original CSV
-    for report in load_call_reports_from_csv():
-        if report.get("call_id") == call_id:
-            return sanitize_nan(report)
-
+    if collection is None:
+        print("[MONGODB] Connection not available")
+        return None
+    
+    try:
+        doc = collection.find_one({"call_id": call_id})
+        if doc:
+            if "_id" in doc:
+                doc["_id"] = str(doc["_id"])
+            return sanitize_nan(doc)
+    except Exception as e:
+        print(f"[MONGODB] Load by id error: {e}")
+    
     return None
 
 

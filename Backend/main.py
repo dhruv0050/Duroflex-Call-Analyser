@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from dotenv import load_dotenv
 import os
 import json
 from pathlib import Path
@@ -11,6 +12,9 @@ import asyncio
 import tempfile
 import math
 from json import JSONEncoder
+
+# Load environment variables from .env file
+load_dotenv()
 
 from csv_analysis_service import load_call_reports, get_call_report_by_id, get_call_stats, save_call_to_mongodb, save_calls_to_json
 from video_analysis_service import analyze_video_with_gemini, get_all_video_reports_with_metadata, get_video_analysis_by_id, save_video_analysis
