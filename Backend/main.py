@@ -330,7 +330,9 @@ async def upload_audio_csv(file: UploadFile = File(...)):
 
             # Save processed calls to MongoDB and JSON backup
             processed_calls = processor.get_processed_calls()
-            
+            # Ensure processed calls are clean before persistence
+            processed_calls = [sanitize_nan(call) for call in processed_calls]
+
             if processed_calls:
                 # Save to MongoDB
                 for call in processed_calls:
@@ -344,7 +346,7 @@ async def upload_audio_csv(file: UploadFile = File(...)):
             # Get job status
             job_status = processor.get_job_status(job_id)
 
-            return {
+            response = {
                 "status": "processing_complete",
                 "job_id": job_id,
                 "filename": file.filename,
@@ -354,6 +356,9 @@ async def upload_audio_csv(file: UploadFile = File(...)):
                 "failed": job_status.get('failed'),
                 "errors": job_status.get('errors')[:10]  # Return first 10 errors
             }
+
+            # Sanitize any NaN values before returning to avoid JSON errors
+            return sanitize_nan(response)
 
         finally:
             # Cleanup temp file
