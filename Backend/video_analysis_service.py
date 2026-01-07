@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from typing import List, Dict
 import re
 from pymongo import MongoClient
+from drive_mirror_integration import trigger_drive_mirror_for_video
 
 # Load environment variables
 load_dotenv()
@@ -398,7 +399,8 @@ def load_video_csv():
 
 
 def save_video_analysis(report_id: str, analysis_data: dict, metadata: dict | None = None):
-  """Save video analysis to MongoDB if available; otherwise JSON file."""
+  """Save video analysis to MongoDB if available; otherwise JSON file.
+  Triggers async Drive mirror if recording_url is present."""
   collection = get_video_collection()
 
   # Persist to Mongo with optional metadata for uploaded CSV rows
@@ -413,6 +415,11 @@ def save_video_analysis(report_id: str, analysis_data: dict, metadata: dict | No
         {"$set": payload},
         upsert=True,
       )
+      
+      # Trigger Drive mirror asynchronously
+      video_record = {"report_id": report_id, **payload}
+      trigger_drive_mirror_for_video(video_record)
+      
       return True
     except Exception as exc:
       print(f"Error saving video analysis to MongoDB, falling back to file: {exc}")

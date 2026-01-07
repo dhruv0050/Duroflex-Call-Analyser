@@ -22,6 +22,7 @@ from auth_service import authenticate_admin, create_access_token, create_admin_i
 from preprocess_videos import preprocess_all_videos
 from call_upload_service import CallUploadProcessor
 from video_upload_service import VideoUploadProcessor
+from drive_mirror_integration import trigger_drive_mirror
 
 
 def sanitize_nan(obj):
@@ -153,6 +154,27 @@ async def get_all_video_reports():
 async def get_video_report_detail(report_id: str):
     """Get detailed analysis for a specific video report"""
     try:
+        from video_analysis_service import get_video_collection
+        
+        # Get full document from MongoDB to include driveLink
+        collection = get_video_collection()
+        if collection:
+            document = collection.find_one({"report_id": report_id})
+            if document:
+                # Remove MongoDB _id for JSON serialization
+                if "_id" in document:
+                    del document["_id"]
+                
+                return {
+                    "status": "success",
+                    "report_id": report_id,
+                    "analysis": document.get("analysis"),
+                    "driveLink": document.get("driveLink"),
+                    "driveStatus": document.get("driveStatus"),
+                    "metadata": document.get("metadata")
+                }
+        
+        # Fallback to old method if MongoDB not available
         analysis = get_video_analysis_by_id(report_id)
         if not analysis:
             raise HTTPException(status_code=404, detail=f"Analysis not found for report {report_id}")
@@ -445,6 +467,62 @@ async def get_upload_status(job_id: str):
             "message": "Job status tracking requires job persistence. Calls are saved to MongoDB after upload.",
             "note": "Query /api/call-reports to see all available calls"
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/call-reports/{call_id}/retry-drive-sync")
+async def retry_audio_drive_sync(call_id: str):
+    """Retry Drive sync for a specific audio call report"""
+    try:
+        report = get_call_report_by_id(call_id)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Call report not found: {call_id}")
+        
+        recording_url = report.get("recording_url")
+        if not recording_url:
+            raise HTTPException(status_code=400, detail="No recording URL found for this call")
+        
+        success = trigger_drive_mirror(call_id, recording_url, is_audio=True)
+        
+        return {
+            "status": "success" if success else "failed",
+            "message": f"Drive sync {'queued' if success else 'failed to queue'} for {call_id}",
+            "call_id": call_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/video-reports/{report_id}/retry-drive-sync")
+async def retry_video_drive_sync(report_id: str):
+    """Retry Drive sync for a specific video report"""
+    try:
+        analysis = get_video_analysis_by_id(report_id)
+        if not analysis:
+            raise HTTPException(status_code=404, detail=f"Video report not found: {report_id}")
+        
+        # Check both analysis and metadata for recording_url
+        recording_url = None
+        if isinstance(analysis, dict):
+            recording_url = analysis.get("recording_url")
+            if not recording_url and "metadata" in analysis:
+                recording_url = analysis["metadata"].get("recording_url")
+        
+        if not recording_url:
+            raise HTTPException(status_code=400, detail="No recording URL found for this video")
+        
+        success = trigger_drive_mirror(report_id, recording_url, is_audio=False)
+        
+        return {
+            "status": "success" if success else "failed",
+            "message": f"Drive sync {'queued' if success else 'failed to queue'} for {report_id}",
+            "report_id": report_id
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

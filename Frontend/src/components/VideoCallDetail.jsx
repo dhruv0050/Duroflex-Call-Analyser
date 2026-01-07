@@ -106,6 +106,7 @@ const VideoCallDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [analysis, setAnalysis] = useState(null);
+  const [driveLink, setDriveLink] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
@@ -118,6 +119,7 @@ const VideoCallDetail = () => {
         if (!response.ok) throw new Error('Failed to fetch report');
         const data = await response.json();
         setAnalysis(normalizeAnalysis(data.analysis || data, reportId));
+        setDriveLink(data.driveLink || null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -327,6 +329,20 @@ const VideoCallDetail = () => {
           </button>
 
           <div className="flex items-center gap-3">
+            {driveLink && (
+              <a
+                href={driveLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+                title="View recording on Google Drive"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 5.23 11.08 5 12 5c3.04 0 5.5 2.46 5.5 5.5v.5H19c2.21 0 4 1.79 4 4 0 2.05-1.53 3.76-3.56 3.97l1.07-1.07c.21-.2.33-.48.33-.79V10.04zM3 5.5h3v3H3V5.5zm6 0h3v3H9V5.5zM3 11.5h3v3H3v-3zm6 0h3v3H9v-3z"/>
+                </svg>
+                Drive Copy
+              </a>
+            )}
             <button
               onClick={downloadCSV}
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
