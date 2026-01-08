@@ -26,8 +26,11 @@ from drive_mirror_integration import trigger_drive_mirror
 
 
 def sanitize_nan(obj):
-    """Recursively replace NaN values with None for JSON serialization."""
+    """Recursively replace NaN values and MongoDB types with JSON-safe values."""
     if isinstance(obj, dict):
+        # Handle MongoDB $numberLong format
+        if "$numberLong" in obj and len(obj) == 1:
+            return int(obj["$numberLong"])
         return {k: sanitize_nan(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_nan(item) for item in obj]
@@ -158,21 +161,22 @@ async def get_video_report_detail(report_id: str):
         
         # Get full document from MongoDB to include driveLink
         collection = get_video_collection()
-        if collection:
+        if collection is not None:
             document = collection.find_one({"report_id": report_id})
             if document:
                 # Remove MongoDB _id for JSON serialization
                 if "_id" in document:
                     del document["_id"]
                 
-                return {
+                # Sanitize MongoDB types for JSON
+                return sanitize_nan({
                     "status": "success",
                     "report_id": report_id,
                     "analysis": document.get("analysis"),
                     "driveLink": document.get("driveLink"),
                     "driveStatus": document.get("driveStatus"),
                     "metadata": document.get("metadata")
-                }
+                })
         
         # Fallback to old method if MongoDB not available
         analysis = get_video_analysis_by_id(report_id)
@@ -187,6 +191,9 @@ async def get_video_report_detail(report_id: str):
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print(f"[ERROR] Video report detail failed: {e}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 

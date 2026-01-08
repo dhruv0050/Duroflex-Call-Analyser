@@ -1,0 +1,498 @@
+[
+  {
+    "call_id": "CALL_COCO_COIMBATORE_01012026_5EECD7",
+    "store_name": "COCO COIMBATORE Dummy",
+    "locality": "Gandhipuram Dummy",
+    "city": "Coimbatore",
+    "state": "TAMIL NADU",
+    "region": "South",
+    "call_date": "01-01-2026",
+    "duration_seconds": 124,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/916769680217672428916955fc8b4f671.wav",
+    "analysis": {
+      "Functional": {
+        "Call_ID": "CALL_COCO COIMBATORE Dummy_01-01-2026_69914d",
+        "Call_Time": "Not mentioned",
+        "Customer_Name": "Not mentioned",
+        "Agent_Name": "Bala Sundaram",
+        "Store_Location": "Gandhipuram Dummy, Coimbatore",
+        "Customer_Language": "Mix",
+        "Agent_Audio_Quality_Rating": 4,
+        "Call_Objective_Theme": "Exchange/Return"
+      },
+      "Customer_Information": {
+        "Interest_Category": "Mattress",
+        "Specific_Product_Inquiry": "General",
+        "Primary_Questions_Asked": [
+          "Do you take old mattresses?",
+          "Where can I dispose of old mattresses in Coimbatore?",
+          "Do you know any recycling centers?"
+        ],
+        "Timeline_to_Purchase": "Not Applicable",
+        "Customer_Stage_AIDA": "Awareness",
+        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating_Reasons": [
+          "Customer was calling to dispose of old mattresses, not to purchase new ones.",
+          "The store does not offer disposal services in Coimbatore."
+        ],
+        "Intent_to_Purchase_Rating": "LOW",
+        "Intent_to_Purchase_Rating_Reasons": [
+          "Customer was not looking to purchase a new mattress.",
+          "The call was solely regarding disposal of old mattresses."
+        ],
+        "Barriers_to_Conversion": "Service not available",
+        "Customer_Satisfaction_Score": 3,
+        "Customer_Satisfaction_Score_Reasons": [
+          "Agent provided some information, but couldn't fully resolve the customer's request.",
+          "Agent provided alternative suggestion."
+        ]
+      },
+      "Agent_Areas": {
+        "Verbal_Product_Knowledge": {
+          "Description_Quality_Rating": 1,
+          "Description_Quality_Reason": "Agent did not describe any products as the customer was asking about disposal.",
+          "Stock_Availability_Check_Rating": 1,
+          "Stock_Availability_Check_Reason": "Agent did not check stock as the customer was asking about disposal."
+        },
+        "The_Invitation_to_Visit": {
+          "Attempted": false,
+          "Quality_Rating": 1,
+          "Reasons": [
+            "Agent did not invite the customer to visit the store.",
+            "The call was about disposal, not purchase."
+          ]
+        },
+        "RELAX_Framework": {
+          "R_Reach_Out": {
+            "Rating": 4,
+            "Reasons": [
+              "Greeted the customer politely.",
+              "Used the brand name."
+            ]
+          },
+          "E_Explore_Needs": {
+            "Rating": 3,
+            "Reasons": [
+              "Asked clarifying questions about the customer's needs.",
+              "Identified the customer's need to dispose of old mattresses."
+            ]
+          },
+          "L_Link_Experience": {
+            "Rating": 1,
+            "Reasons": [
+              "Did not link the need to a physical store trial.",
+              "The call was about disposal, not purchase."
+            ]
+          },
+          "A_Add_Value": {
+            "Rating": 2,
+            "Reasons": [
+              "Mentioned the exchange program is available only in metro cities.",
+              "Suggested contacting corporation team."
+            ]
+          },
+          "X_Express_Closing": {
+            "Rating": 3,
+            "Reasons": [
+              "Thanked the customer for calling.",
+              "Ended the call politely."
+            ]
+          }
+        },
+        "SoftSkills_Etiquette": {
+          "Tone_and_Patience_Rating": 4,
+          "Hold_Management_Rating": 5,
+          "Agent_Language_Fluency_Score": 3,
+          "Soft_Skills_Reasons": [
+            "Maintained a patient and polite tone throughout the call.",
+            "There was no hold time."
+          ]
+        },
+        "Top_3_Improvement_Areas": [
+          "Improve product knowledge regarding disposal options in the local area.",
+          "Actively listen to customer needs and offer relevant solutions.",
+          "Explore potential partnerships with local recycling centers."
+        ]
+      },
+      "Overall_Summary": {
+        "Call_Synopsis": "Customer called to inquire about disposing of old mattresses. The agent informed the customer that the exchange program is not available in Coimbatore and suggested contacting the corporation team for disposal options.",
+        "Agent_Performance_Summary": "The agent handled the call politely but was unable to fully assist the customer due to the lack of disposal services in Coimbatore. The agent could have explored local recycling options more thoroughly.",
+        "Next_Action": "Research and document local mattress disposal/recycling options in Coimbatore to better assist future customers."
+      },
+      "Transcript_Log": [
+        {
+          "Speaker": "Agent",
+          "Text": "Good morning Duroflex, Bala Sundaram speaking. Sir?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Sir actually I'm calling from Peelamedu and we have two mattresses. So we have to just dispose it. So actually I saw website net of your store and so there can we you can take old mattresses also?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No ma'am no ma'am we can't dispose of old mattresses.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "So can we give old mattresses to your center?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No no no no we can't access to old mattress. We can't able to access to old mattress.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "But you have given ad that you will take old mattresses.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "For metro metro cities only for non for non metro not available.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Oh in Coimbatore you don't have that. Okay.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Coimbatore don't have. Only Chennai, Mumbai, Bangalore. That only metro cities only available for exchange.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Sir so can you please tell me that in Coimbatore where we can give old mattresses?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No ma'am from where nowhere no one person can get the old mattress ma'am. Uh few uh get to the local manufacturer ask to the global manufacturer.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "No we no need we don't want to exchange also we just want to give it. That's it. So do you know any any?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "You have you have to dispose the mattress.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yeah dispose or recycle anything. Yeah.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay ma'am or else if it's a corporation corporation team will be arrived in the area that person you tell to that person he'll pick up the old mattress. But he needed some cash he'll get it he'll get he will pick up the old mattress.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. Okay sir okay. Thank you.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay thank you thank you for calling to Flex.",
+          "Timestamp": ""
+        }
+      ]
+    },
+    "flattened_data": {
+      "Functional_Call_ID": "CALL_COCO COIMBATORE Dummy_01-01-2026_69914d",
+      "Functional_Call_Time": "Not mentioned",
+      "Functional_Customer_Name": "Not mentioned",
+      "Functional_Agent_Name": "Bala Sundaram",
+      "Functional_Store_Location": "Gandhipuram Dummy, Coimbatore",
+      "Functional_Customer_Language": "Mix",
+      "Functional_Agent_Audio_Quality_Rating": 4,
+      "Functional_Call_Objective_Theme": "Exchange/Return",
+      "Customer_Information_Interest_Category": "Mattress",
+      "Customer_Information_Specific_Product_Inquiry": "General",
+      "Customer_Information_Primary_Questions_Asked_1": "Do you take old mattresses?",
+      "Customer_Information_Primary_Questions_Asked_2": "Where can I dispose of old mattresses in Coimbatore?",
+      "Customer_Information_Primary_Questions_Asked_3": "Do you know any recycling centers?",
+      "Customer_Information_Primary_Questions_Asked_count": 3,
+      "Customer_Information_Timeline_to_Purchase": "Not Applicable",
+      "Customer_Information_Customer_Stage_AIDA": "Awareness",
+      "Customer_Information_Intent_to_Visit_Rating": "LOW",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer was calling to dispose of old mattresses, not to purchase new ones.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "The store does not offer disposal services in Coimbatore.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
+      "Customer_Information_Intent_to_Purchase_Rating": "LOW",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer was not looking to purchase a new mattress.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "The call was solely regarding disposal of old mattresses.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
+      "Customer_Information_Barriers_to_Conversion": "Service not available",
+      "Customer_Information_Customer_Satisfaction_Score": 3,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Agent provided some information, but couldn't fully resolve the customer's request.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "Agent provided alternative suggestion.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Agent did not describe any products as the customer was asking about disposal.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Agent did not check stock as the customer was asking about disposal.",
+      "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
+      "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "Agent did not invite the customer to visit the store.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "The call was about disposal, not purchase.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 4,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Greeted the customer politely.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Used the brand name.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 3,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Asked clarifying questions about the customer's needs.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Identified the customer's need to dispose of old mattresses.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "Did not link the need to a physical store trial.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_2": "The call was about disposal, not purchase.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 2,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "Mentioned the exchange program is available only in metro cities.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "Suggested contacting corporation team.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 3,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "Thanked the customer for calling.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "Ended the call politely.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 3,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Maintained a patient and polite tone throughout the call.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "There was no hold time.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Improve product knowledge regarding disposal options in the local area.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Actively listen to customer needs and offer relevant solutions.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Explore potential partnerships with local recycling centers.",
+      "Agent_Areas_Top_3_Improvement_Areas_count": 3,
+      "Overall_Summary_Call_Synopsis": "Customer called to inquire about disposing of old mattresses. The agent informed the customer that the exchange program is not available in Coimbatore and suggested contacting the corporation team for disposal options.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent handled the call politely but was unable to fully assist the customer due to the lack of disposal services in Coimbatore. The agent could have explored local recycling options more thoroughly.",
+      "Overall_Summary_Next_Action": "Research and document local mattress disposal/recycling options in Coimbatore to better assist future customers.",
+      "Transcript_Log_count": 18
+    },
+    "upload_timestamp": "2026-01-08T13:36:29.254243"
+  },
+  {
+    "call_id": "CALL_COCO_BANJARA_HI_01012026_4A4AE7",
+    "store_name": "COCO BANJARA HILLS Dummy",
+    "locality": "Banjara Hills Dummy",
+    "city": "Hyderabad",
+    "state": "TELANGANA",
+    "region": "South",
+    "call_date": "01-01-2026",
+    "duration_seconds": 22,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/798176616217672429646955fcd4aeb32.wav",
+    "analysis": {
+      "Functional": {
+        "Call_ID": "CALL_COCO BANJARA HILLS Dummy_01-01-2026_a9a9a8",
+        "Call_Time": "Not mentioned",
+        "Customer_Name": "Not mentioned",
+        "Agent_Name": "Not mentioned",
+        "Store_Location": "Banjara Hills Dummy, Hyderabad",
+        "Customer_Language": "Telugu",
+        "Agent_Audio_Quality_Rating": 3,
+        "Call_Objective_Theme": "General Product Info"
+      },
+      "Customer_Information": {
+        "Interest_Category": "Mattress",
+        "Specific_Product_Inquiry": "General",
+        "Primary_Questions_Asked": [],
+        "Timeline_to_Purchase": "Medium (2-4 Weeks)",
+        "Customer_Stage_AIDA": "Interest",
+        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating_Reasons": [
+          "No specific product mentioned",
+          "Call ended abruptly"
+        ],
+        "Intent_to_Purchase_Rating": "LOW",
+        "Intent_to_Purchase_Rating_Reasons": [
+          "Very short call",
+          "No needs explored"
+        ],
+        "Barriers_to_Conversion": "Lack of engagement",
+        "Customer_Satisfaction_Score": 2,
+        "Customer_Satisfaction_Score_Reasons": [
+          "Call was too short to gauge satisfaction",
+          "No information provided"
+        ]
+      },
+      "Agent_Areas": {
+        "Verbal_Product_Knowledge": {
+          "Description_Quality_Rating": 1,
+          "Description_Quality_Reason": "No product description given",
+          "Stock_Availability_Check_Rating": 1,
+          "Stock_Availability_Check_Reason": "No stock check performed"
+        },
+        "The_Invitation_to_Visit": {
+          "Attempted": false,
+          "Quality_Rating": 1,
+          "Reasons": [
+            "No invitation to visit given"
+          ]
+        },
+        "RELAX_Framework": {
+          "R_Reach_Out": {
+            "Rating": 3,
+            "Reasons": [
+              "Greeting used",
+              "Brand name used"
+            ]
+          },
+          "E_Explore_Needs": {
+            "Rating": 1,
+            "Reasons": [
+              "No needs explored"
+            ]
+          },
+          "L_Link_Experience": {
+            "Rating": 1,
+            "Reasons": [
+              "No link to physical store trial"
+            ]
+          },
+          "A_Add_Value": {
+            "Rating": 1,
+            "Reasons": [
+              "No offers mentioned"
+            ]
+          },
+          "X_Express_Closing": {
+            "Rating": 1,
+            "Reasons": [
+              "No next steps mentioned"
+            ]
+          }
+        },
+        "SoftSkills_Etiquette": {
+          "Tone_and_Patience_Rating": 3,
+          "Hold_Management_Rating": 1,
+          "Agent_Language_Fluency_Score": 4,
+          "Soft_Skills_Reasons": [
+            "Tone was neutral",
+            "No hold management needed"
+          ]
+        },
+        "Top_3_Improvement_Areas": [
+          "Explore customer needs",
+          "Invite customer to visit the store",
+          "Provide product information"
+        ]
+      },
+      "Overall_Summary": {
+        "Call_Synopsis": "Very short call with a potential customer. The agent answered the call but did not engage in any meaningful conversation or attempt to understand the customer's needs.",
+        "Agent_Performance_Summary": "The agent's performance was poor due to the lack of engagement and failure to provide any information or invite the customer to the store.",
+        "Next_Action": "Training on customer engagement and sales techniques."
+      },
+      "Transcript_Log": [
+        {
+          "Speaker": "Agent",
+          "Text": "Hello, Duroflex.",
+          "Timestamp": "0"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Hello?",
+          "Timestamp": "5"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Hello?",
+          "Timestamp": "10"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "...",
+          "Timestamp": "15"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "...",
+          "Timestamp": "20"
+        }
+      ]
+    },
+    "flattened_data": {
+      "Functional_Call_ID": "CALL_COCO BANJARA HILLS Dummy_01-01-2026_a9a9a8",
+      "Functional_Call_Time": "Not mentioned",
+      "Functional_Customer_Name": "Not mentioned",
+      "Functional_Agent_Name": "Not mentioned",
+      "Functional_Store_Location": "Banjara Hills Dummy, Hyderabad",
+      "Functional_Customer_Language": "Telugu",
+      "Functional_Agent_Audio_Quality_Rating": 3,
+      "Functional_Call_Objective_Theme": "General Product Info",
+      "Customer_Information_Interest_Category": "Mattress",
+      "Customer_Information_Specific_Product_Inquiry": "General",
+      "Customer_Information_Primary_Questions_Asked": null,
+      "Customer_Information_Timeline_to_Purchase": "Medium (2-4 Weeks)",
+      "Customer_Information_Customer_Stage_AIDA": "Interest",
+      "Customer_Information_Intent_to_Visit_Rating": "LOW",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "No specific product mentioned",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "Call ended abruptly",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
+      "Customer_Information_Intent_to_Purchase_Rating": "LOW",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Very short call",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "No needs explored",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
+      "Customer_Information_Barriers_to_Conversion": "Lack of engagement",
+      "Customer_Information_Customer_Satisfaction_Score": 2,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Call was too short to gauge satisfaction",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "No information provided",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "No product description given",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "No stock check performed",
+      "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
+      "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "No invitation to visit given",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 3,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Greeting used",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Brand name used",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 1,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "No needs explored",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "No link to physical store trial",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 1,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "No offers mentioned",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 1,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "No next steps mentioned",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 1,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 3,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 1,
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Tone was neutral",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "No hold management needed",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Explore customer needs",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Invite customer to visit the store",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Provide product information",
+      "Agent_Areas_Top_3_Improvement_Areas_count": 3,
+      "Overall_Summary_Call_Synopsis": "Very short call with a potential customer. The agent answered the call but did not engage in any meaningful conversation or attempt to understand the customer's needs.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent's performance was poor due to the lack of engagement and failure to provide any information or invite the customer to the store.",
+      "Overall_Summary_Next_Action": "Training on customer engagement and sales techniques.",
+      "Transcript_Log_count": 5
+    },
+    "upload_timestamp": "2026-01-08T13:36:47.618431"
+  }
+]

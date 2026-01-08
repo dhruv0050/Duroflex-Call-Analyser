@@ -7,15 +7,37 @@ import requests
 import tempfile
 from typing import Optional, Dict
 from pathlib import Path
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3'
 UPLOAD_API_BASE = 'https://www.googleapis.com/upload/drive/v3'
 
 
+def _build_session() -> requests.Session:
+    """Create a requests session with retries, proxy/CA from env."""
+    session = requests.Session()
+    session.trust_env = True  # honors HTTPS_PROXY/HTTP_PROXY
+    verify_path = os.getenv('REQUESTS_CA_BUNDLE') or os.getenv('SSL_CERT_FILE')
+    session.verify = verify_path if verify_path else True
+
+    retry = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST", "PUT"],
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
+
+
 def get_access_token() -> str:
     """Get a fresh access token using refresh token"""
+    session = _build_session()
     try:
-        response = requests.post('https://oauth2.googleapis.com/token', data={
+        response = session.post('https://oauth2.googleapis.com/token', data={
             'client_id': os.getenv('CLIENT_ID'),
             'client_secret': os.getenv('CLIENT_SECRET'),
             'refresh_token': os.getenv('REFRESH_TOKEN'),
@@ -42,13 +64,14 @@ def upload_file_to_drive(file_url: str, file_name: str, folder_id: str) -> Optio
         Dict with fileId and webViewLink, or None on failure
     """
     temp_path = None
+    session = _build_session()
     try:
         # Get access token
         access_token = get_access_token()
         
         # Download file from S3
         print(f"[DRIVE] Downloading: {file_name}")
-        response = requests.get(file_url, stream=True, timeout=300)
+        response = session.get(file_url, stream=True, timeout=300)
         
         # Check for expired/forbidden URLs
         if response.status_code == 403:
@@ -84,7 +107,7 @@ def upload_file_to_drive(file_url: str, file_name: str, folder_id: str) -> Optio
             'parents': [folder_id]
         }
         
-        init_response = requests.post(
+        init_response = session.post(
             f'{UPLOAD_API_BASE}/files?uploadType=resumable',
             headers={
                 'Authorization': f'Bearer {access_token}',
@@ -100,7 +123,7 @@ def upload_file_to_drive(file_url: str, file_name: str, folder_id: str) -> Optio
         # Step 2: Upload file content
         with open(temp_path, 'rb') as f:
             file_size = os.path.getsize(temp_path)
-            upload_response = requests.put(
+            upload_response = session.put(
                 upload_url,
                 headers={
                     'Content-Type': mime_type,
@@ -115,29 +138,36 @@ def upload_file_to_drive(file_url: str, file_name: str, folder_id: str) -> Optio
         
         # Step 3: Set permissions (anyone with link can view)
         if os.getenv('DRIVE_FILE_PERMISSION') == 'anyone':
-            requests.post(
+            session.post(
                 f'{DRIVE_API_BASE}/files/{file_id}/permissions',
                 headers={'Authorization': f'Bearer {access_token}'},
                 json={'role': 'reader', 'type': 'anyone'},
-                timeout=30
+                timeout=60
             )
         
-        # Step 4: Get file metadata with links
-        meta_response = requests.get(
-            f'{DRIVE_API_BASE}/files/{file_id}?fields=id,webViewLink,webContentLink',
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=30
-        )
-        meta_response.raise_for_status()
-        
-        result = meta_response.json()
-        print(f"[DRIVE] Upload successful: {file_id}")
-        
-        return {
-            'fileId': result['id'],
-            'webViewLink': result.get('webViewLink'),
-            'webContentLink': result.get('webContentLink')
-        }
+        # Step 4: Get file metadata with links (tolerate slow responses)
+        try:
+            meta_response = session.get(
+                f'{DRIVE_API_BASE}/files/{file_id}?fields=id,webViewLink,webContentLink',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=60
+            )
+            meta_response.raise_for_status()
+            result = meta_response.json()
+            print(f"[DRIVE] Upload successful: {file_id}")
+            return {
+                'fileId': result['id'],
+                'webViewLink': result.get('webViewLink'),
+                'webContentLink': result.get('webContentLink')
+            }
+        except Exception as meta_err:
+            # If metadata fetch times out but upload succeeded, still return file ID
+            print(f"[DRIVE] Uploaded but link fetch timed out for {file_id}: {meta_err}")
+            return {
+                'fileId': file_id,
+                'webViewLink': None,
+                'webContentLink': None
+            }
         
     except Exception as e:
         print(f"[DRIVE] Upload failed for {file_name}: {str(e)}")

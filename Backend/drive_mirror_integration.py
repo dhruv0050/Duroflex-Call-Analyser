@@ -52,7 +52,8 @@ def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = T
                     "driveFileId": result['fileId'],
                     "driveLink": result['webViewLink'] or result.get('webContentLink'),
                     "driveStatus": "success",
-                    "driveSyncedAt": os.popen('date /t & time /t').read().strip()
+                    "driveSyncedAt": os.popen('date /t & time /t').read().strip(),
+                    "driveError": None
                 }
             })
             print(f"[DRIVE] Success: {report_id} -> {result['fileId']}")
