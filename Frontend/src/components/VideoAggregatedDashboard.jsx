@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, TrendingUp, Users, Video, ArrowLeft, Filter } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Video, ArrowLeft, Filter, Calendar, ChevronDown } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -163,6 +163,18 @@ const VideoAggregatedDashboard = () => {
 
   const filteredCalls = useMemo(() => {
     let filtered = [...videoCalls];
+    
+    // Apply time range filter
+    if (timeRange === 'last7') {
+      filtered = filtered.slice(-7);
+    } else if (timeRange === 'last30') {
+      filtered = filtered.slice(-30);
+    } else if (timeRange === 'last90') {
+      filtered = filtered.slice(-90);
+    }
+    // 'ytd' - no filtering (defaults to all calls)
+    
+    // Apply view-based filters
     if (view === 'regional') {
       filtered = filtered.filter((c) => c.region === selectedRegion);
     } else if (view === 'city') {
@@ -172,7 +184,7 @@ const VideoAggregatedDashboard = () => {
       filtered = filtered.filter((c) => c.store === selectedStore);
     }
     return filtered;
-  }, [videoCalls, view, selectedRegion, selectedCity, selectedStore]);
+  }, [videoCalls, view, selectedRegion, selectedCity, selectedStore, timeRange]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
@@ -414,8 +426,20 @@ const VideoAggregatedDashboard = () => {
             <h1 className="text-4xl font-['Fraunces',serif] font-bold tracking-tight mb-2">Video Call Analytics</h1>
             <p className="text-gray-400 text-lg">Performance insights and metrics across all video interactions</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Video className="w-10 h-10 text-purple-400" />
+          <div className="flex items-center gap-3 bg-[#0f0f14] border border-white/10 rounded-xl px-4 py-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
+              style={{ colorScheme: 'dark' }}
+            >
+              <option value="last7" className="bg-[#0f0f14] text-gray-200">Last 7 Days</option>
+              <option value="last30" className="bg-[#0f0f14] text-gray-200">Last 30 Days</option>
+              <option value="last90" className="bg-[#0f0f14] text-gray-200">Last 90 Days</option>
+              <option value="ytd" className="bg-[#0f0f14] text-gray-200">Year to Date</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
           </div>
         </div>
 

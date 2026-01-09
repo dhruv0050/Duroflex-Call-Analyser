@@ -149,14 +149,29 @@ const CallAggregatedDashboard = () => {
   }, [allCalls]);
 
   const filteredCalls = useMemo(() => {
+    let filtered = [...audioCalls];
+    
+    // Apply time range filter
+    if (timeRange === 'last7') {
+      filtered = filtered.slice(-7);
+    } else if (timeRange === 'last30') {
+      filtered = filtered.slice(-30);
+    } else if (timeRange === 'last90') {
+      filtered = filtered.slice(-90);
+    } else if (timeRange === 'ytd') {
+      // For YTD, just take all available calls (simplified implementation)
+      filtered = filtered;
+    }
+    
+    // Apply view-based filters
     if (view === 'region') {
-      return audioCalls.filter((call) => call.region === selectedRegion);
+      filtered = filtered.filter((call) => call.region === selectedRegion);
+    } else if (view === 'city') {
+      filtered = filtered.filter((call) => call.city === selectedCity);
     }
-    if (view === 'city') {
-      return audioCalls.filter((call) => call.city === selectedCity);
-    }
-    return audioCalls;
-  }, [audioCalls, view, selectedRegion, selectedCity]);
+    
+    return filtered;
+  }, [audioCalls, view, selectedRegion, selectedCity, timeRange]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
@@ -205,7 +220,7 @@ const CallAggregatedDashboard = () => {
           softSkills: avgScore('softSkills'),
         };
       })
-      .sort((a, b) => b.overallScore - a.overallScore);
+      .sort((a, b) => b.totalCalls - a.totalCalls);
 
     return {
       total,
