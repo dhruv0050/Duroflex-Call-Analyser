@@ -57,7 +57,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Audio Call Reports */}
             <button
-              onClick={() => navigate('/call-reports')}
+              onClick={() => navigate('/call-reports/analytics')}
               className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-amber-500/50 transition overflow-hidden relative"
             >
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
@@ -85,7 +85,7 @@ const Dashboard = () => {
 
             {/* Video Call Reports - NEW */}
             <button
-              onClick={() => navigate('/video-reports')}
+              onClick={() => navigate('/video-reports/analytics')}
               className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-amber-500/50 transition overflow-hidden relative"
             >
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>

@@ -1,8 +1,59 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, TrendingUp, Users, Phone, Award, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Phone, Award, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
+
+// Flatten nested JSON objects into a single-level map suitable for CSV export
+const flattenObject = (obj, prefix = '') => {
+  const result = {};
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else if (Array.isArray(value)) {
+      const normalized = value.map((item) => (item && typeof item === 'object' ? JSON.stringify(item) : item));
+      result[newKey] = normalized.join('; ');
+    } else {
+      result[newKey] = value;
+    }
+  });
+  return result;
+};
+
+const toCsvValue = (value) => {
+  if (value === null || value === undefined) return '';
+  const str = String(value).replace(/"/g, '""');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str}"`;
+  }
+  return str;
+};
+
+const exportReportsAsCsv = (reports, filename) => {
+  if (!reports || !reports.length) {
+    alert('No reports to download');
+    return;
+  }
+
+  const flattened = reports.map((r) => flattenObject(r));
+  const headers = Array.from(new Set(flattened.flatMap((item) => Object.keys(item))));
+
+  const rows = [headers.join(',')];
+  flattened.forEach((item) => {
+    const row = headers.map((h) => toCsvValue(item[h]));
+    rows.push(row.join(','));
+  });
+
+  const csvContent = rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 const CallAggregatedDashboard = () => {
   const [timeRange, setTimeRange] = useState('last30');
@@ -13,6 +64,10 @@ const CallAggregatedDashboard = () => {
   const [storePeriod, setStorePeriod] = useState('week');
   const [allCalls, setAllCalls] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDownloadReports = () => {
+    exportReportsAsCsv(allCalls, 'audio_reports.csv');
+  };
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -449,20 +504,29 @@ const CallAggregatedDashboard = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
-                style={{ colorScheme: 'dark' }}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownloadReports}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition"
               >
-                <option value="last7" className="bg-[#1a1a1f] text-gray-200">Last 7 Days</option>
-                <option value="last30" className="bg-[#1a1a1f] text-gray-200">Last 30 Days</option>
-                <option value="last90" className="bg-[#1a1a1f] text-gray-200">Last 90 Days</option>
-                <option value="ytd" className="bg-[#1a1a1f] text-gray-200">Year to Date</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+                <Download className="w-4 h-4" />
+                Download All Reports
+              </button>
+              <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option value="last7" className="bg-[#1a1a1f] text-gray-200">Last 7 Days</option>
+                  <option value="last30" className="bg-[#1a1a1f] text-gray-200">Last 30 Days</option>
+                  <option value="last90" className="bg-[#1a1a1f] text-gray-200">Last 90 Days</option>
+                  <option value="ytd" className="bg-[#1a1a1f] text-gray-200">Year to Date</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
             </div>
           </div>
 
