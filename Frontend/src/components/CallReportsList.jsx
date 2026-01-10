@@ -233,16 +233,25 @@ const CallReportsList = () => {
                   <>
                     {/* Intent Badges */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {customer.Intent_to_Visit_Rating && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(customer.Intent_to_Visit_Rating)}`}>
-                          Visit: {customer.Intent_to_Visit_Rating}
-                        </span>
-                      )}
                       {customer.Intent_to_Purchase_Rating && (
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(customer.Intent_to_Purchase_Rating)}`}>
                           Purchase: {customer.Intent_to_Purchase_Rating}
                         </span>
                       )}
+                    </div>
+
+                    {/* Satisfaction Score & Invited at Store */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-[#16161d] rounded-lg p-3">
+                        <p className="text-xs text-gray-500 mb-1">Satisfaction</p>
+                        <p className="text-lg font-bold text-amber-400">{customer.Customer_Satisfaction_Score !== undefined ? customer.Customer_Satisfaction_Score : 'N/A'}/10</p>
+                      </div>
+                      <div className="bg-[#16161d] rounded-lg p-3">
+                        <p className="text-xs text-gray-500 mb-1">Invited to Store</p>
+                        <p className={`text-sm font-semibold ${analysis.Agent_Areas?.The_Invitation_to_Visit?.Attempted ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {analysis.Agent_Areas?.The_Invitation_to_Visit?.Attempted ? '✓ Yes' : '✗ No'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Objective */}

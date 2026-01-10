@@ -179,24 +179,32 @@ export default function VideoCallsList() {
               <div className="col-span-full text-center text-gray-400 py-12">No reports match this filter.</div>
             )}
             {visibleReports.map((report) => {
-              const analysis = report.analysis || {};
+              const analysis = report.analysis_data || {};
               const functional = analysis.Functional || {};
               const customer = analysis.Customer_Information || {};
+              const agentAreas = analysis.Agent_Areas || {};
               const hasError = !report.analyzed || analysis.error || analysis.parse_error;
 
-              const visitIntent = customer.Intent_to_Visit_Rating || 'LOW';
-              const purchaseIntent = customer.Intent_to_Purchase_Rating || 'LOW';
+              // Correctly extract intent values - they should already be strings like "MEDIUM", "HIGH", "LOW"
+              const purchaseIntent = customer.Intent_to_Purchase_Rating && customer.Intent_to_Purchase_Rating.trim() ? customer.Intent_to_Purchase_Rating.trim() : 'N/A';
+              const visitIntent = customer.Intent_to_Visit_Rating && customer.Intent_to_Visit_Rating.trim() ? customer.Intent_to_Visit_Rating.trim() : 'N/A';
               const objective = functional.Call_Objective_Theme || null;
               const stage = customer.Customer_Stage_AIDA || 'Awareness';
               const storeLocation = functional.Store_Location || report.store_name || 'Unknown Store';
               const customerLocation = functional.Customer_Location;
               const callTime = functional.Call_Time || report.call_time || 'N/A';
               const duration = report.duration || (report.metadata && report.metadata.duration) || 'N/A';
+              
+              // Extract metrics safely
+              const satisfactionScore = customer.Customer_Satisfaction_Score;
+              const demoRating = agentAreas.Product_Demonstration?.Quality_Rating;
 
               const getIntentColor = (intent) => {
-                const normalized = typeof intent === 'string' ? intent.toUpperCase() : 'LOW';
-                if (normalized === 'HIGH') return 'bg-red-900/30 border-red-600/40 text-red-300';
-                if (normalized === 'MEDIUM' || normalized === 'MED') return 'bg-yellow-900/30 border-yellow-600/40 text-yellow-300';
+                if (!intent || intent === 'N/A') return 'bg-gray-800/50 border-gray-600/40 text-gray-400';
+                const normalized = typeof intent === 'string' ? intent.toUpperCase().trim() : 'UNKNOWN';
+                if (normalized === 'HIGH') return 'bg-emerald-900/30 border-emerald-600/40 text-emerald-300';
+                if (normalized === 'MEDIUM' || normalized === 'MED') return 'bg-amber-900/30 border-amber-600/40 text-amber-300';
+                if (normalized === 'LOW') return 'bg-red-900/30 border-red-600/40 text-red-300';
                 return 'bg-gray-800/50 border-gray-600/40 text-gray-400';
               };
 
@@ -259,12 +267,25 @@ export default function VideoCallsList() {
                   ) : (
                     <>
                       <div className="flex flex-wrap gap-2 mb-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(visitIntent)}`}>
-                          Visit: {visitIntent}
-                        </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(purchaseIntent)}`}>
                           Purchase: {purchaseIntent}
                         </span>
+                      </div>
+
+                      {/* Key Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-[#16161d] rounded-lg p-3">
+                          <p className="text-xs text-gray-500 mb-1">Satisfaction</p>
+                          <p className="text-lg font-bold text-amber-400">
+                            {satisfactionScore !== undefined && satisfactionScore !== null ? `${satisfactionScore}/10` : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="bg-[#16161d] rounded-lg p-3">
+                          <p className="text-xs text-gray-500 mb-1">Demo Rating</p>
+                          <p className="text-lg font-bold text-emerald-400">
+                            {demoRating !== undefined && demoRating !== null ? `${demoRating}/5` : 'N/A'}
+                          </p>
+                        </div>
                       </div>
 
                       {objective && (

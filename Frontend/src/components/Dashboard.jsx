@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Video, LogOut } from 'lucide-react';
+import { Phone, Video, LogOut, Zap } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ const Dashboard = () => {
           </div>
 
           {/* Analysis Options */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Audio Call Reports */}
             <button
               onClick={() => navigate('/call-reports/analytics')}
@@ -83,7 +83,7 @@ const Dashboard = () => {
               </div>
             </button>
 
-            {/* Video Call Reports - NEW */}
+            {/* Video Call Reports */}
             <button
               onClick={() => navigate('/video-reports/analytics')}
               className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-amber-500/50 transition overflow-hidden relative"
@@ -105,6 +105,34 @@ const Dashboard = () => {
 
               <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold">
                 <span>View Video Reports</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Mystery Shopper */}
+            <button
+              onClick={() => navigate('/mystery-shopper')}
+              className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-purple-500/50 transition overflow-hidden relative"
+            >
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-purple-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+
+              <div className="flex items-start justify-between mb-6">
+                <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-600/30 group-hover:border-purple-600/60 transition">
+                  <Zap className="w-8 h-8 text-purple-400" />
+                </div>
+              </div>
+
+              <h3 className="text-xl font-semibold text-gray-100 mb-3 text-left" style={{ fontFamily: "'Fraunces', serif" }}>
+                Mystery Shopper
+              </h3>
+              <p className="text-gray-400 text-sm text-left leading-relaxed mb-6">
+                Evaluate sales staff performance through AI-powered mystery shopping simulations with realistic customer personas.
+              </p>
+
+              <div className="flex items-center gap-2 text-purple-400 text-sm font-semibold">
+                <span>Start Evaluation</span>
                 <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
