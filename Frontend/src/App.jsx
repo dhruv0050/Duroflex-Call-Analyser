@@ -11,7 +11,7 @@ import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
 import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
 import VideoCallUpload from './components/VideoCallUpload';
-import MysteryShopperChat from './components/MysteryShopperChat';
+// import MysteryShopperChat from './components/MysteryShopperChat';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -43,8 +43,8 @@ function App() {
           <Route path="/video-reports/:reportId" element={<ProtectedRoute><VideoCallDetail /></ProtectedRoute>} />
           <Route path="/video-reports/analytics" element={<ProtectedRoute><VideoAggregatedDashboard /></ProtectedRoute>} />
 
-          {/* Mystery Shopper Route */}
-          <Route path="/mystery-shopper" element={<ProtectedRoute><MysteryShopperChat /></ProtectedRoute>} />
+          {/* Mystery Shopper Route
+          <Route path="/mystery-shopper" element={<ProtectedRoute><MysteryShopperChat /></ProtectedRoute>} /> */}
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

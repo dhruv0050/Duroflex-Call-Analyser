@@ -23,7 +23,7 @@ from preprocess_videos import preprocess_all_videos
 from call_upload_service import CallUploadProcessor
 from video_upload_service import VideoUploadProcessor
 from drive_mirror_integration import trigger_drive_mirror
-from mystery_shopper_service import start_mystery_shopper_session, get_available_personas, MysteryShopperSession
+# from mystery_shopper_service import start_mystery_shopper_session, get_available_personas, MysteryShopperSession
 
 
 def sanitize_nan(obj):
@@ -82,14 +82,14 @@ class TokenResponse(BaseModel):
     email: str
 
 
-# Mystery Shopper Models
-class MysteryShopperStartRequest(BaseModel):
-    persona: str
+# # Mystery Shopper Models
+# class MysteryShopperStartRequest(BaseModel):
+#     persona: str
 
 
-class MysteryShopperChatRequest(BaseModel):
-    session_id: str
-    staff_message: str
+# class MysteryShopperChatRequest(BaseModel):
+#     session_id: str
+#     staff_message: str
 
 
 # Global store for mystery shopper sessions (in-memory, resets on restart)
@@ -551,79 +551,79 @@ async def retry_video_drive_sync(report_id: str):
 
 # ===== MYSTERY SHOPPER ENDPOINTS =====
 
-@app.get("/api/mystery-shopper/personas")
-async def get_personas():
-    """Get list of available mystery shopper personas"""
-    return get_available_personas()
+# @app.get("/api/mystery-shopper/personas")
+# async def get_personas():
+#     """Get list of available mystery shopper personas"""
+#     return get_available_personas()
 
 
-@app.post("/api/mystery-shopper/start")
-async def start_mystery_shopper(request: MysteryShopperStartRequest):
-    """Start a new mystery shopper session"""
-    try:
-        session_data = start_mystery_shopper_session(request.persona)
-        session = session_data["session"]
-        session_id = session_data["session_id"]
+# @app.post("/api/mystery-shopper/start")
+# async def start_mystery_shopper(request: MysteryShopperStartRequest):
+#     """Start a new mystery shopper session"""
+#     try:
+#         session_data = start_mystery_shopper_session(request.persona)
+#         session = session_data["session"]
+#         session_id = session_data["session_id"]
         
-        # Store session in memory
-        mystery_shopper_sessions[session_id] = session
+#         # Store session in memory
+#         mystery_shopper_sessions[session_id] = session
         
-        return {
-            "status": "success",
-            "session_id": session_id,
-            "persona": session_data["persona"],
-            "opening_message": session_data["opening_message"]
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "status": "success",
+#             "session_id": session_id,
+#             "persona": session_data["persona"],
+#             "opening_message": session_data["opening_message"]
+#         }
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/mystery-shopper/chat")
-async def mystery_shopper_chat(request: MysteryShopperChatRequest):
-    """Send a message to the mystery shopper and get response"""
-    try:
-        session_id = request.session_id
+# @app.post("/api/mystery-shopper/chat")
+# async def mystery_shopper_chat(request: MysteryShopperChatRequest):
+#     """Send a message to the mystery shopper and get response"""
+#     try:
+#         session_id = request.session_id
         
-        # Check if session exists
-        if session_id not in mystery_shopper_sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
+#         # Check if session exists
+#         if session_id not in mystery_shopper_sessions:
+#             raise HTTPException(status_code=404, detail="Session not found")
         
-        session = mystery_shopper_sessions[session_id]
+#         session = mystery_shopper_sessions[session_id]
         
-        # Get customer response
-        customer_message, internal_analysis = session.add_staff_message(request.staff_message)
+#         # Get customer response
+#         customer_message, internal_analysis = session.add_staff_message(request.staff_message)
         
-        # Check if session has ended
-        session_ended = session.status != "in_progress"
-        evaluation_report = None
+#         # Check if session has ended
+#         session_ended = session.status != "in_progress"
+#         evaluation_report = None
         
-        if session_ended:
-            evaluation_report = session.get_evaluation_report()
+#         if session_ended:
+#             evaluation_report = session.get_evaluation_report()
         
-        return {
-            "status": "success",
-            "customer_message": customer_message,
-            "internal_analysis": {
-                "score": internal_analysis.get("score"),
-                "product_check": internal_analysis.get("product_check"),
-                "objection_status": internal_analysis.get("objection_status"),
-                "closing_status": internal_analysis.get("closing_status"),
-                "next_move": internal_analysis.get("next_move")
-            },
-            "session_status": session.status,
-            "session_ended": session_ended,
-            "evaluation_report": evaluation_report
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "status": "success",
+#             "customer_message": customer_message,
+#             "internal_analysis": {
+#                 "score": internal_analysis.get("score"),
+#                 "product_check": internal_analysis.get("product_check"),
+#                 "objection_status": internal_analysis.get("objection_status"),
+#                 "closing_status": internal_analysis.get("closing_status"),
+#                 "next_move": internal_analysis.get("next_move")
+#             },
+#             "session_status": session.status,
+#             "session_ended": session_ended,
+#             "evaluation_report": evaluation_report
+#         }
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/mystery-shopper/session/{session_id}")
-async def get_session_details(session_id: str):
+# @app.get("/api/mystery-shopper/session/{session_id}")
+# async def get_session_details(session_id: str):
     """Get current session details and conversation history"""
     try:
         if session_id not in mystery_shopper_sessions:

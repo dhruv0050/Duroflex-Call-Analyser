@@ -112,7 +112,7 @@ const Dashboard = () => {
             </button>
 
             {/* Mystery Shopper */}
-            <button
+            {/* <button
               onClick={() => navigate('/mystery-shopper')}
               className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-purple-500/50 transition overflow-hidden relative"
             >
@@ -137,7 +137,7 @@ const Dashboard = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-            </button>
+            </button> */}
           </div>
         </div>
 
