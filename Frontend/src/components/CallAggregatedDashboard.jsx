@@ -61,6 +61,7 @@ const CallAggregatedDashboard = () => {
   const [view, setView] = useState('overall');
   const [selectedRegion, setSelectedRegion] = useState('South');
   const [selectedCity, setSelectedCity] = useState('Bangalore');
+  const [selectedIntent, setSelectedIntent] = useState('All');
   const [selectedStore, setSelectedStore] = useState('');
   const [storePeriod, setStorePeriod] = useState('week');
   const [allCalls, setAllCalls] = useState([]);
@@ -230,9 +231,14 @@ const CallAggregatedDashboard = () => {
     } else if (view === 'city') {
       filtered = filtered.filter((call) => call.city === selectedCity);
     }
+
+    // Apply intent filter (Intent to Purchase)
+    if (selectedIntent !== 'All') {
+      filtered = filtered.filter((call) => call.intent === selectedIntent);
+    }
     
     return filtered;
-  }, [audioCalls, view, selectedRegion, selectedCity, timeRange]);
+  }, [audioCalls, view, selectedRegion, selectedCity, timeRange, selectedIntent]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
@@ -626,6 +632,24 @@ const CallAggregatedDashboard = () => {
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
             )}
+
+            {/* Intent to Purchase Filter */}
+            <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+              <span className="text-xs text-gray-400">Intent to Purchase</span>
+              <select
+                value={selectedIntent}
+                onChange={(e) => setSelectedIntent(e.target.value)}
+                className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                style={{ colorScheme: 'dark' }}
+              >
+                {['All','High','Medium','Low'].map((opt) => (
+                  <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            </div>
           </div>
         </div>
       </div>
