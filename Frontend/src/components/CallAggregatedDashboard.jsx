@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, TrendingUp, Users, Phone, Award, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
@@ -56,6 +56,7 @@ const exportReportsAsCsv = (reports, filename) => {
 };
 
 const CallAggregatedDashboard = () => {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('last30');
   const [view, setView] = useState('overall');
   const [selectedRegion, setSelectedRegion] = useState('South');
@@ -67,6 +68,11 @@ const CallAggregatedDashboard = () => {
 
   const handleDownloadReports = () => {
     exportReportsAsCsv(allCalls, 'audio_reports.csv');
+  };
+
+  const navigateWithFilter = (predicate, description) => {
+    const ids = filteredCalls.filter(predicate).map((c) => c.id || c.call_id).filter(Boolean);
+    navigate('/call-reports', { state: { filterIds: ids, filterDescription: description } });
   };
 
   useEffect(() => {
@@ -457,8 +463,29 @@ const CallAggregatedDashboard = () => {
     };
   }, [selectedStore, storePeriod, audioCalls, metrics.storePerformance]);
 
-  const regions = ['South', 'West', 'North', 'East'];
-  const cities = ['Bangalore', 'Mumbai', 'Hyderabad', 'Chennai', 'Delhi'];
+  const regions = useMemo(() => {
+    const uniqueRegions = [...new Set(audioCalls.map(call => call.region).filter(Boolean))].filter(r => r !== 'Unknown');
+    return uniqueRegions.length > 0 ? uniqueRegions : ['South', 'West', 'North', 'East'];
+  }, [audioCalls]);
+
+  const cities = useMemo(() => {
+    const uniqueCities = [...new Set(audioCalls.map(call => call.city).filter(Boolean))];
+    return uniqueCities.length > 0 ? uniqueCities : ['Bangalore', 'Mumbai', 'Hyderabad', 'Chennai', 'Delhi'];
+  }, [audioCalls]);
+
+  // Ensure selected city is valid when switching to city view
+  useEffect(() => {
+    if (view === 'city' && !cities.includes(selectedCity)) {
+      setSelectedCity(cities[0] || 'Bangalore');
+    }
+  }, [view, cities, selectedCity]);
+
+  // Ensure selected region is valid when switching to region view
+  useEffect(() => {
+    if (view === 'region' && !regions.includes(selectedRegion)) {
+      setSelectedRegion(regions[0] || 'South');
+    }
+  }, [view, regions, selectedRegion]);
 
   if (loading) {
     return (
@@ -582,7 +609,7 @@ const CallAggregatedDashboard = () => {
             )}
 
             {view === 'city' && (
-              <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
+              <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
                 <Filter className="w-4 h-4 text-gray-500" />
                 <select
                   value={selectedCity}
@@ -606,7 +633,10 @@ const CallAggregatedDashboard = () => {
       <div className="max-w-[1600px] mx-auto px-8 py-8 relative z-10">
         {/* KPI Cards */}
         <div className="grid grid-cols-3 gap-6 mb-8">
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div
+            onClick={() => navigateWithFilter(() => true, 'All calls (current filters)')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-transparent"></div>
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-indigo-900/20 rounded-lg">
@@ -627,7 +657,10 @@ const CallAggregatedDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div
+            onClick={() => navigateWithFilter((c) => c.type === 'Sales', 'Sales calls')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent"></div>
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-emerald-900/20 rounded-lg">
@@ -648,7 +681,10 @@ const CallAggregatedDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div
+            onClick={() => navigateWithFilter((c) => c.type === 'Service', 'Service calls')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-transparent"></div>
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-blue-900/20 rounded-lg">
@@ -692,7 +728,8 @@ const CallAggregatedDashboard = () => {
                   {['High', 'Medium', 'Low'].map((exp) => (
                     <div
                       key={`${intent}-${exp}`}
-                      className={`rounded-lg p-6 text-center transition-all hover:scale-105 ${getMatrixColor(metrics.matrix[intent][exp], maxMatrixValue)}`}
+                      onClick={() => navigateWithFilter((c) => c.intent === intent && c.experience === exp, `${intent} intent × ${exp} experience`)}
+                      className={`rounded-lg p-6 text-center transition-all hover:scale-105 cursor-pointer ${getMatrixColor(metrics.matrix[intent][exp], maxMatrixValue)}`}
                     >
                       <div className="text-3xl font-bold mb-1">{metrics.matrix[intent][exp]}</div>
                       <div className="text-xs opacity-75">calls</div>
@@ -769,7 +806,11 @@ const CallAggregatedDashboard = () => {
               </thead>
               <tbody className="divide-y divide-white/6">
                 {metrics.storePerformance.map((store) => (
-                  <tr key={store.storeName} className="hover:bg-white/5 transition-colors">
+                  <tr
+                    key={store.storeName}
+                    onClick={() => navigateWithFilter((c) => c.store === store.storeName, `${store.storeName} store calls`)}
+                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                  >
                     <td className="px-8 py-5">
                       <div>
                         <div className="font-semibold text-gray-100">{store.storeName}</div>

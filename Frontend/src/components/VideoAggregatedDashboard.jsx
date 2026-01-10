@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BarChart3, TrendingUp, Users, Video, ArrowLeft, Filter, Calendar, ChevronDown, Download } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Calendar, TrendingUp, Users, Video, Award, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Phone } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -70,6 +70,11 @@ const VideoAggregatedDashboard = () => {
     exportReportsAsCsv(allCalls, 'video_reports.csv');
   };
 
+  const navigateWithFilter = (predicate, description) => {
+    const ids = filteredCalls.filter(predicate).map((c) => c.id || c.report_id).filter(Boolean);
+    navigate('/video-reports', { state: { filterIds: ids, filterDescription: description } });
+  };
+
   useEffect(() => {
     const fetchVideoCalls = async () => {
       try {
@@ -90,40 +95,49 @@ const VideoAggregatedDashboard = () => {
   }, []);
 
   const normalizeIntent = (rating) => {
-    if (!rating) return 'Low';
-    const upper = rating.toUpperCase();
-    if (upper === 'HIGH') return 'High';
-    if (upper === 'MED' || upper === 'MEDIUM') return 'Medium';
-    return 'Low';
+    const val = (rating || 'Medium').toString().toUpperCase();
+    if (val.includes('HIGH')) return 'High';
+    if (val.includes('MEDIUM') || val.includes('MED')) return 'Medium';
+    if (val.includes('LOW')) return 'Low';
+    return 'Medium';
   };
 
   const normalizeExperience = (score) => {
-    if (!score) return 'Poor';
-    const numScore = typeof score === 'number' ? score : parseInt(score);
-    if (numScore >= 4) return 'Excellent';
-    if (numScore === 3) return 'Good';
-    if (numScore === 2) return 'Fair';
-    return 'Poor';
+    if (score === undefined || score === null || score === '') return 'Medium';
+    if (typeof score === 'string') {
+      const val = score.toUpperCase();
+      if (val.includes('HIGH') || val.includes('5') || val.includes('EXCELLENT')) return 'High';
+      if (val.includes('MEDIUM') || val.includes('3') || val.includes('GOOD')) return 'Medium';
+      if (val.includes('LOW') || val.includes('1') || val.includes('POOR') || val.includes('FAIR')) return 'Low';
+      const num = parseFloat(score);
+      if (!Number.isNaN(num)) {
+        if (num >= 4) return 'High';
+        if (num >= 3) return 'Medium';
+        return 'Low';
+      }
+      return 'Medium';
+    }
+    if (typeof score === 'number') {
+      if (score >= 4) return 'High';
+      if (score >= 3) return 'Medium';
+      return 'Low';
+    }
+    return 'Medium';
   };
 
   const deriveType = (objective) => {
-    if (!objective) return 'General';
-    const lower = objective.toLowerCase();
-    if (lower.includes('product')) return 'Product Inquiry';
-    if (lower.includes('visit')) return 'Visit Request';
-    if (lower.includes('demo')) return 'Demo Request';
-    return 'General';
+    const text = (objective || '').toLowerCase();
+    const serviceKeywords = ['service', 'support', 'issue', 'complaint', 'warranty', 'return'];
+    const isService = serviceKeywords.some((k) => text.includes(k));
+    return isService ? 'Service' : 'Sales';
   };
 
   const ratingToScore = (value, fallback = 75) => {
-    if (typeof value === 'number') return (value / 5) * 100;
-    if (typeof value === 'string') {
-      const upper = value.toUpperCase();
-      if (upper === 'HIGH') return 90;
-      if (upper === 'MED' || upper === 'MEDIUM') return 70;
-      if (upper === 'LOW') return 40;
-    }
-    return fallback;
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'number') return Math.round(value * 20); // assume 1-5 scale
+    const num = parseFloat(value);
+    if (Number.isNaN(num)) return fallback;
+    return Math.round(num * 20); // assume 1-5 scale
   };
 
   const videoCalls = useMemo(() => {
@@ -154,33 +168,26 @@ const VideoAggregatedDashboard = () => {
                     storeLocation.includes('Hyderabad') ? 'Hyderabad' :
                     storeLocation.includes('Chennai') || storeLocation.includes('ADYAR') ? 'Chennai' : 'Bangalore';
 
-        // Calculate RELAX score properly
-        const relaxRatings = [
-          relaxFramework.R_Reach_Out?.Rating,
-          relaxFramework.E_Explore_Needs?.Rating,
-          relaxFramework.L_Link_Demo?.Rating,
-          relaxFramework.A_Add_Value?.Rating,
-          relaxFramework.X_Express_Offers?.Rating
-        ].filter(r => typeof r === 'number');
-        
-        const relaxScore = relaxRatings.length > 0 
-          ? relaxRatings.reduce((sum, r) => sum + r, 0) / relaxRatings.length 
-          : 0;
+        // Calculate RELAX score with the same structure as audio
+        const reach = relaxFramework.R_Reach_Out?.Rating;
+        const explore = relaxFramework.E_Explore_Needs?.Rating;
+        const link = relaxFramework.L_Link_Demo?.Rating;
+        const add = relaxFramework.A_Add_Value?.Rating;
+        const close = relaxFramework.X_Express_Offers?.Rating;
 
-        // Calculate soft skills score properly
-        const softSkillRatings = [
-          softSkills.Active_Listening_Rating,
-          softSkills.Empathy_Rapport_Rating,
-          softSkills.Clarity_Confidence_Rating,
-          softSkills.Objection_Handling_Rating,
-          softSkills.Hold_and_Dead_Air_Management_Rating
-        ].filter(r => typeof r === 'number');
-        
-        const softSkillScore = softSkillRatings.length > 0
-          ? softSkillRatings.reduce((sum, r) => sum + r, 0) / softSkillRatings.length
-          : 0;
+        const rapportScore = ratingToScore(reach, 75);
+        const exploreScore = ratingToScore(explore, 75);
+        const listenScore = ratingToScore(link, 75);
+        const adviseScore = ratingToScore(add, 75);
+        const executeScore = ratingToScore(close, 75);
 
-        // Calculate product demo score (average of all demo ratings)
+        const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
+        const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
+        const overallRelax = availableRelax.length
+          ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
+          : 75;
+
+        // Calculate product demo score (similar to product knowledge)
         const demoRatings = [
           productDemo.Quality_Rating,
           productDemo.Relevance_Rating,
@@ -190,28 +197,45 @@ const VideoAggregatedDashboard = () => {
         ].filter(r => typeof r === 'number');
         
         const productDemoScore = demoRatings.length > 0
-          ? demoRatings.reduce((sum, r) => sum + r, 0) / demoRatings.length
-          : 0;
+          ? Math.round(demoRatings.reduce((sum, r) => sum + ratingToScore(r, 75), 0) / demoRatings.length)
+          : 75;
+
+        // Calculate soft skills score (average of all soft skill ratings)
+        const softSkillRatings = [
+          softSkills.Active_Listening_Rating,
+          softSkills.Empathy_Rapport_Rating,
+          softSkills.Clarity_Confidence_Rating,
+          softSkills.Objection_Handling_Rating,
+          softSkills.Hold_and_Dead_Air_Management_Rating
+        ].filter(r => typeof r === 'number');
+        
+        const softSkillScore = softSkillRatings.length > 0
+          ? Math.round(softSkillRatings.reduce((sum, r) => sum + ratingToScore(r, 75), 0) / softSkillRatings.length)
+          : 75;
+
+        const intent = normalizeIntent(customer.Intent_to_Purchase_Rating);
+        const experience = normalizeExperience(customer.Customer_Satisfaction_Score);
 
         return {
           id: call.report_id,
-          region,
-          city,
           store: storeLocation,
+          city: city,
+          region: region,
           type: deriveType(functional.Call_Objective_Theme),
-          intent: normalizeIntent(customer.Intent_to_Purchase_Rating),
-          experience: normalizeExperience(customer.Customer_Satisfaction_Score),
-          productDemoScore: productDemoScore,
-          relaxScore: relaxScore,
-          softSkillScore: softSkillScore,
+          intent,
+          experience,
+          scores: {
+            overall: overallRelax,
+            rapport: rapportScore,
+            explore: exploreScore,
+            listen: listenScore,
+            advise: adviseScore,
+            execute: executeScore,
+            productKnowledge: productDemoScore,
+            softSkills: softSkillScore,
+          },
           invitationAttempted: invitation.Attempted || false,
           invitationQuality: invitation.Quality_Rating || 0,
-          customerSatisfaction: customer.Customer_Satisfaction_Score || 0,
-          businessSatisfaction: customer.Business_Satisfaction_Score || 0,
-          callObjective: functional.Call_Objective_Theme || 'General',
-          callTime: functional.Call_Time || 'N/A',
-          customerName: functional.Customer_Name || 'N/A',
-          agentName: functional.Agent_Name || 'N/A'
         };
       });
   }, [allCalls]);
@@ -226,635 +250,951 @@ const VideoAggregatedDashboard = () => {
       filtered = filtered.slice(-30);
     } else if (timeRange === 'last90') {
       filtered = filtered.slice(-90);
+    } else if (timeRange === 'ytd') {
+      // For YTD, just take all available calls (simplified implementation)
+      filtered = filtered;
     }
-    // 'ytd' - no filtering (defaults to all calls)
     
     // Apply view-based filters
-    if (view === 'regional') {
-      filtered = filtered.filter((c) => c.region === selectedRegion);
+    if (view === 'region') {
+      filtered = filtered.filter((call) => call.region === selectedRegion);
     } else if (view === 'city') {
-      filtered = filtered.filter((c) => c.city === selectedCity);
-    } else if (view === 'store' && selectedStore) {
-      // Only filter by store if a specific store is selected
-      filtered = filtered.filter((c) => c.store === selectedStore);
+      filtered = filtered.filter((call) => call.city === selectedCity);
     }
+    
     return filtered;
-  }, [videoCalls, view, selectedRegion, selectedCity, selectedStore, timeRange]);
+  }, [videoCalls, view, selectedRegion, selectedCity, timeRange]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
-    if (total === 0) {
-      return {
-        total: 0,
-        avgProductDemo: 0,
-        avgRelax: 0,
-        avgSoftSkills: 0,
-        avgInvitation: 0,
-        invitationAttemptRate: 0,
-        avgCustomerSat: 0,
-        avgBusinessSat: 0,
-        intentBreakdown: { High: 0, Medium: 0, Low: 0 },
-        experienceBreakdown: { Excellent: 0, Good: 0, Fair: 0, Poor: 0 },
-        typeBreakdown: {},
-        matrix: {},
-        storePerformance: {}
-      };
-    }
-
-    const avgProductDemo = filteredCalls.reduce((sum, c) => sum + c.productDemoScore, 0) / total;
-    const avgRelax = filteredCalls.reduce((sum, c) => sum + c.relaxScore, 0) / total;
-    const avgSoftSkills = filteredCalls.reduce((sum, c) => sum + c.softSkillScore, 0) / total;
-    const avgInvitation = filteredCalls.reduce((sum, c) => sum + c.invitationQuality, 0) / total;
-    const invitationAttemptRate = (filteredCalls.filter(c => c.invitationAttempted).length / total) * 100;
-    const avgCustomerSat = filteredCalls.reduce((sum, c) => sum + c.customerSatisfaction, 0) / total;
-    const avgBusinessSat = filteredCalls.reduce((sum, c) => sum + c.businessSatisfaction, 0) / total;
-
-    const intentBreakdown = filteredCalls.reduce((acc, c) => {
-      acc[c.intent] = (acc[c.intent] || 0) + 1;
-      return acc;
-    }, { High: 0, Medium: 0, Low: 0 });
-
-    const experienceBreakdown = filteredCalls.reduce((acc, c) => {
-      acc[c.experience] = (acc[c.experience] || 0) + 1;
-      return acc;
-    }, { Excellent: 0, Good: 0, Fair: 0, Poor: 0 });
-
-    const typeBreakdown = filteredCalls.reduce((acc, c) => {
-      acc[c.type] = (acc[c.type] || 0) + 1;
-      return acc;
-    }, {});
+    const salesCalls = filteredCalls.filter((c) => c.type === 'Sales').length;
+    const serviceCalls = filteredCalls.filter((c) => c.type === 'Service').length;
 
     const matrix = {};
-    filteredCalls.forEach((c) => {
-      if (!matrix[c.intent]) matrix[c.intent] = {};
-      matrix[c.intent][c.experience] = (matrix[c.intent][c.experience] || 0) + 1;
+    ['High', 'Medium', 'Low'].forEach((intent) => {
+      matrix[intent] = {};
+      ['High', 'Medium', 'Low'].forEach((exp) => {
+        matrix[intent][exp] = filteredCalls.filter((c) => c.intent === intent && c.experience === exp).length;
+      });
     });
 
-    const storePerformance = filteredCalls.reduce((acc, call) => {
-      if (!acc[call.store]) {
-        acc[call.store] = {
-          count: 0,
-          avgProductDemo: 0,
-          avgRelax: 0,
-          avgSoftSkills: 0,
-          avgInvitation: 0,
-          avgCustomerSat: 0,
-          invitationAttempts: 0
+    const storeMetrics = {};
+    filteredCalls.forEach((call) => {
+      if (!storeMetrics[call.store]) {
+        storeMetrics[call.store] = {
+          storeName: call.store,
+          city: call.city,
+          region: call.region,
+          calls: [],
         };
       }
-      acc[call.store].count += 1;
-      acc[call.store].avgProductDemo += call.productDemoScore;
-      acc[call.store].avgRelax += call.relaxScore;
-      acc[call.store].avgSoftSkills += call.softSkillScore;
-      acc[call.store].avgInvitation += call.invitationQuality;
-      acc[call.store].avgCustomerSat += call.customerSatisfaction;
-      if (call.invitationAttempted) acc[call.store].invitationAttempts += 1;
-      return acc;
-    }, {});
-
-    Object.keys(storePerformance).forEach((store) => {
-      const count = storePerformance[store].count;
-      storePerformance[store].avgProductDemo = (storePerformance[store].avgProductDemo / count).toFixed(1);
-      storePerformance[store].avgRelax = (storePerformance[store].avgRelax / count).toFixed(1);
-      storePerformance[store].avgSoftSkills = (storePerformance[store].avgSoftSkills / count).toFixed(1);
-      storePerformance[store].avgInvitation = (storePerformance[store].avgInvitation / count).toFixed(1);
-      storePerformance[store].avgCustomerSat = (storePerformance[store].avgCustomerSat / count).toFixed(1);
-      storePerformance[store].invitationRate = ((storePerformance[store].invitationAttempts / count) * 100).toFixed(0);
+      storeMetrics[call.store].calls.push(call);
     });
+
+    const storePerformance = Object.values(storeMetrics)
+      .map((store) => {
+        const calls = store.calls;
+        const avgScore = (metric) =>
+          calls.length ? Math.round(calls.reduce((sum, c) => sum + c.scores[metric], 0) / calls.length) : 0;
+
+        return {
+          storeName: store.storeName,
+          city: store.city,
+          region: store.region,
+          totalCalls: calls.length,
+          overallScore: avgScore('overall'),
+          rapport: avgScore('rapport'),
+          explore: avgScore('explore'),
+          listen: avgScore('listen'),
+          advise: avgScore('advise'),
+          execute: avgScore('execute'),
+          productKnowledge: avgScore('productKnowledge'),
+          softSkills: avgScore('softSkills'),
+        };
+      })
+      .sort((a, b) => b.totalCalls - a.totalCalls);
 
     return {
       total,
-      avgProductDemo,
-      avgRelax,
-      avgSoftSkills,
-      avgInvitation,
-      invitationAttemptRate,
-      avgCustomerSat,
-      avgBusinessSat,
-      intentBreakdown,
-      experienceBreakdown,
-      typeBreakdown,
+      salesCalls,
+      serviceCalls,
       matrix,
-      storePerformance
+      storePerformance,
     };
   }, [filteredCalls]);
 
   const getScoreColor = (score) => {
-    if (score >= 4) return 'text-green-400';
-    if (score >= 3) return 'text-amber-400';
-    return 'text-red-400';
+    if (score >= 85) return 'text-emerald-600';
+    if (score >= 70) return 'text-amber-600';
+    return 'text-rose-600';
   };
 
   const getScoreBg = (score) => {
-    if (score >= 4) return 'bg-green-500/10 border-green-500/30';
-    if (score >= 3) return 'bg-amber-500/10 border-amber-500/30';
-    return 'bg-red-500/10 border-red-500/30';
+    if (score >= 85) return 'bg-emerald-50';
+    if (score >= 70) return 'bg-amber-50';
+    return 'bg-rose-50';
   };
 
   const getMatrixColor = (count, max) => {
+    if (max === 0) return 'bg-[#16161d] text-gray-500';
     const intensity = count / max;
-    if (intensity > 0.7) return 'bg-green-500/30 border-green-500/50';
-    if (intensity > 0.4) return 'bg-amber-500/30 border-amber-500/50';
-    if (intensity > 0.1) return 'bg-orange-500/20 border-orange-500/40';
-    return 'bg-gray-700/20 border-gray-600/30';
+    if (intensity > 0.7) return 'bg-gradient-to-br from-amber-500 to-orange-600 text-gray-900 font-bold';
+    if (intensity > 0.4) return 'bg-gradient-to-br from-amber-400/80 to-orange-500/80 text-gray-900 font-semibold';
+    if (intensity > 0.2) return 'bg-amber-900/30 text-amber-300 border border-amber-600/30';
+    return 'bg-[#16161d] text-gray-500';
   };
 
   const maxMatrixValue = Math.max(...Object.values(metrics.matrix).flatMap((row) => Object.values(row)), 1);
 
   const storeAnalysis = useMemo(() => {
-    if (!selectedStore) return null;
-    const storeData = metrics.storePerformance[selectedStore];
-    if (!storeData) return null;
-
-    const storeCalls = filteredCalls.filter((c) => c.store === selectedStore);
-    
-    let filteredStoreCalls = storeCalls;
-    const now = new Date();
-    if (storePeriod === 'week') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredStoreCalls = storeCalls.filter(() => true);
-    } else if (storePeriod === 'month') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      filteredStoreCalls = storeCalls.filter(() => true);
+    if (!selectedStore || !metrics.storePerformance.length) {
+      const firstStore = metrics.storePerformance[0]?.storeName;
+      if (firstStore && selectedStore === '') {
+        setSelectedStore(firstStore);
+      }
+      return null;
     }
 
-    const intentDist = filteredStoreCalls.reduce((acc, c) => {
-      acc[c.intent] = (acc[c.intent] || 0) + 1;
-      return acc;
-    }, { High: 0, Medium: 0, Low: 0 });
+    const storeCalls = videoCalls.filter((c) => c.store === selectedStore);
+    const periods = [];
+    const now = new Date();
 
-    const experienceDist = filteredStoreCalls.reduce((acc, c) => {
-      acc[c.experience] = (acc[c.experience] || 0) + 1;
-      return acc;
-    }, { Excellent: 0, Good: 0, Fair: 0, Poor: 0 });
+    if (storePeriod === 'day') {
+      for (let i = 6; i >= 0; i -= 1) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-    const typeDist = filteredStoreCalls.reduce((acc, c) => {
-      acc[c.type] = (acc[c.type] || 0) + 1;
-      return acc;
-    }, {});
+        const dayCalls = storeCalls.slice(i * Math.ceil(storeCalls.length / 7), (i + 1) * Math.ceil(storeCalls.length / 7));
 
-    const topAgents = filteredStoreCalls.reduce((acc, c) => {
-      if (!acc[c.agentName]) {
-        acc[c.agentName] = { count: 0, avgRelax: 0, avgSoftSkills: 0 };
+        periods.push({
+          label: `${dayName} ${dateStr}`,
+          calls: dayCalls,
+          count: dayCalls.length,
+        });
       }
-      acc[c.agentName].count += 1;
-      acc[c.agentName].avgRelax += c.relaxScore;
-      acc[c.agentName].avgSoftSkills += c.softSkillScore;
-      return acc;
-    }, {});
+    } else {
+      for (let i = 3; i >= 0; i -= 1) {
+        const weekEnd = new Date(now);
+        weekEnd.setDate(weekEnd.getDate() - i * 7);
+        const weekStart = new Date(weekEnd);
+        weekStart.setDate(weekStart.getDate() - 6);
 
-    Object.keys(topAgents).forEach((agent) => {
-      const count = topAgents[agent].count;
-      topAgents[agent].avgRelax = (topAgents[agent].avgRelax / count).toFixed(1);
-      topAgents[agent].avgSoftSkills = (topAgents[agent].avgSoftSkills / count).toFixed(1);
+        const weekLabel = `Week ${4 - i}`;
+        const dateRange = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+        const weekCalls = storeCalls.slice(i * Math.ceil(storeCalls.length / 4), (i + 1) * Math.ceil(storeCalls.length / 4));
+
+        periods.push({
+          label: weekLabel,
+          dateRange,
+          calls: weekCalls,
+          count: weekCalls.length,
+        });
+      }
+    }
+
+    const temporalData = periods.map((period) => {
+      if (period.count === 0) {
+        return {
+          ...period,
+          overallScore: 0,
+          rapport: 0,
+          explore: 0,
+          listen: 0,
+          advise: 0,
+          execute: 0,
+          productKnowledge: 0,
+          softSkills: 0,
+        };
+      }
+
+      const avgScore = (metric) => Math.round(period.calls.reduce((sum, c) => sum + c.scores[metric], 0) / period.count);
+
+      return {
+        ...period,
+        overallScore: avgScore('overall'),
+        rapport: avgScore('rapport'),
+        explore: avgScore('explore'),
+        listen: avgScore('listen'),
+        advise: avgScore('advise'),
+        execute: avgScore('execute'),
+        productKnowledge: avgScore('productKnowledge'),
+        softSkills: avgScore('softSkills'),
+      };
     });
 
-    const sortedAgents = Object.entries(topAgents)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 5);
+    const storeData = metrics.storePerformance.find((s) => s.storeName === selectedStore);
+    const avgOverall = storeData?.overallScore || 0;
+    const totalStoreCalls = storeCalls.length;
+
+    const scores = {
+      'Rapport Building': storeData?.rapport || 0,
+      Exploration: storeData?.explore || 0,
+      'Active Listening': storeData?.listen || 0,
+      Advisory: storeData?.advise || 0,
+      Execution: storeData?.execute || 0,
+      'Product Knowledge': storeData?.productKnowledge || 0,
+      'Soft Skills': storeData?.softSkills || 0,
+    };
+
+    const sortedScores = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const strengths = sortedScores.slice(0, 2);
+    const weaknesses = sortedScores.slice(-2).reverse();
+
+    const highExpCalls = storeCalls.filter((c) => c.experience === 'High').length;
+    const medExpCalls = storeCalls.filter((c) => c.experience === 'Medium').length;
+    const lowExpCalls = storeCalls.filter((c) => c.experience === 'Low').length;
+    const expPercentage = totalStoreCalls ? Math.round((highExpCalls / totalStoreCalls) * 100) : 0;
+
+    const highIntentCalls = storeCalls.filter((c) => c.intent === 'High').length;
+    const conversionPotential = totalStoreCalls ? Math.round((highIntentCalls / totalStoreCalls) * 100) : 0;
+
+    const recentPeriods = temporalData.slice(-3);
+    const trend = recentPeriods.length >= 2
+      ? recentPeriods[recentPeriods.length - 1].overallScore - recentPeriods[0].overallScore
+      : 0;
+
+    const performanceSummary = avgOverall >= 85
+      ? `${selectedStore} demonstrates excellent performance with an overall score of ${avgOverall}. The team consistently delivers high-quality customer interactions across all touchpoints.`
+      : avgOverall >= 70
+        ? `${selectedStore} shows good performance with an overall score of ${avgOverall}. Fundamentals are strong with room for optimization in specific areas.`
+        : `${selectedStore} has an overall score of ${avgOverall}, indicating significant opportunities for improvement. Focused training and process refinement are recommended.`;
+
+    const trendAnalysis = trend > 5
+      ? ` Recent trends show positive momentum with a ${trend}-point improvement.`
+      : trend < -5
+        ? ` Recent performance has declined by ${Math.abs(trend)} points, requiring attention.`
+        : ' Performance has remained stable in recent periods.';
+
+    const improvementAreas = weaknesses.length > 0
+      ? `Primary focus areas include ${weaknesses[0][0]} (${weaknesses[0][1]}/100) and ${weaknesses[1][0]} (${weaknesses[1][1]}/100). `
+        + `${weaknesses[0][1] < 70 ? `${weaknesses[0][0]} needs targeted coaching and playbook reinforcement.` : 'Incremental improvements here will lift overall performance.'}`
+      : 'Performance metrics are balanced. Focus on maintaining consistency and exploring advanced techniques.';
+
+    const customerExpSummary = expPercentage >= 60
+      ? `Customer experience is strong with ${expPercentage}% of interactions rated high quality. ${conversionPotential}% of calls show high purchase intent, representing solid conversion opportunities.`
+      : expPercentage >= 40
+        ? `Customer experience is moderate with ${expPercentage}% high-quality interactions. Elevating the ${medExpCalls + lowExpCalls} medium/low experience calls will lift satisfaction scores.`
+        : `Customer experience needs improvement with only ${expPercentage}% high-quality interactions. ${highIntentCalls > 0 ? `Despite ${conversionPotential}% high-intent calls, experience gaps may be impacting conversions.` : 'Low intent signals suggest the need for better qualification and engagement strategies.'}`;
 
     return {
-      ...storeData,
-      intentDist,
-      experienceDist,
-      typeDist,
-      topAgents: sortedAgents,
-      recentCalls: filteredStoreCalls.slice(-10).reverse()
+      temporalData,
+      analysis: {
+        performanceSummary: performanceSummary + trendAnalysis,
+        improvementAreas,
+        customerExpSummary,
+        strengths: strengths.map((s) => ({ name: s[0], score: s[1] })),
+        weaknesses: weaknesses.map((s) => ({ name: s[0], score: s[1] })),
+        totalCalls: totalStoreCalls,
+        avgScore: avgOverall,
+        expBreakdown: { high: highExpCalls, medium: medExpCalls, low: lowExpCalls },
+      },
     };
-  }, [selectedStore, storePeriod, filteredCalls, metrics.storePerformance]);
+  }, [selectedStore, storePeriod, videoCalls, metrics.storePerformance]);
 
-  const regions = ['South', 'West', 'North', 'East'];
-  const cities = ['Bangalore', 'Mumbai', 'Hyderabad', 'Chennai', 'Delhi'];
+  const regions = useMemo(() => {
+    const standardRegions = ['South', 'West', 'North', 'East'];
+    const uniqueRegions = [...new Set(videoCalls.map(call => call.region).filter(Boolean))]
+      .filter((r) => r !== 'Unknown');
+
+    // Always include standard regions; keep order consistent
+    const mergedRegions = [...new Set([...standardRegions, ...uniqueRegions])];
+    return mergedRegions.length > 0 ? mergedRegions : standardRegions;
+  }, [videoCalls]);
+
+  const cities = useMemo(() => {
+    const uniqueCities = [...new Set(videoCalls.map(call => call.city).filter(Boolean))];
+    return uniqueCities.length > 0 ? uniqueCities : ['Bangalore', 'Mumbai', 'Hyderabad', 'Chennai', 'Delhi'];
+  }, [videoCalls]);
+
+  // Ensure selected city is valid when switching to city view
+  useEffect(() => {
+    if (view === 'city' && !cities.includes(selectedCity)) {
+      setSelectedCity(cities[0] || 'Bangalore');
+    }
+  }, [view, cities, selectedCity]);
+
+  // Ensure selected region is valid when switching to region view
+  useEffect(() => {
+    if (view === 'region' && !regions.includes(selectedRegion)) {
+      setSelectedRegion(regions[0] || 'South');
+    }
+  }, [view, regions, selectedRegion]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center text-white">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-lg text-gray-400">Loading video analytics...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading video analytics...</div>
       </div>
     );
   }
 
   if (!videoCalls.length) {
     return (
-      <div className="min-h-screen bg-[#08080c] text-white p-8">
-        <div className="max-w-7xl mx-auto">
-          <button
-            onClick={() => navigate('/video-reports')}
-            className="flex items-center gap-2 text-amber-400 hover:text-amber-300 mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Video Reports</span>
-          </button>
-          <div className="text-center py-16">
-            <Video className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-xl text-gray-400">No analyzed video calls available</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">No video call data available for aggregated view.</p>
+          <Link to="/video-reports" className="text-blue-600 hover:text-blue-700 font-semibold">
+            ← Back to Video Reports
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-white relative">
-      {/* Grain overlay */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-10 mix-blend-soft-light"
-        style={{
-          backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-        }}
-      />
+    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Grain texture overlay */}
+      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
+      }}></div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-8 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => navigate('/video-reports')}
-              className="flex items-center gap-2 text-amber-400 hover:text-amber-300 mb-4 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="text-sm font-medium">Back to Video Reports</span>
-            </button>
-            <h1 className="text-4xl font-['Fraunces',serif] font-bold tracking-tight mb-2">Video Call Analytics</h1>
-            <p className="text-gray-400 text-lg">Performance insights and metrics across all video interactions</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleDownloadReports}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition"
-            >
-              <Download className="w-4 h-4" />
-              Download All Reports
-            </button>
-            <div className="flex items-center gap-3 bg-[#0f0f14] border border-white/10 rounded-xl px-4 py-2">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
-                style={{ colorScheme: 'dark' }}
-              >
-                <option value="last7" className="bg-[#0f0f14] text-gray-200">Last 7 Days</option>
-                <option value="last30" className="bg-[#0f0f14] text-gray-200">Last 30 Days</option>
-                <option value="last90" className="bg-[#0f0f14] text-gray-200">Last 90 Days</option>
-                <option value="ytd" className="bg-[#0f0f14] text-gray-200">Year to Date</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+      {/* Header */}
+      <div className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border-b border-white/6 shadow-2xl relative z-10">
+        <div className="max-w-[1600px] mx-auto px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link to="/video-reports" className="p-2 hover:bg-white/5 rounded-lg transition">
+                <ArrowLeft className="w-5 h-5 text-gray-400" />
+              </Link>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight mb-1" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
+                  Video Call Analytics
+                </h1>
+                <p className="text-gray-400 text-sm">Aggregated insights across recorded video calls</p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2 bg-[#0f0f14] rounded-xl p-1 border border-white/10">
-            {[
-              { value: 'overall', label: 'Overall' },
-              { value: 'regional', label: 'Regional' },
-              { value: 'city', label: 'City' },
-              { value: 'store', label: 'Store' }
-            ].map((v) => (
+            <div className="flex items-center gap-3">
               <button
-                key={v.value}
-                onClick={() => setView(v.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  view === v.value
-                    ? 'bg-amber-500 text-[#0b0b10]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+                onClick={handleDownloadReports}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition"
               >
-                {v.label}
+                <Download className="w-4 h-4" />
+                Download All Reports
               </button>
-            ))}
-          </div>
-
-          {view === 'regional' && (
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="px-4 py-2 bg-[#0f0f14] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/50"
-            >
-              {regions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          )}
-
-          {view === 'city' && (
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="px-4 py-2 bg-[#0f0f14] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/50"
-            >
-              {cities.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          )}
-
-          {view === 'store' && (
-            <>
-              <select
-                value={selectedStore}
-                onChange={(e) => setSelectedStore(e.target.value)}
-                className="px-4 py-2 bg-[#0f0f14] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/50"
-              >
-                <option value="">Select Store</option>
-                {Object.keys(metrics.storePerformance).map((store) => (
-                  <option key={store} value={store}>{store}</option>
-                ))}
-              </select>
-              {selectedStore && (
+              <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
+                <Calendar className="w-4 h-4 text-gray-500" />
                 <select
-                  value={storePeriod}
-                  onChange={(e) => setStorePeriod(e.target.value)}
-                  className="px-4 py-2 bg-[#0f0f14] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
                 >
-                  <option value="week">Last Week</option>
-                  <option value="month">Last Month</option>
-                  <option value="all">All Time</option>
+                  <option value="last7" className="bg-[#1a1a1f] text-gray-200">Last 7 Days</option>
+                  <option value="last30" className="bg-[#1a1a1f] text-gray-200">Last 30 Days</option>
+                  <option value="last90" className="bg-[#1a1a1f] text-gray-200">Last 90 Days</option>
+                  <option value="ytd" className="bg-[#1a1a1f] text-gray-200">Year to Date</option>
                 </select>
-              )}
-            </>
-          )}
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-6">
+            <button
+              onClick={() => setView('overall')}
+              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                view === 'overall'
+                  ? 'bg-amber-500 text-gray-900 shadow-lg'
+                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+              }`}
+            >
+              Overall Overview
+            </button>
+            <button
+              onClick={() => setView('region')}
+              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                view === 'region'
+                  ? 'bg-amber-500 text-gray-900 shadow-lg'
+                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+              }`}
+            >
+              Region-wise
+            </button>
+            <button
+              onClick={() => setView('city')}
+              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                view === 'city'
+                  ? 'bg-amber-500 text-gray-900 shadow-lg'
+                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+              }`}
+            >
+              City-wise
+            </button>
+
+            {view === 'region' && (
+              <div className="flex items-center gap-2 ml-8 pl-8 border-l border-white/10">
+                <Filter className="w-4 h-4 text-gray-500" />
+                {regions.map((region) => (
+                  <button
+                    key={region}
+                    onClick={() => setSelectedRegion(region)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      selectedRegion === region
+                        ? 'bg-amber-500 text-gray-900'
+                        : 'bg-[#16161d] text-gray-400 hover:bg-white/5 hover:text-gray-100'
+                    }`}
+                  >
+                    {region}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {view === 'city' && (
+              <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  {cities.map((city) => (
+                    <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
+                      {city}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto px-8 py-8 relative z-10">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-3 gap-6 mb-8">
+          <div
+            onClick={() => navigateWithFilter(() => true, 'All calls (current filters)')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-transparent"></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-indigo-900/20 rounded-lg">
+                <Video className="w-6 h-6 text-indigo-400" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-100">{metrics.total.toLocaleString()}</p>
+                <p className="text-sm text-gray-400 mt-1">Total Calls Analyzed</p>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-white/6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Avg. per store</span>
+                <span className="font-semibold text-gray-100">
+                  {metrics.storePerformance.length ? Math.round(metrics.total / metrics.storePerformance.length) : 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigateWithFilter((c) => c.type === 'Sales', 'Sales calls')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent"></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-emerald-900/20 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-emerald-400">{metrics.salesCalls}</p>
+                <p className="text-sm text-gray-400 mt-1">Sales Calls</p>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-white/6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Sales Ratio</span>
+                <span className="font-semibold text-gray-100">
+                  {metrics.total ? Math.round((metrics.salesCalls / metrics.total) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigateWithFilter((c) => c.type === 'Service', 'Service calls')}
+            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-transparent"></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-blue-900/20 rounded-lg">
+                <Users className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-blue-400">{metrics.serviceCalls}</p>
+                <p className="text-sm text-gray-400 mt-1">Service Calls</p>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-white/6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Service Ratio</span>
+                <span className="font-semibold text-gray-100">
+                  {metrics.total ? Math.round((metrics.serviceCalls / metrics.total) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Key Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm uppercase tracking-wider text-gray-500">Total Video Calls</span>
-              <Video className="w-6 h-6 text-purple-400" />
+        {/* Intent × Customer Experience Matrix */}
+        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-8 mb-8">
+          <h2 className="text-xl font-semibold text-gray-100 mb-6 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
+            <Award className="w-6 h-6 text-amber-400" />
+            Intent x Customer Experience Matrix
+          </h2>
+
+          <div className="overflow-hidden">
+            <div className="grid grid-cols-4 gap-3">
+              <div></div>
+              <div className="text-center font-semibold text-sm text-gray-300 py-3">High Experience</div>
+              <div className="text-center font-semibold text-sm text-gray-300 py-3">Medium Experience</div>
+              <div className="text-center font-semibold text-sm text-gray-300 py-3">Low Experience</div>
+
+              {['High', 'Medium', 'Low'].map((intent) => (
+                <React.Fragment key={intent}>
+                  <div className="flex items-center font-semibold text-sm text-gray-300 pr-4 justify-end">
+                    {intent} Intent
+                  </div>
+                  {['High', 'Medium', 'Low'].map((exp) => (
+                    <div
+                      key={`${intent}-${exp}`}
+                      onClick={() => navigateWithFilter((c) => c.intent === intent && c.experience === exp, `${intent} intent × ${exp} experience`)}
+                      className={`rounded-lg p-6 text-center transition-all hover:scale-105 cursor-pointer ${getMatrixColor(metrics.matrix[intent][exp], maxMatrixValue)}`}
+                    >
+                      <div className="text-3xl font-bold mb-1">{metrics.matrix[intent][exp]}</div>
+                      <div className="text-xs opacity-75">calls</div>
+                    </div>
+                  ))}
+                </React.Fragment>
+              ))}
             </div>
-            <div className="text-4xl font-['Fraunces',serif] font-bold text-white">{metrics.total}</div>
-            <div className="mt-2 text-xs text-gray-400">Analyzed sessions</div>
           </div>
 
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm uppercase tracking-wider text-gray-500">Avg Product Demo</span>
-              <BarChart3 className="w-6 h-6 text-green-400" />
+          <div className="mt-6 pt-6 border-t border-white/6">
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-gradient-to-br from-amber-500 to-orange-600"></div>
+                <span className="text-gray-400">High Volume</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-gradient-to-br from-amber-400/80 to-orange-500/80"></div>
+                <span className="text-gray-400">Medium Volume</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-amber-900/30 border border-amber-600/30"></div>
+                <span className="text-gray-400">Low Volume</span>
+              </div>
             </div>
-            <div className={`text-4xl font-['Fraunces',serif] font-bold ${getScoreColor(metrics.avgProductDemo)}`}>
-              {metrics.avgProductDemo.toFixed(1)}<span className="text-xl text-gray-500">/5</span>
-            </div>
-            <div className="mt-2 text-xs text-gray-400">Visual demo quality</div>
           </div>
+        </div>
 
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm uppercase tracking-wider text-gray-500">Avg RELAX Score</span>
+        {/* Store Performance Table */}
+        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden mb-8">
+          <div className="p-8 border-b border-white/6">
+            <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
               <TrendingUp className="w-6 h-6 text-amber-400" />
-            </div>
-            <div className={`text-4xl font-['Fraunces',serif] font-bold ${getScoreColor(metrics.avgRelax)}`}>
-              {metrics.avgRelax.toFixed(1)}<span className="text-xl text-gray-500">/5</span>
-            </div>
-            <div className="mt-2 text-xs text-gray-400">Sales methodology</div>
+              Store Performance Analysis
+            </h2>
+            <p className="text-sm text-gray-400 mt-1">RELAX Framework Scores & Key Metrics</p>
           </div>
 
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm uppercase tracking-wider text-gray-500">Visit Invitations</span>
-              <Users className="w-6 h-6 text-green-400" />
-            </div>
-            <div className="text-4xl font-['Fraunces',serif] font-bold text-green-400">
-              {metrics.invitationAttemptRate.toFixed(0)}<span className="text-xl text-gray-500">%</span>
-            </div>
-            <div className="mt-2 text-xs text-gray-400">Attempt rate</div>
-          </div>
-        </div>
-
-        {/* Secondary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <span className="text-sm uppercase tracking-wider text-gray-500 block mb-4">Avg Soft Skills</span>
-            <div className={`text-3xl font-['Fraunces',serif] font-bold ${getScoreColor(metrics.avgSoftSkills)}`}>
-              {metrics.avgSoftSkills.toFixed(1)}<span className="text-lg text-gray-500">/5</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <span className="text-sm uppercase tracking-wider text-gray-500 block mb-4">Customer Satisfaction</span>
-            <div className={`text-3xl font-['Fraunces',serif] font-bold ${getScoreColor(metrics.avgCustomerSat)}`}>
-              {metrics.avgCustomerSat.toFixed(1)}<span className="text-lg text-gray-500">/5</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-6">
-            <span className="text-sm uppercase tracking-wider text-gray-500 block mb-4">Business Satisfaction</span>
-            <div className={`text-3xl font-['Fraunces',serif] font-bold ${getScoreColor(metrics.avgBusinessSat)}`}>
-              {metrics.avgBusinessSat.toFixed(1)}<span className="text-lg text-gray-500">/5</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Intent Breakdown */}
-        <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-          <h2 className="text-xl font-['Fraunces',serif] font-semibold mb-6">Purchase Intent Distribution</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.entries(metrics.intentBreakdown).map(([intent, count]) => {
-              const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
-              const colorClass = intent === 'High' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
-                                intent === 'Medium' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
-                                'text-red-400 border-red-500/30 bg-red-500/10';
-              return (
-                <div key={intent} className={`rounded-xl border p-6 ${colorClass}`}>
-                  <div className="text-sm uppercase tracking-wider mb-2">{intent} Intent</div>
-                  <div className={`text-4xl font-['Fraunces',serif] font-bold mb-2`}>{count}</div>
-                  <div className="text-sm opacity-80">{percentage}% of total</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Experience Breakdown */}
-        <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-          <h2 className="text-xl font-['Fraunces',serif] font-semibold mb-6">Customer Experience Distribution</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(metrics.experienceBreakdown).map(([exp, count]) => {
-              const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
-              return (
-                <div key={exp} className="rounded-xl bg-[#16161d] border border-white/5 p-5 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">{exp}</div>
-                  <div className="text-3xl font-['Fraunces',serif] font-bold text-white mb-1">{count}</div>
-                  <div className="text-xs text-gray-400">{percentage}%</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Call Type Breakdown */}
-        <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-          <h2 className="text-xl font-['Fraunces',serif] font-semibold mb-6">Call Type Breakdown</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(metrics.typeBreakdown).map(([type, count]) => {
-              const percentage = metrics.total > 0 ? ((count / metrics.total) * 100).toFixed(1) : 0;
-              return (
-                <div key={type} className="rounded-xl bg-[#16161d] border border-white/5 p-5">
-                  <div className="text-sm text-gray-300 mb-2">{type}</div>
-                  <div className="text-2xl font-['Fraunces',serif] font-bold text-white">{count}</div>
-                  <div className="text-xs text-gray-400 mt-1">{percentage}%</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Intent × Experience Matrix */}
-        <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-          <h2 className="text-xl font-['Fraunces',serif] font-semibold mb-6">Intent × Experience Matrix</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
+              <thead className="bg-[#16161d] border-b border-white/6">
                 <tr>
-                  <th className="text-left text-sm uppercase tracking-wider text-gray-500 pb-4 pr-4">Intent ↓ / Experience →</th>
-                  {['Excellent', 'Good', 'Fair', 'Poor'].map((exp) => (
-                    <th key={exp} className="text-center text-sm uppercase tracking-wider text-gray-500 pb-4 px-3">{exp}</th>
-                  ))}
+                  <th className="text-left px-8 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Store Name
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    # Calls
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Overall Score
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-l border-white/6">
+                    R
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    E
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    L
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    A
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-r border-white/6">
+                    X
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Product Knowledge
+                  </th>
+                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Soft Skills
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {['High', 'Medium', 'Low'].map((intent) => (
-                  <tr key={intent}>
-                    <td className="text-sm font-medium text-gray-300 py-3 pr-4">{intent}</td>
-                    {['Excellent', 'Good', 'Fair', 'Poor'].map((exp) => {
-                      const count = metrics.matrix[intent]?.[exp] || 0;
-                      return (
-                        <td key={exp} className="px-3 py-3">
-                          <div className={`rounded-lg border p-4 text-center ${getMatrixColor(count, maxMatrixValue)}`}>
-                            <div className="text-2xl font-['Fraunces',serif] font-bold text-white">{count}</div>
-                          </div>
-                        </td>
-                      );
-                    })}
+              <tbody className="divide-y divide-white/6">
+                {metrics.storePerformance.map((store) => (
+                  <tr
+                    key={store.storeName}
+                    onClick={() => navigateWithFilter((c) => c.store === store.storeName, `${store.storeName} store calls`)}
+                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <td className="px-8 py-5">
+                      <div>
+                        <div className="font-semibold text-gray-100">{store.storeName}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{store.city}, {store.region}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#16161d] text-gray-300">
+                        {store.totalCalls}
+                      </span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreBg(store.overallScore)} ${getScoreColor(store.overallScore)}`}>
+                        {store.overallScore}
+                      </span>
+                    </td>
+                    <td className="px-4 py-5 text-center border-l border-white/6">
+                      <span className="font-semibold text-gray-300">{store.rapport}</span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className="font-semibold text-gray-300">{store.explore}</span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className="font-semibold text-gray-300">{store.listen}</span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className="font-semibold text-gray-300">{store.advise}</span>
+                    </td>
+                    <td className="px-4 py-5 text-center border-r border-white/6">
+                      <span className="font-semibold text-gray-300">{store.execute}</span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className={`font-semibold ${getScoreColor(store.productKnowledge)}`}>
+                        {store.productKnowledge}
+                      </span>
+                    </td>
+                    <td className="px-4 py-5 text-center">
+                      <span className={`font-semibold ${getScoreColor(store.softSkills)}`}>
+                        {store.softSkills}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* Store Performance Table */}
-        {view !== 'store' && (
-          <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-            <h2 className="text-xl font-['Fraunces',serif] font-semibold mb-6">Store Performance Summary</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left text-xs uppercase tracking-wider text-gray-500 pb-3">Store</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Calls</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Demo</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">RELAX</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Soft Skills</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Invitation</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Cust. Sat.</th>
-                    <th className="text-center text-xs uppercase tracking-wider text-gray-500 pb-3">Invite Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(metrics.storePerformance)
-                    .sort((a, b) => b[1].count - a[1].count)
-                    .map(([store, data]) => (
-                      <tr key={store} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="py-4 text-sm text-gray-300">{store}</td>
-                        <td className="py-4 text-center text-sm font-medium text-white">{data.count}</td>
-                        <td className={`py-4 text-center text-sm font-medium ${getScoreColor(parseFloat(data.avgProductDemo))}`}>{data.avgProductDemo}</td>
-                        <td className={`py-4 text-center text-sm font-medium ${getScoreColor(parseFloat(data.avgRelax))}`}>{data.avgRelax}</td>
-                        <td className={`py-4 text-center text-sm font-medium ${getScoreColor(parseFloat(data.avgSoftSkills))}`}>{data.avgSoftSkills}</td>
-                        <td className={`py-4 text-center text-sm font-medium ${getScoreColor(parseFloat(data.avgInvitation))}`}>{data.avgInvitation}</td>
-                        <td className={`py-4 text-center text-sm font-medium ${getScoreColor(parseFloat(data.avgCustomerSat))}`}>{data.avgCustomerSat}</td>
-                        <td className="py-4 text-center text-sm font-medium text-green-400">{data.invitationRate}%</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+          <div className="px-8 py-4 bg-[#16161d] border-t border-white/6">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <div>
+                <span className="font-semibold">RELAX Framework:</span>
+                <span className="ml-2">R = Rapport | E = Explore | L = Listen | A = Advise | X = Execute</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  <span>85+ Excellent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <span>70-84 Good</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500"></div>
+                  <span>&lt;70 Needs Improvement</span>
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Store Deep Dive */}
-        {view === 'store' && selectedStore && storeAnalysis && (
-          <div className="space-y-6">
-            <div className="rounded-2xl bg-[#0f0f14] border border-white/10 p-7">
-              <h2 className="text-2xl font-['Fraunces',serif] font-semibold mb-6">{selectedStore} - Deep Dive</h2>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Total Calls</div>
-                  <div className="text-2xl font-['Fraunces',serif] font-bold text-white">{storeAnalysis.count}</div>
-                </div>
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Demo Avg</div>
-                  <div className={`text-2xl font-['Fraunces',serif] font-bold ${getScoreColor(parseFloat(storeAnalysis.avgProductDemo))}`}>{storeAnalysis.avgProductDemo}</div>
-                </div>
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">RELAX Avg</div>
-                  <div className={`text-2xl font-['Fraunces',serif] font-bold ${getScoreColor(parseFloat(storeAnalysis.avgRelax))}`}>{storeAnalysis.avgRelax}</div>
-                </div>
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Soft Skills</div>
-                  <div className={`text-2xl font-['Fraunces',serif] font-bold ${getScoreColor(parseFloat(storeAnalysis.avgSoftSkills))}`}>{storeAnalysis.avgSoftSkills}</div>
-                </div>
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Cust. Sat.</div>
-                  <div className={`text-2xl font-['Fraunces',serif] font-bold ${getScoreColor(parseFloat(storeAnalysis.avgCustomerSat))}`}>{storeAnalysis.avgCustomerSat}</div>
-                </div>
-                <div className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                  <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Invite Rate</div>
-                  <div className="text-2xl font-['Fraunces',serif] font-bold text-green-400">{storeAnalysis.invitationRate}%</div>
-                </div>
-              </div>
-
-              {/* Store Intent Distribution */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-4">Intent Distribution</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {Object.entries(storeAnalysis.intentDist).map(([intent, count]) => (
-                    <div key={intent} className="rounded-xl bg-[#16161d] border border-white/5 p-4 text-center">
-                      <div className="text-sm text-gray-400 mb-1">{intent}</div>
-                      <div className="text-xl font-['Fraunces',serif] font-bold text-white">{count}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Top Agents */}
-              {storeAnalysis.topAgents.length > 0 && (
+        {/* Store-wise Deep Dive */}
+        {storeAnalysis && metrics.storePerformance.length > 0 && (
+          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden">
+            <div className="p-8 border-b border-white/6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Top Performing Agents</h3>
-                  <div className="space-y-3">
-                    {storeAnalysis.topAgents.map(([agent, data], idx) => (
-                      <div key={agent} className="flex items-center justify-between rounded-xl bg-[#16161d] border border-white/5 p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-300 font-semibold text-sm">
-                            {idx + 1}
-                          </div>
-                          <span className="text-white font-medium">{agent}</span>
-                        </div>
-                        <div className="flex items-center gap-6 text-sm">
-                          <div>
-                            <span className="text-gray-400">Calls: </span>
-                            <span className="text-white font-medium">{data.count}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">RELAX: </span>
-                            <span className={`font-medium ${getScoreColor(parseFloat(data.avgRelax))}`}>{data.avgRelax}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Soft Skills: </span>
-                            <span className={`font-medium ${getScoreColor(parseFloat(data.avgSoftSkills))}`}>{data.avgSoftSkills}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
+                    <Store className="w-6 h-6 text-amber-400" />
+                    Store-wise Deep Dive
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-1">Temporal performance trends and detailed analytics</p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 bg-[#16161d] rounded-lg px-4 py-2.5 border border-white/6">
+                    <Store className="w-4 h-4 text-gray-500" />
+                    <select
+                      value={selectedStore}
+                      onChange={(e) => setSelectedStore(e.target.value)}
+                      className="bg-transparent font-medium text-sm cursor-pointer outline-none text-gray-200 min-w-[200px]"
+                      style={{ colorScheme: 'dark' }}
+                    >
+                      {metrics.storePerformance.map((store) => (
+                        <option key={store.storeName} value={store.storeName} className="bg-[#1a1a1f] text-gray-200">
+                          {store.storeName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </div>
+
+                  <div className="flex items-center bg-[#16161d] border border-white/6 rounded-lg p-1">
+                    <button
+                      onClick={() => setStorePeriod('day')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        storePeriod === 'day'
+                          ? 'bg-amber-500 text-gray-900 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-100'
+                      }`}
+                    >
+                      Daily
+                    </button>
+                    <button
+                      onClick={() => setStorePeriod('week')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        storePeriod === 'week'
+                          ? 'bg-amber-500 text-gray-900 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-100'
+                      }`}
+                    >
+                      Weekly
+                    </button>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+
+            <div className="p-8 border-b border-white/6">
+              <div className="flex items-center gap-2 mb-6">
+                <BarChart3 className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-semibold text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>
+                  Performance Over Time
+                </h3>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-[#16161d]">
+                    <tr>
+                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        {storePeriod === 'day' ? 'Day' : 'Week'}
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        # Calls
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Overall Score
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-l border-white/6">
+                        R
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        E
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        L
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        A
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-r border-white/6">
+                        X
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Product Knowledge
+                      </th>
+                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        Soft Skills
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/6">
+                    {storeAnalysis.temporalData.map((period, idx) => (
+                      <tr key={idx} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="font-semibold text-gray-100">{period.label}</div>
+                            {period.dateRange && <div className="text-xs text-gray-400 mt-0.5">{period.dateRange}</div>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#16161d] text-gray-300">
+                            {period.count}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {period.count > 0 ? (
+                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreBg(period.overallScore)} ${getScoreColor(period.overallScore)}`}>
+                              {period.overallScore}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center border-l border-white/6">
+                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {period.count > 0 ? period.rapport : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {period.count > 0 ? period.explore : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {period.count > 0 ? period.listen : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {period.count > 0 ? period.advise : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center border-r border-white/6">
+                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {period.count > 0 ? period.execute : '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {period.count > 0 ? (
+                            <span className={`font-semibold ${getScoreColor(period.productKnowledge)}`}>
+                              {period.productKnowledge}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {period.count > 0 ? (
+                            <span className={`font-semibold ${getScoreColor(period.softSkills)}`}>
+                              {period.softSkills}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* AI-Powered Insights */}
+            <div className="p-8 bg-gradient-to-br from-[#0f0f14] to-[#16161d]">
+              <div className="flex items-center gap-2 mb-6">
+                <TrendingUp className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-semibold text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>
+                  AI-Powered Insights & Recommendations
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="p-2 bg-blue-900/20 rounded-lg">
+                      <BarChart3 className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-100 mb-1">Store Performance Summary</h4>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getScoreBg(storeAnalysis.analysis.avgScore)} ${getScoreColor(storeAnalysis.analysis.avgScore)}`}>
+                          {storeAnalysis.analysis.avgScore}/100
+                        </span>
+                        <span className="text-gray-500">•</span>
+                        <span className="text-gray-400">{storeAnalysis.analysis.totalCalls} calls analyzed</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.performanceSummary}</p>
+                  <div className="mt-4 pt-4 border-t border-white/6">
+                    <div className="text-xs font-semibold text-gray-400 mb-2">Top Strengths:</div>
+                    <div className="flex flex-col gap-1">
+                      {storeAnalysis.analysis.strengths.map((strength, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">{strength.name}</span>
+                          <span className={`font-bold ${getScoreColor(strength.score)}`}>{strength.score}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="p-2 bg-amber-900/20 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-100 mb-1">Improvement Areas</h4>
+                      <div className="text-xs text-gray-400">Priority focus recommendations</div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.improvementAreas}</p>
+                  <div className="mt-4 pt-4 border-t border-white/6">
+                    <div className="text-xs font-semibold text-gray-400 mb-2">Development Priorities:</div>
+                    <div className="flex flex-col gap-1">
+                      {storeAnalysis.analysis.weaknesses.map((weakness, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">{weakness.name}</span>
+                          <span className={`font-bold ${getScoreColor(weakness.score)}`}>{weakness.score}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="p-2 bg-emerald-900/20 rounded-lg">
+                      <ThumbsUp className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-100 mb-1">Customer Experience Summary</h4>
+                      <div className="text-xs text-gray-400">Interaction quality & satisfaction</div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.customerExpSummary}</p>
+                  <div className="mt-4 pt-4 border-t border-white/6">
+                    <div className="text-xs font-semibold text-gray-400 mb-2">Experience Breakdown:</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                          <span className="text-gray-300">High Quality</span>
+                        </div>
+                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.high}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                          <span className="text-gray-300">Medium Quality</span>
+                        </div>
+                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.medium}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-rose-500"></div>
+                          <span className="text-gray-300">Low Quality</span>
+                        </div>
+                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.low}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

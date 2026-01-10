@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Phone, MapPin, Calendar, Clock, LogOut, BarChart3, Upload } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
 const CallReportsList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
 
+  const filterIds = location.state?.filterIds;
+  const filterDescription = location.state?.filterDescription;
+
   useEffect(() => {
     fetchReports();
     fetchStats();
   }, []);
+
+  const visibleReports = useMemo(() => {
+    if (!filterIds || !Array.isArray(filterIds)) return reports;
+    return reports.filter((r) => filterIds.includes(r.call_id));
+  }, [reports, filterIds]);
 
   const fetchReports = async () => {
     try {
@@ -122,7 +131,7 @@ const CallReportsList = () => {
 
         {/* Stats Header */}
         {stats && (
-          <div className="grid grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-3 gap-6 mb-6">
             <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent"></div>
               <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Total Calls</div>
@@ -141,9 +150,26 @@ const CallReportsList = () => {
           </div>
         )}
 
+        {filterIds && (
+          <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
+            <div className="text-sm font-semibold">
+              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
+            </div>
+            <button
+              onClick={() => navigate('/call-reports')}
+              className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
+
         {/* Reports Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reports.map((report) => {
+          {visibleReports.length === 0 && (
+            <div className="col-span-full text-center text-gray-400 py-12">No reports match this filter.</div>
+          )}
+          {visibleReports.map((report) => {
             const analysis = report.analysis || {};
             const hasError = analysis.error;
             const functional = analysis.Functional || {};

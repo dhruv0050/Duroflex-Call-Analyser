@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight, BarChart3, Upload } from 'lucide-react';
 
 export default function VideoCallsList() {
@@ -7,10 +7,18 @@ export default function VideoCallsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const filterIds = location.state?.filterIds;
+  const filterDescription = location.state?.filterDescription;
 
   useEffect(() => {
     fetchVideoReports();
   }, []);
+
+  const visibleReports = useMemo(() => {
+    if (!filterIds || !Array.isArray(filterIds)) return reports;
+    return reports.filter((r) => filterIds.includes(r.report_id));
+  }, [reports, filterIds]);
 
   const fetchVideoReports = async () => {
     try {
@@ -92,7 +100,7 @@ export default function VideoCallsList() {
         </div>
 
         {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Total Videos */}
           <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-purple-500/30 transition-all duration-300">
             <div className="flex items-center justify-between mb-4">
@@ -133,6 +141,20 @@ export default function VideoCallsList() {
           </div>
         </div>
 
+        {filterIds && (
+          <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
+            <div className="text-sm font-semibold">
+              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
+            </div>
+            <button
+              onClick={() => navigate('/video-reports')}
+              className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
+
         {/* Error State */}
         {error && (
           <div className="bg-red-900/20 border border-red-600/40 rounded-xl p-4 mb-8">
@@ -153,7 +175,10 @@ export default function VideoCallsList() {
         {/* Video Call Cards Grid */}
         {!error && reports.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {reports.map((report) => {
+            {visibleReports.length === 0 && (
+              <div className="col-span-full text-center text-gray-400 py-12">No reports match this filter.</div>
+            )}
+            {visibleReports.map((report) => {
               const analysis = report.analysis || {};
               const functional = analysis.Functional || {};
               const customer = analysis.Customer_Information || {};
