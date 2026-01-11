@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Video, LogOut, Zap } from 'lucide-react';
+import { Phone, Video } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -13,139 +13,115 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
+    <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-6 sm:px-8 md:px-12" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1400px] mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-16">
-          <div>
-            <h1 className="text-3xl font-semibold text-gray-100 mb-2" style={{ fontFamily: "'Fraunces', serif" }}>
-              Welcome to Duroflex
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-5 mb-12">
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
+              Duroflex Call Analyzer
             </h1>
-            <p className="text-sm text-gray-400">Call Analytics Dashboard</p>
+            <p className="text-sm text-slate-400">
+              Powered by <span className="text-blue-400 font-semibold">Beyond AI</span>
+            </p>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="text-right">
-              <p className="text-xs uppercase tracking-wider text-gray-500">Logged in as</p>
-              <p className="text-sm font-medium text-gray-200">{adminEmail}</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Logged in as</p>
+              <p className="text-sm font-medium text-slate-100">{adminEmail}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-600/30 rounded-lg text-red-400 text-sm font-semibold transition"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:translate-y-[-2px] hover:bg-red-500/15"
             >
-              <LogOut className="w-4 h-4" />
+              <span className="text-lg leading-none">↗</span>
               Logout
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Main Content */}
-        <div className="max-w-2xl">
-          <div className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-100 mb-2" style={{ fontFamily: "'Fraunces', serif" }}>
-              What do you want to analyse?
-            </h2>
-            <p className="text-gray-400 text-sm">Choose the type of call analysis you'd like to explore</p>
-          </div>
-
-          {/* Analysis Options */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Audio Call Reports */}
-            <button
-              onClick={() => navigate('/call-reports/analytics')}
-              className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-amber-500/50 transition overflow-hidden relative"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
-
-              <div className="flex items-start justify-between mb-6">
-                <div className="p-4 bg-emerald-900/20 rounded-xl border border-emerald-600/30 group-hover:border-emerald-600/60 transition">
-                  <Phone className="w-8 h-8 text-emerald-400" />
-                </div>
-              </div>
-
-              <h3 className="text-xl font-semibold text-gray-100 mb-3 text-left" style={{ fontFamily: "'Fraunces', serif" }}>
-                Audio Call Reports
-              </h3>
-              <p className="text-gray-400 text-sm text-left leading-relaxed mb-6">
-                Analyze and review recorded audio call data with comprehensive metrics, customer insights, and agent performance analysis.
-              </p>
-
-              <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
-                <span>Explore Reports</span>
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Video Call Reports */}
-            <button
-              onClick={() => navigate('/video-reports/analytics')}
-              className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-amber-500/50 transition overflow-hidden relative"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
-
-              <div className="flex items-start justify-between mb-6">
-                <div className="p-4 bg-amber-900/20 rounded-xl border border-amber-600/30 group-hover:border-amber-600/60 transition">
-                  <Video className="w-8 h-8 text-amber-400" />
-                </div>
-              </div>
-
-              <h3 className="text-xl font-semibold text-gray-100 mb-3 text-left" style={{ fontFamily: "'Fraunces', serif" }}>
-                Video Call Reports
-              </h3>
-              <p className="text-gray-400 text-sm text-left leading-relaxed mb-6">
-                Analyze and review video call recordings with AI-powered insights, agent performance metrics, and customer interaction analysis.
-              </p>
-
-              <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold">
-                <span>View Video Reports</span>
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Mystery Shopper */}
-            {/* <button
-              onClick={() => navigate('/mystery-shopper')}
-              className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-8 hover:border-purple-500/50 transition overflow-hidden relative"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-purple-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
-
-              <div className="flex items-start justify-between mb-6">
-                <div className="p-4 bg-purple-900/20 rounded-xl border border-purple-600/30 group-hover:border-purple-600/60 transition">
-                  <Zap className="w-8 h-8 text-purple-400" />
-                </div>
-              </div>
-
-              <h3 className="text-xl font-semibold text-gray-100 mb-3 text-left" style={{ fontFamily: "'Fraunces', serif" }}>
-                Mystery Shopper
-              </h3>
-              <p className="text-gray-400 text-sm text-left leading-relaxed mb-6">
-                Evaluate sales staff performance through AI-powered mystery shopping simulations with realistic customer personas.
-              </p>
-
-              <div className="flex items-center gap-2 text-purple-400 text-sm font-semibold">
-                <span>Start Evaluation</span>
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </button> */}
-          </div>
-        </div>
-
-        {/* Footer Info */}
-        <div className="mt-16 pt-8 border-t border-gray-800">
-          <p className="text-xs text-gray-600">
-            Duroflex Call Analytics Dashboard © 2025 | All call data is securely stored and encrypted
+        {/* Hero */}
+        <section className="text-center max-w-4xl mx-auto mb-12 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-100 mb-4">
+            Transform Your Call Data into Actionable Insights
+          </h2>
+          <p className="text-base sm:text-lg text-slate-400 leading-relaxed">
+            Convert unstructured call recordings into valuable intelligence. Understand customer needs, evaluate representative performance, and boost conversion rates with AI-powered analytics.
           </p>
+        </section>
+
+        {/* Value props */}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-12">
+          {[
+            {
+              icon: '🎯',
+              title: 'Understand Customer Intent',
+              desc: "Discover why customers call and what problems they're trying to solve",
+            },
+            {
+              icon: '📊',
+              title: 'Evaluate Performance',
+              desc: 'Analyze how representatives address customer concerns and handle interactions',
+            },
+            {
+              icon: '📈',
+              title: 'Optimize Conversions',
+              desc: 'Identify opportunities to improve conversion rates and customer satisfaction',
+            },
+          ].map(({ icon, title, desc }) => (
+            <div
+              key={title}
+              className="rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] p-6 backdrop-blur transition hover:-translate-y-1 hover:border-blue-500 hover:bg-[#252525]"
+            >
+              {/* <div className="text-3xl mb-3">{icon}</div> */}
+              <h3 className="text-lg font-semibold text-blue-400 mb-2">{title}</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA Cards */}
+        <section className="text-center mb-6">
+          <h3 className="text-xl sm:text-2xl font-semibold text-slate-100">What do you want to analyze?</h3>
+        </section>
+
+        <div className="grid gap-7 md:grid-cols-2 max-w-5xl mx-auto">
+          <button
+            onClick={() => navigate('/call-reports/analytics')}
+            className="group relative overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-8 text-left transition hover:-translate-y-2 hover:border-blue-500 hover:bg-[#252525] hover:shadow-[0_20px_60px_rgba(59,130,246,0.3)]"
+          >
+            <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 origin-left scale-x-0 transition duration-300 group-hover:scale-x-100" />
+            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-cyan-400/10 text-3xl transition group-hover:scale-110 group-hover:rotate-3">
+              <Phone className="h-8 w-8 text-blue-400" />
+            </div>
+            <div className="text-2xl font-semibold mb-3">Audio Call Reports</div>
+            <p className="text-base text-slate-400 leading-relaxed mb-7">
+              Analyze and review recorded audio call data with comprehensive metrics, customer insights, and agent performance analysis.
+            </p>
+            <span className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-white transition group-hover:translate-x-1">
+              Explore Reports
+              <span className="transition group-hover:translate-x-1">→</span>
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/video-reports/analytics')}
+            className="group relative overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] p-8 text-left transition hover:-translate-y-2 hover:border-blue-500 hover:bg-[#252525] hover:shadow-[0_20px_60px_rgba(59,130,246,0.3)]"
+          >
+            <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 origin-left scale-x-0 transition duration-300 group-hover:scale-x-100" />
+            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-cyan-400/10 text-3xl transition group-hover:scale-110 group-hover:rotate-3">
+              <Video className="h-8 w-8 text-blue-400" />
+            </div>
+            <div className="text-2xl font-semibold mb-3">Video Call Reports</div>
+            <p className="text-base text-slate-400 leading-relaxed mb-7">
+              Analyze and review video call recordings with AI-powered insights, agent performance metrics, and customer interaction analysis.
+            </p>
+            <span className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-white transition group-hover:translate-x-1">
+              View Video Reports
+              <span className="transition group-hover:translate-x-1">→</span>
+            </span>
+          </button>
         </div>
       </div>
     </div>

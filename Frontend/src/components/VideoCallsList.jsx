@@ -277,7 +277,7 @@ export default function VideoCallsList() {
                         <div className="bg-[#16161d] rounded-lg p-3">
                           <p className="text-xs text-gray-500 mb-1">Satisfaction</p>
                           <p className="text-lg font-bold text-amber-400">
-                            {satisfactionScore !== undefined && satisfactionScore !== null ? `${satisfactionScore}/10` : 'N/A'}
+                              {satisfactionScore !== undefined && satisfactionScore !== null ? `${satisfactionScore}/5` : 'N/A'}
                           </p>
                         </div>
                         <div className="bg-[#16161d] rounded-lg p-3">

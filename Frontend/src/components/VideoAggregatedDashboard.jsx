@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, TrendingUp, Users, Video, Award, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Phone } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Video, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Phone } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -340,16 +340,83 @@ const VideoAggregatedDashboard = () => {
     return 'bg-rose-50';
   };
 
-  const getMatrixColor = (count, max) => {
-    if (max === 0) return 'bg-[#16161d] text-gray-500';
-    const intensity = count / max;
-    if (intensity > 0.7) return 'bg-gradient-to-br from-amber-500 to-orange-600 text-gray-900 font-bold';
-    if (intensity > 0.4) return 'bg-gradient-to-br from-amber-400/80 to-orange-500/80 text-gray-900 font-semibold';
-    if (intensity > 0.2) return 'bg-amber-900/30 text-amber-300 border border-amber-600/30';
-    return 'bg-[#16161d] text-gray-500';
+  const intents = ['High', 'Medium', 'Low'];
+  const experiences = ['High', 'Medium', 'Low'];
+
+  const matrixPalette = {
+    High: {
+      High: 'from-[#059669] to-[#047857]',
+      Medium: 'from-[#10b981] to-[#059669]',
+      Low: 'from-[#dc2626] to-[#b91c1c]',
+    },
+    Medium: {
+      High: 'from-[#84cc16] to-[#65a30d]',
+      Medium: 'from-[#eab308] to-[#ca8a04]',
+      Low: 'from-[#f97316] to-[#ea580c]',
+    },
+    Low: {
+      High: 'from-[#eab308] to-[#ca8a04]',
+      Medium: 'from-[#d97706] to-[#92400e]',
+      Low: 'from-[#b91c1c] to-[#7f1d1d]',
+    },
   };
 
-  const maxMatrixValue = Math.max(...Object.values(metrics.matrix).flatMap((row) => Object.values(row)), 1);
+  const matrixLabels = {
+    High: { High: 'The Goal', Medium: 'Nurture', Low: 'CRITICAL RISK' },
+    Medium: { High: 'Upsell', Medium: 'Neutral/Baseline', Low: 'Needs Attention' },
+    Low: { High: 'Over-servicing?', Medium: 'Low Priority', Low: 'Inefficiency' },
+  };
+
+  const matrixLegend = [
+    {
+      title: 'Dark Green',
+      desc: 'The Goal - High intent, excellent experience',
+      gradient: 'from-[#059669] to-[#047857]',
+      border: 'border-[#059669]',
+    },
+    {
+      title: 'Light Green',
+      desc: 'Nurture - High intent, room to improve experience',
+      gradient: 'from-[#10b981] to-[#059669]',
+      border: 'border-[#10b981]',
+    },
+    {
+      title: 'Bright Red',
+      desc: 'CRITICAL RISK - High intent, poor experience',
+      gradient: 'from-[#dc2626] to-[#b91c1c]',
+      border: 'border-[#dc2626]',
+    },
+    {
+      title: 'Yellow-Green',
+      desc: 'Upsell - Medium intent with great experience',
+      gradient: 'from-[#84cc16] to-[#65a30d]',
+      border: 'border-[#84cc16]',
+    },
+    {
+      title: 'Yellow',
+      desc: 'Neutral/Baseline - Average performance',
+      gradient: 'from-[#eab308] to-[#ca8a04]',
+      border: 'border-[#eab308]',
+    },
+    {
+      title: 'Orange',
+      desc: 'Needs Attention - Medium intent, poor experience',
+      gradient: 'from-[#f97316] to-[#ea580c]',
+      border: 'border-[#f97316]',
+    },
+    {
+      title: 'Orange-Grey',
+      desc: 'Low Priority - Low intent, medium experience',
+      gradient: 'from-[#d97706] to-[#92400e]',
+      border: 'border-[#d97706]',
+    },
+    {
+      title: 'Muted Red',
+      desc: 'Inefficiency - Low intent, poor experience',
+      gradient: 'from-[#b91c1c] to-[#7f1d1d]',
+      border: 'border-[#b91c1c]',
+    },
+  ];
 
   const storeAnalysis = useMemo(() => {
     if (!selectedStore || !metrics.storePerformance.length) {
@@ -766,53 +833,62 @@ const VideoAggregatedDashboard = () => {
         </div>
 
         {/* Intent × Customer Experience Matrix */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-8 mb-8">
-          <h2 className="text-xl font-semibold text-gray-100 mb-6 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
-            <Award className="w-6 h-6 text-amber-400" />
-            Intent x Customer Experience Matrix
-          </h2>
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 sm:p-8 mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-xl shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+              🎯
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold text-white">Intent × Customer Experience Matrix</h2>
+              <p className="text-sm text-slate-400">Click a cell to drill into matching calls</p>
+            </div>
+          </div>
 
-          <div className="overflow-hidden">
-            <div className="grid grid-cols-4 gap-3">
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-4 sm:p-6 overflow-x-auto">
+            <div className="min-w-[900px] grid grid-cols-[170px_repeat(3,minmax(0,1fr))] gap-4">
               <div></div>
-              <div className="text-center font-semibold text-sm text-gray-300 py-3">High Experience</div>
-              <div className="text-center font-semibold text-sm text-gray-300 py-3">Medium Experience</div>
-              <div className="text-center font-semibold text-sm text-gray-300 py-3">Low Experience</div>
+              {experiences.map((exp) => (
+                <div key={`header-${exp}`} className="text-center font-semibold text-base text-slate-100 py-3">
+                  {exp} Experience
+                </div>
+              ))}
 
-              {['High', 'Medium', 'Low'].map((intent) => (
+              {intents.map((intent) => (
                 <React.Fragment key={intent}>
-                  <div className="flex items-center font-semibold text-sm text-gray-300 pr-4 justify-end">
+                  <div className="flex items-center justify-end pr-4 text-right text-base font-semibold text-slate-100">
                     {intent} Intent
                   </div>
-                  {['High', 'Medium', 'Low'].map((exp) => (
-                    <div
+                  {experiences.map((exp) => (
+                    <button
                       key={`${intent}-${exp}`}
+                      type="button"
                       onClick={() => navigateWithFilter((c) => c.intent === intent && c.experience === exp, `${intent} intent × ${exp} experience`)}
-                      className={`rounded-lg p-6 text-center transition-all hover:scale-105 cursor-pointer ${getMatrixColor(metrics.matrix[intent][exp], maxMatrixValue)}`}
+                      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${matrixPalette[intent][exp]} p-6 sm:p-7 text-center transition transform hover:-translate-y-1 hover:scale-[1.02] shadow-[0_12px_40px_rgba(0,0,0,0.35)]`}
                     >
-                      <div className="text-3xl font-bold mb-1">{metrics.matrix[intent][exp]}</div>
-                      <div className="text-xs opacity-75">calls</div>
-                    </div>
+                      <div className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">{metrics.matrix[intent][exp]}</div>
+                      <div className="text-sm font-medium text-white/80">calls</div>
+                      <div className="mt-3 inline-flex rounded-md bg-black/20 px-3 py-1 text-xs font-semibold text-white/90">
+                        {matrixLabels[intent][exp]}
+                      </div>
+                    </button>
                   ))}
                 </React.Fragment>
               ))}
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-white/6">
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-gradient-to-br from-amber-500 to-orange-600"></div>
-                <span className="text-gray-400">High Volume</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-gradient-to-br from-amber-400/80 to-orange-500/80"></div>
-                <span className="text-gray-400">Medium Volume</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-amber-900/30 border border-amber-600/30"></div>
-                <span className="text-gray-400">Low Volume</span>
-              </div>
+          <div className="mt-7 rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-6">
+            <h3 className="text-lg font-semibold text-slate-100 mb-4">Color Legend & Interpretation</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {matrixLegend.map((item) => (
+                <div key={item.title} className="flex items-center gap-3 rounded-xl bg-[#0a0a0a] p-4">
+                  <div className={`h-12 w-12 rounded-lg border-2 ${item.border} bg-gradient-to-br ${item.gradient}`}></div>
+                  <div className="space-y-1 text-left">
+                    <p className="text-sm font-semibold text-slate-100">{item.title}</p>
+                    <p className="text-xs text-slate-400 leading-snug">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
