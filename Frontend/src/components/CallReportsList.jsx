@@ -194,6 +194,9 @@ const CallReportsList = () => {
     );
   }
 
+  const analyzedCount = reports.filter(r => r.analysis && !r.analysis.error).length;
+  const pendingCount = reports.length - analyzedCount;
+
   return (
     <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Grain texture overlay */}
@@ -342,26 +345,47 @@ const CallReportsList = () => {
           </div>
         )}
 
-        {/* Stats Header */}
-        {stats && (
-          <div className="grid grid-cols-3 gap-6 mb-6">
-            <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent"></div>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Total Calls</div>
-              <div className="text-4xl font-bold text-gray-100">{stats.total_calls}</div>
+        {/* Stats Cards Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* Total Calls */}
+          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                  <Phone className="w-8 h-8 text-amber-400" />
+                </div>
+                <span className="text-gray-400 text-sm font-medium">Total Calls</span>
+              </div>
             </div>
-            <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent"></div>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Converted</div>
-              <div className="text-4xl font-bold text-emerald-400">{stats.converted_calls}</div>
-            </div>
-            <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-transparent"></div>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">Conversion Rate</div>
-              <div className="text-4xl font-bold text-blue-400">{stats.conversion_rate}%</div>
-            </div>
+            <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
           </div>
-        )}
+
+          {/* Analyzed */}
+          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
+                  <BarChart3 className="w-8 h-8 text-green-400" />
+                </div>
+                <span className="text-gray-400 text-sm font-medium">Analyzed</span>
+              </div>
+            </div>
+            <div className="text-4xl font-serif font-bold text-white">{analyzedCount}</div>
+          </div>
+
+          {/* Pending Analysis */}
+          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                  <Clock className="w-8 h-8 text-orange-400" />
+                </div>
+                <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
+              </div>
+            </div>
+            <div className="text-4xl font-serif font-bold text-white">{pendingCount}</div>
+          </div>
+        </div>
 
         {filterIds && (
           <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
