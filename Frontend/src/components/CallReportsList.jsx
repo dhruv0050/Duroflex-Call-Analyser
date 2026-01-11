@@ -61,6 +61,123 @@ const CallReportsList = () => {
     return 'bg-red-900/30 text-red-300 border-red-600/40';
   };
 
+  const [expandedStores, setExpandedStores] = useState(false);
+
+  const ratingToScore = (value, fallback = 75) => {
+    if (value === null || value === undefined) return fallback;
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return fallback;
+    // If the rating is on a 0-5 scale, multiply by 20 to convert to 0-100
+    return Math.round(num * 20);
+  };
+
+  const storePerformanceData = useMemo(() => {
+    const storeMap = {};
+
+    visibleReports.forEach((report) => {
+      const storeName = report.store_name || 'Unknown';
+      const storeKey = storeName;
+      if (!storeMap[storeKey]) {
+        storeMap[storeKey] = {
+          storeName: report.store_name,
+          city: report.city,
+          state: report.state,
+          calls: [],
+        };
+      }
+      storeMap[storeKey].calls.push(report);
+    });
+
+    const performance = Object.values(storeMap)
+      .map((store) => {
+        const calls = store.calls;
+        
+        const processedCalls = calls.map((report) => {
+          const analysis = report.analysis || {};
+          const agent = analysis.Agent_Areas || {};
+          const relax = agent.RELAX_Framework || {};
+          const soft = agent.SoftSkills_Etiquette || {};
+          const knowledge = agent.Verbal_Product_Knowledge || {};
+
+          const reach = relax.R_Reach_Out?.Rating;
+          const explore = relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating;
+          const link = relax.L_Link_Experience?.Rating;
+          const add = relax.A_Add_Value?.Rating;
+          const close = relax.X_Express_Closing?.Rating;
+
+          const rapportScore = ratingToScore(reach, 75);
+          const exploreScore = ratingToScore(explore, 75);
+          const listenScore = ratingToScore(link, 75);
+          const adviseScore = ratingToScore(add, 75);
+          const executeScore = ratingToScore(close, 75);
+
+          const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
+          const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
+          const overallRelax = availableRelax.length
+            ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
+            : 75;
+
+          const productKnowledgeScore = ratingToScore(
+            knowledge.Description_Quality_Rating || knowledge.Technical_Knowledge_Rating,
+            75
+          );
+
+          const softSkillsScore = (() => {
+            const parts = [
+              ratingToScore(soft.Tone_and_Patience_Rating, null),
+              ratingToScore(soft.Hold_Management_Rating, null),
+              ratingToScore(soft.Agent_Language_Fluency_Score, null)
+            ].filter((s) => s !== null);
+            if (!parts.length) return 75;
+            return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+          })();
+
+          return {
+            overall: overallRelax,
+            rapport: rapportScore,
+            explore: exploreScore,
+            listen: listenScore,
+            advise: adviseScore,
+            execute: executeScore,
+            productKnowledge: productKnowledgeScore,
+            softSkills: softSkillsScore,
+          };
+        });
+
+        const avgScore = (metric) => {
+          const scores = processedCalls.map(c => c[metric]).filter(v => v !== undefined && v !== null);
+          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        };
+
+        return {
+          storeName: store.storeName,
+          city: store.city,
+          state: store.state,
+          totalCalls: calls.length,
+          overallScore: avgScore('overall'),
+          rapport: avgScore('rapport'),
+          explore: avgScore('explore'),
+          listen: avgScore('listen'),
+          advise: avgScore('advise'),
+          execute: avgScore('execute'),
+          productKnowledge: avgScore('productKnowledge'),
+          softSkills: avgScore('softSkills'),
+        };
+      })
+      .sort((a, b) => b.overallScore - a.overallScore);
+
+    return performance;
+  }, [visibleReports]);
+
+  const topStores = storePerformanceData.slice(0, 10);
+  const remainingStores = storePerformanceData.slice(10);
+
+  const getScoreBgColor = (score) => {
+    if (score >= 70) return 'text-emerald-400';
+    if (score >= 50) return 'text-amber-400';
+    return 'text-red-400';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
@@ -128,6 +245,102 @@ const CallReportsList = () => {
           </h1>
           <p className="text-sm text-gray-400">Comprehensive analysis of recorded call data</p>
         </div>
+
+        {/* Store Performance Analysis */}
+        {storePerformanceData.length > 0 && (
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
+            <div className="px-8 py-6 border-b border-[#2a2a2a]">
+              <div className="flex items-center gap-4 mb-2">
+                <span className="text-3xl">📊</span>
+                <h2 className="text-2xl font-semibold text-white">Store Performance Analysis</h2>
+              </div>
+              <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores & Key Metrics</p>
+            </div>
+
+            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Stores</p>
+                <p className="text-2xl font-bold text-white">{storePerformanceData.length}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
+                <p className="text-2xl font-bold text-white">{visibleReports.length}</p>
+              </div>
+              {storePerformanceData.length > 0 && (
+                <>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Score</p>
+                    <p className="text-2xl font-bold text-white">{Math.round(storePerformanceData.reduce((sum, s) => sum + s.overallScore, 0) / storePerformanceData.length)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Top Score</p>
+                    <p className="text-2xl font-bold text-emerald-400">{storePerformanceData[0]?.overallScore || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Lowest Score</p>
+                    <p className="text-2xl font-bold text-red-400">{storePerformanceData[storePerformanceData.length - 1]?.overallScore || 0}</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
+                  <tr>
+                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Store Name</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">E</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">A</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">X</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Knowledge</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Soft Skills</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(expandedStores ? storePerformanceData : topStores).map((store) => (
+                    <tr key={store.storeName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
+                      <td className="px-6 py-6">
+                        <div className="font-semibold text-white text-base">{store.storeName}</div>
+                        <div className="text-xs text-slate-500 mt-1">{store.city}, {store.state}</div>
+                      </td>
+                      <td className="text-center px-6 py-6">
+                        <span className="text-slate-200 font-semibold text-base">{store.totalCalls}</span>
+                      </td>
+                      <td className="text-center px-6 py-6">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm" style={{ color: store.overallScore >= 70 ? '#10b981' : store.overallScore >= 50 ? '#f59e0b' : '#dc2626' }}>
+                          {store.overallScore}
+                        </div>
+                      </td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.rapport}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.explore}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.listen}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.advise}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.execute}</span></td>
+                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.productKnowledge >= 70 ? 'text-emerald-400' : store.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.productKnowledge}</span></td>
+                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.softSkills >= 70 ? 'text-emerald-400' : store.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.softSkills}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {remainingStores.length > 0 && (
+              <div className="text-center px-8 py-6 bg-[#1a1a1a] border-t border-[#2a2a2a]">
+                <button
+                  onClick={() => setExpandedStores(!expandedStores)}
+                  className={`inline-flex items-center gap-3 px-8 py-3 rounded-lg font-semibold transition transform hover:-translate-y-0.5 ${expandedStores ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white' : 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white'}`}
+                >
+                  {expandedStores ? 'Show Less' : 'Show More Stores'}
+                  <span className={`text-lg leading-none transition ${expandedStores ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats Header */}
         {stats && (
