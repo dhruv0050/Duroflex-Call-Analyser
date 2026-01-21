@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Play, CheckCircle, Clock, LogOut, Video, ChevronRight, BarChart3, Upload } from 'lucide-react';
+import FloatingChatButton from './FloatingChatButton';
 
 export default function VideoCallsList() {
   const [reports, setReports] = useState([]);
@@ -192,6 +193,9 @@ export default function VideoCallsList() {
         </filter>
         <rect width="100%" height="100%" filter="url(#grain)" />
       </svg>
+
+      {/* Floating Chat Button */}
+      <FloatingChatButton />
 
       {/* Content Container */}
       <div className="relative max-w-[1400px] mx-auto p-8">

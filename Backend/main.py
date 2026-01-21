@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dotenv import load_dotenv
 import os
 import json
@@ -23,6 +23,7 @@ from preprocess_videos import preprocess_all_videos
 from call_upload_service import CallUploadProcessor
 from video_upload_service import VideoUploadProcessor
 from drive_mirror_integration import trigger_drive_mirror
+from video_chatbot_service import chat_with_video_context, get_chat_insights, get_all_video_transcripts
 # from mystery_shopper_service import start_mystery_shopper_session, get_available_personas, MysteryShopperSession
 
 
@@ -82,7 +83,15 @@ class TokenResponse(BaseModel):
     email: str
 
 
-# # Mystery Shopper Models
+class ChatbotMessage(BaseModel):
+    message: str
+    conversation_history: Optional[List[Dict]] = None
+
+
+class ChatbotResponse(BaseModel):
+    status: str
+    response: str
+    message: Optional[str] = None# # Mystery Shopper Models
 # class MysteryShopperStartRequest(BaseModel):
 #     persona: str
 
@@ -545,6 +554,58 @@ async def retry_video_drive_sync(report_id: str):
         }
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== VIDEO CHATBOT ENDPOINTS =====
+
+@app.get("/api/video-chatbot/insights")
+async def get_video_chatbot_insights():
+    """Get summary insights about all video call transcripts"""
+    try:
+        insights = get_chat_insights()
+        return insights
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/video-chatbot/chat")
+async def chat_with_videos(request: ChatbotMessage):
+    """
+    Chat with Gemini AI using all video transcripts as context.
+    Answers questions about customer behavior, sales patterns, etc.
+    """
+    try:
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+        
+        # Call the chatbot service
+        response = chat_with_video_context(
+            user_message=request.message,
+            conversation_history=request.conversation_history
+        )
+        
+        return ChatbotResponse(
+            status="success",
+            response=response
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/video-chatbot/transcripts/count")
+async def get_transcript_count():
+    """Get count of available transcripts"""
+    try:
+        transcripts = get_all_video_transcripts()
+        return {
+            "status": "success",
+            "count": len(transcripts),
+            "message": f"Total transcripts available: {len(transcripts)}"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
