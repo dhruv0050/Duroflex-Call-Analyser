@@ -1,167 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Phone, Video, Headset, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
-
-const formatNumber = (value = 0) => new Intl.NumberFormat('en-US').format(value || 0);
-
-const normalizeIntent = (rating) => {
-  const val = (rating || '').toString().toUpperCase();
-  if (!val) return 'Medium';
-  if (val.includes('HIGH') || val.includes('5')) return 'High';
-  if (val.includes('LOW') || val.includes('1')) return 'Low';
-  return 'Medium';
-};
-
-const deriveType = (objective) => {
-  const text = (objective || '').toLowerCase();
-  const serviceKeywords = ['service', 'support', 'issue', 'complaint', 'warranty', 'return'];
-  return serviceKeywords.some((k) => text.includes(k)) ? 'Service' : 'Sales';
-};
-
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const adminEmail = localStorage.getItem('admin_email') || 'admin@duroflex.com';
-
+const DuroflexInteractionsAnalyzer = () => {
   const [hoveredCard, setHoveredCard] = useState(null);
-  const [audioReports, setAudioReports] = useState([]);
-  const [videoReports, setVideoReports] = useState([]);
-  const [callStats, setCallStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        setLoading(true);
-        const [audioRes, videoRes, statsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/call-reports`),
-          fetch(`${API_BASE}/api/video-reports`),
-          fetch(`${API_BASE}/api/call-reports/stats/overview`).catch(() => null),
-        ]);
-
-        if (audioRes.ok) {
-          const audioJson = await audioRes.json();
-          setAudioReports(audioJson.reports || []);
-        }
-
-        if (videoRes.ok) {
-          const videoJson = await videoRes.json();
-          if (videoJson.status === 'success' && Array.isArray(videoJson.reports)) {
-            setVideoReports(videoJson.reports);
-          }
-        }
-
-        if (statsRes && statsRes.ok) {
-          const statsJson = await statsRes.json();
-          setCallStats(statsJson.stats || null);
-        }
-      } catch (err) {
-        setError('Unable to load dashboard metrics right now.');
-        console.error('Dashboard load error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, []);
-
-  const audioMetrics = useMemo(() => {
-    const calls = audioReports.map((report) => {
-      const analysis = report.analysis || {};
-      const functional = analysis.Functional || {};
-      const customer = analysis.Customer_Information || {};
-
-      return {
-        type: deriveType(functional.Call_Objective_Theme),
-        intent: normalizeIntent(
-          customer.Intent_to_Purchase_Rating || customer.Intent_to_Visit_Rating || customer.Purchase_Intent_Rating
-        ),
-        analyzed: Boolean(report.analysis && !report.analysis.error),
-        store: report.store_name || 'Unknown Store',
-      };
-    });
-
-    const total = calls.length;
-    const analyzed = calls.filter((c) => c.analyzed).length;
-    const sales = calls.filter((c) => c.type === 'Sales').length;
-    const service = calls.filter((c) => c.type === 'Service').length;
-    const highIntent = calls.filter((c) => c.intent === 'High').length;
-    const stores = new Set(calls.map((c) => c.store));
-
-    return {
-      total,
-      analyzed,
-      sales,
-      service,
-      highIntent,
-      coverage: total ? Math.round((analyzed / total) * 100) : 0,
-      salesShare: total ? Math.round((sales / total) * 100) : 0,
-      serviceShare: total ? Math.round((service / total) * 100) : 0,
-      storeList: Array.from(stores),
-    };
-  }, [audioReports]);
-
-  const videoMetrics = useMemo(() => {
-    const calls = videoReports.map((report) => {
-      const analysis = report.analysis_data || {};
-      const functional = analysis.Functional || {};
-      const customer = analysis.Customer_Information || {};
-
-      return {
-        type: deriveType(functional.Call_Objective_Theme),
-        intent: normalizeIntent(customer.Intent_to_Purchase_Rating),
-        analyzed: Boolean(report.analyzed && report.analysis_data),
-        store: functional.Store_Location || report.store_name || 'Unknown Store',
-      };
-    });
-
-    const total = calls.length;
-    const analyzed = calls.filter((c) => c.analyzed).length;
-    const sales = calls.filter((c) => c.type === 'Sales').length;
-    const service = calls.filter((c) => c.type === 'Service').length;
-    const highIntent = calls.filter((c) => c.intent === 'High').length;
-    const stores = new Set(calls.map((c) => c.store));
-
-    return {
-      total,
-      analyzed,
-      sales,
-      service,
-      highIntent,
-      coverage: total ? Math.round((analyzed / total) * 100) : 0,
-      salesShare: total ? Math.round((sales / total) * 100) : 0,
-      serviceShare: total ? Math.round((service / total) * 100) : 0,
-      storeList: Array.from(stores),
-    };
-  }, [videoReports]);
-
-  const combinedMetrics = useMemo(() => {
-    const total = (audioMetrics?.total || 0) + (videoMetrics?.total || 0);
-    const analyzed = (audioMetrics?.analyzed || 0) + (videoMetrics?.analyzed || 0);
-    const sales = (audioMetrics?.sales || 0) + (videoMetrics?.sales || 0);
-    const service = (audioMetrics?.service || 0) + (videoMetrics?.service || 0);
-    const highIntent = (audioMetrics?.highIntent || 0) + (videoMetrics?.highIntent || 0);
-    const uniqueStores = new Set([...(audioMetrics?.storeList || []), ...(videoMetrics?.storeList || [])]);
-
-    return {
-      total,
-      analyzed,
-      sales,
-      service,
-      highIntent,
-      coverage: total ? Math.round((analyzed / total) * 100) : 0,
-      salesShare: total ? Math.round((sales / total) * 100) : 0,
-      serviceShare: total ? Math.round((service / total) * 100) : 0,
-      highIntentShare: total ? Math.round((highIntent / total) * 100) : 0,
-      uniqueStores: uniqueStores.size,
-    };
-  }, [audioMetrics, videoMetrics]);
-
-  const moduleCards = [
-{
+  
+  const modules = [
+    {
       id: 'gmb',
       title: 'GMB Calls',
       badge: 'Inbound',
@@ -173,8 +16,7 @@ const Dashboard = () => {
           <path d="M14.05 6A5 5 0 0 1 18 10" opacity="0.5"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/call-reports/analytics')
+      stats: { calls: '2,847', trend: '+12%' }
     },
     {
       id: 'popin',
@@ -187,8 +29,7 @@ const Dashboard = () => {
           <rect x="2" y="6" width="14" height="12" rx="2"/>
         </svg>
       ),
-      stats: { calls: formatNumber(videoMetrics.total), trend: `${videoMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/video-reports/analytics')
+      stats: { calls: '1,234', trend: '+8%' }
     },
     {
       id: 'walkin',
@@ -201,8 +42,7 @@ const Dashboard = () => {
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/')
+      stats: { calls: '3,156', trend: '+15%' }
     },
     {
       id: 'abc',
@@ -215,31 +55,9 @@ const Dashboard = () => {
           <path d="M12 6v6l4 2"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/')
+      stats: { calls: '892', trend: '+22%' }
     }
   ];
-
-  const headlineMetrics = [
-    { value: formatNumber(combinedMetrics.analyzed), label: 'Calls Analyzed' },
-    { value: `${callStats?.conversion_rate ?? 0}%`, label: 'Audio Conversion Rate' },
-    { value: `${combinedMetrics.salesShare}%`, label: 'Sales Interaction Mix' },
-    { value: formatNumber(combinedMetrics.uniqueStores), label: 'Stores Covered' },
-  ];
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('admin_email');
-    navigate('/');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-gray-50/50 to-white text-gray-600">
-        <div className="text-sm font-semibold tracking-wide">Loading dashboard metrics…</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/50 to-white" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -272,12 +90,9 @@ const Dashboard = () => {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-xs uppercase tracking-widest text-gray-400 font-medium">Logged in as</p>
-              <p className="text-sm font-semibold text-gray-700">{adminEmail}</p>
+              <p className="text-sm font-semibold text-gray-700">admin@duroflex.com</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-red-100 hover:border-red-200 bg-white hover:bg-red-50 text-red-600 font-semibold text-sm transition-all duration-300 shadow-sm hover:shadow-md"
-            >
+            <button className="group flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-red-100 hover:border-red-200 bg-white hover:bg-red-50 text-red-600 font-semibold text-sm transition-all duration-300 shadow-sm hover:shadow-md">
               <span>Logout</span>
               <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -291,7 +106,6 @@ const Dashboard = () => {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 border border-red-100 mb-6">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-sm font-medium text-red-700">AI-Powered Analytics Platform</span>
-            <span className="text-xs text-gray-500">{combinedMetrics.coverage}% of conversations analyzed</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
             Transform Every <span className="text-red-600">Conversation</span> Into Insight
@@ -304,7 +118,7 @@ const Dashboard = () => {
         {/* Value Props - Compact Horizontal Strip */}
         <section className="mb-16">
           <div className="flex flex-col sm:flex-row items-stretch justify-center gap-0 rounded-2xl bg-gradient-to-r from-gray-50 via-white to-gray-50 border border-gray-100 overflow-hidden shadow-sm">
-            {[ 
+            {[
               { 
                 title: 'Customer Intent', 
                 desc: 'Decode why customers call',
@@ -344,7 +158,7 @@ const Dashboard = () => {
               }
             ].map((item, i, arr) => (
               <div 
-                key={item.title} 
+                key={i} 
                 className={`group flex-1 flex items-center gap-4 px-6 py-4 hover:bg-red-50/50 transition-all duration-300 cursor-default ${
                   i < arr.length - 1 ? 'sm:border-r border-b sm:border-b-0 border-gray-100' : ''
                 }`}
@@ -371,13 +185,12 @@ const Dashboard = () => {
 
         {/* Module Cards */}
         <section className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mb-16">
-          {moduleCards.map((module, index) => (
+          {modules.map((module, index) => (
             <button
               key={module.id}
               className="group relative text-left rounded-3xl bg-white border-2 border-gray-100 hover:border-red-300 p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-red-100/40 hover:-translate-y-1 overflow-hidden"
               onMouseEnter={() => setHoveredCard(module.id)}
               onMouseLeave={() => setHoveredCard(null)}
-              onClick={module.onClick}
               style={{ animationDelay: `${index * 100}ms` }}
             >
               {/* Animated top border */}
@@ -417,7 +230,7 @@ const Dashboard = () => {
                   {/* Stats */}
                   <div className="text-right">
                     <p className="text-2xl font-bold text-gray-900">{module.stats.calls}</p>
-                    <p className="text-xs font-semibold text-emerald-600">{module.stats.trend}</p>
+                    <p className="text-xs font-semibold text-emerald-600">{module.stats.trend} this month</p>
                   </div>
                 </div>
                 
@@ -449,7 +262,12 @@ const Dashboard = () => {
         {/* Footer Stats */}
         <section className="border-t border-gray-100 pt-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
-            {headlineMetrics.map((stat, i) => (
+            {[
+              { value: '8,129', label: 'Total Calls Analyzed' },
+              { value: '94%', label: 'Analysis Accuracy' },
+              { value: '2.3s', label: 'Avg Processing Time' },
+              { value: '156', label: 'Active Agents' }
+            ].map((stat, i) => (
               <div key={i}>
                 <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                 <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
@@ -457,13 +275,6 @@ const Dashboard = () => {
             ))}
           </div>
         </section>
-
-        {/* Error Banner */}
-        {error && (
-          <div className="mt-8 text-center text-sm text-red-500 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
-            {error}
-          </div>
-        )}
 
         {/* Footer */}
         <footer className="mt-16 pt-8 border-t border-gray-100 text-center">
@@ -501,4 +312,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default DuroflexInteractionsAnalyzer;

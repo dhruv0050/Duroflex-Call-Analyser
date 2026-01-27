@@ -11,6 +11,7 @@ import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
 import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
 import VideoCallUpload from './components/VideoCallUpload';
+import DuroflexInteractionsAnalyzer from './components/Land';
 // import MysteryShopperChat from './components/MysteryShopperChat';
 
 // Protected Route Component
@@ -26,6 +27,7 @@ function App() {
         <Routes>
           {/* Public Route */}
           <Route path="/" element={<Login />} />
+          <Route path="/land" element={<DuroflexInteractionsAnalyzer />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
