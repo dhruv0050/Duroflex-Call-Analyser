@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Video, Headset, Sparkles } from 'lucide-react';
+import { Phone, Video, Headset, Sparkles, PhoneOff } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -27,7 +27,9 @@ const Dashboard = () => {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [audioReports, setAudioReports] = useState([]);
   const [videoReports, setVideoReports] = useState([]);
+  const [outboundReports, setOutboundReports] = useState([]);
   const [callStats, setCallStats] = useState(null);
+  const [outboundStats, setOutboundStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -35,10 +37,12 @@ const Dashboard = () => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [audioRes, videoRes, statsRes] = await Promise.all([
+        const [audioRes, videoRes, statsRes, outboundRes, outboundStatsRes] = await Promise.all([
           fetch(`${API_BASE}/api/call-reports`),
           fetch(`${API_BASE}/api/video-reports`),
           fetch(`${API_BASE}/api/call-reports/stats/overview`).catch(() => null),
+          fetch(`${API_BASE}/api/outbound-calls`).catch(() => null),
+          fetch(`${API_BASE}/api/outbound-calls/stats/overview`).catch(() => null),
         ]);
 
         if (audioRes.ok) {
@@ -56,6 +60,16 @@ const Dashboard = () => {
         if (statsRes && statsRes.ok) {
           const statsJson = await statsRes.json();
           setCallStats(statsJson.stats || null);
+        }
+
+        if (outboundRes && outboundRes.ok) {
+          const outboundJson = await outboundRes.json();
+          setOutboundReports(outboundJson.reports || []);
+        }
+
+        if (outboundStatsRes && outboundStatsRes.ok) {
+          const outboundStatsJson = await outboundStatsRes.json();
+          setOutboundStats(outboundStatsJson.stats || null);
         }
       } catch (err) {
         setError('Unable to load dashboard metrics right now.');
@@ -138,6 +152,33 @@ const Dashboard = () => {
     };
   }, [videoReports]);
 
+  const outboundMetrics = useMemo(() => {
+    const calls = outboundReports.map((report) => {
+      const analysis = report.analysis || {};
+      const pillar1 = analysis.Pillar_1_Customer_Intent_and_Barriers || {};
+      
+      return {
+        intent: pillar1.Intent_to_Purchase_Rating || 'MEDIUM',
+        analyzed: Boolean(report.analysis),
+        store: report.store_name || 'Unknown Store',
+      };
+    });
+
+    const total = calls.length;
+    const analyzed = calls.filter((c) => c.analyzed).length;
+    const highIntent = calls.filter((c) => c.intent === 'HIGH').length;
+    const stores = new Set(calls.map((c) => c.store));
+
+    return {
+      total,
+      analyzed,
+      highIntent,
+      coverage: total ? Math.round((analyzed / total) * 100) : 0,
+      conversionRate: outboundStats?.conversion_rate || 0,
+      storeList: Array.from(stores),
+    };
+  }, [outboundReports, outboundStats]);
+
   const combinedMetrics = useMemo(() => {
     const total = (audioMetrics?.total || 0) + (videoMetrics?.total || 0);
     const analyzed = (audioMetrics?.analyzed || 0) + (videoMetrics?.analyzed || 0);
@@ -192,17 +233,17 @@ const Dashboard = () => {
     },
     {
       id: 'walkin',
-      title: 'Store Walkin Calls',
+      title: 'Store Walkin Outbound Calls',
       badge: 'Outbound',
-      description: 'Post-visit follow-up call analysis tracking customer satisfaction, feedback collection, and retention metrics.',
+      description: 'Post-visit follow-up call analysis with Pre/Post-Purchase filtering, recovery tracking, and customer barrier identification.',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/')
+      stats: { calls: formatNumber(outboundMetrics.total), trend: `${outboundMetrics.conversionRate}% conversion` },
+      onClick: () => navigate('/outbound-calls/analytics')
     },
     {
       id: 'abc',

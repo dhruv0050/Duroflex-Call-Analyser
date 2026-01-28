@@ -11,8 +11,10 @@ import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
 import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
 import VideoCallUpload from './components/VideoCallUpload';
-import DuroflexInteractionsAnalyzer from './components/Land';
-// import MysteryShopperChat from './components/MysteryShopperChat';
+import OutboundCallsList from './components/OutboundCallsList';
+import OutboundCallUpload from './components/OutboundCallUpload';
+import OutboundCallDetail from './components/OutboundCallDetail';
+import OutboundAggregatedDashboard from './components/OutboundAggregatedDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -27,7 +29,6 @@ function App() {
         <Routes>
           {/* Public Route */}
           <Route path="/" element={<Login />} />
-          <Route path="/land" element={<DuroflexInteractionsAnalyzer />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -45,8 +46,11 @@ function App() {
           <Route path="/video-reports/:reportId" element={<ProtectedRoute><VideoCallDetail /></ProtectedRoute>} />
           <Route path="/video-reports/analytics" element={<ProtectedRoute><VideoAggregatedDashboard /></ProtectedRoute>} />
 
-          {/* Mystery Shopper Route
-          <Route path="/mystery-shopper" element={<ProtectedRoute><MysteryShopperChat /></ProtectedRoute>} /> */}
+          {/* Outbound Call Reports Routes */}
+          <Route path="/outbound-calls" element={<ProtectedRoute><OutboundCallsList /></ProtectedRoute>} />
+          <Route path="/outbound-calls/upload" element={<ProtectedRoute><OutboundCallUpload /></ProtectedRoute>} />
+          <Route path="/outbound-calls/:callId" element={<ProtectedRoute><OutboundCallDetail /></ProtectedRoute>} />
+          <Route path="/outbound-calls/analytics" element={<ProtectedRoute><OutboundAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

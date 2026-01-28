@@ -24,7 +24,9 @@ from call_upload_service import CallUploadProcessor
 from video_upload_service import VideoUploadProcessor
 from drive_mirror_integration import trigger_drive_mirror
 from video_chatbot_service import chat_with_video_context, get_chat_insights, get_all_video_transcripts
-# from mystery_shopper_service import start_mystery_shopper_session, get_available_personas, MysteryShopperSession
+from outbound_call_service import load_outbound_reports, get_outbound_report_by_id, get_outbound_stats, save_outbound_call_to_mongodb, save_discarded_call
+from outbound_processor import OutboundCallUploadProcessor
+
 
 
 def sanitize_nan(obj):
@@ -92,26 +94,6 @@ class ChatbotResponse(BaseModel):
     status: str
     response: str
     message: Optional[str] = None# # Mystery Shopper Models
-# class MysteryShopperStartRequest(BaseModel):
-#     persona: str
-
-
-# class MysteryShopperChatRequest(BaseModel):
-#     session_id: str
-#     staff_message: str
-
-
-# Global store for mystery shopper sessions (in-memory, resets on restart)
-mystery_shopper_sessions = {}
-
-
-# ===== STARTUP EVENT =====
-
-# Startup event disabled to prevent crashes - admin user already exists
-# @app.on_event("startup")
-# async def startup_event():
-#     create_admin_in_db()
-
 
 # ===== AUTHENTICATION ENDPOINTS =====
 
@@ -610,102 +592,138 @@ async def get_transcript_count():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ===== MYSTERY SHOPPER ENDPOINTS =====
+# ===== OUTBOUND CALL ENDPOINTS =====
 
-# @app.get("/api/mystery-shopper/personas")
-# async def get_personas():
-#     """Get list of available mystery shopper personas"""
-#     return get_available_personas()
-
-
-# @app.post("/api/mystery-shopper/start")
-# async def start_mystery_shopper(request: MysteryShopperStartRequest):
-#     """Start a new mystery shopper session"""
-#     try:
-#         session_data = start_mystery_shopper_session(request.persona)
-#         session = session_data["session"]
-#         session_id = session_data["session_id"]
-        
-#         # Store session in memory
-#         mystery_shopper_sessions[session_id] = session
-        
-#         return {
-#             "status": "success",
-#             "session_id": session_id,
-#             "persona": session_data["persona"],
-#             "opening_message": session_data["opening_message"]
-#         }
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/api/mystery-shopper/chat")
-# async def mystery_shopper_chat(request: MysteryShopperChatRequest):
-#     """Send a message to the mystery shopper and get response"""
-#     try:
-#         session_id = request.session_id
-        
-#         # Check if session exists
-#         if session_id not in mystery_shopper_sessions:
-#             raise HTTPException(status_code=404, detail="Session not found")
-        
-#         session = mystery_shopper_sessions[session_id]
-        
-#         # Get customer response
-#         customer_message, internal_analysis = session.add_staff_message(request.staff_message)
-        
-#         # Check if session has ended
-#         session_ended = session.status != "in_progress"
-#         evaluation_report = None
-        
-#         if session_ended:
-#             evaluation_report = session.get_evaluation_report()
-        
-#         return {
-#             "status": "success",
-#             "customer_message": customer_message,
-#             "internal_analysis": {
-#                 "score": internal_analysis.get("score"),
-#                 "product_check": internal_analysis.get("product_check"),
-#                 "objection_status": internal_analysis.get("objection_status"),
-#                 "closing_status": internal_analysis.get("closing_status"),
-#                 "next_move": internal_analysis.get("next_move")
-#             },
-#             "session_status": session.status,
-#             "session_ended": session_ended,
-#             "evaluation_report": evaluation_report
-#         }
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @app.get("/api/mystery-shopper/session/{session_id}")
-# async def get_session_details(session_id: str):
-    """Get current session details and conversation history"""
+@app.get("/api/outbound-calls")
+async def get_all_outbound_calls():
+    """Get all outbound (store walkin follow-up) call reports"""
     try:
-        if session_id not in mystery_shopper_sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        session = mystery_shopper_sessions[session_id]
-        
-        return {
+        reports = load_outbound_reports()
+        response = {
             "status": "success",
-            "session_id": session_id,
-            "persona": session.persona["name"],
-            "session_status": session.status,
-            "conversation_turns": len(session.internal_scores),
-            "conversation_history": session.conversation_history,
-            "internal_scores": session.internal_scores
+            "total": len(reports),
+            "reports": reports
         }
+        return sanitize_nan(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/outbound-calls/{call_id}")
+async def get_outbound_call_report(call_id: str):
+    """Get a specific outbound call report by call ID"""
+    try:
+        report = get_outbound_report_by_id(call_id)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Outbound call report not found for ID {call_id}")
+        response = {
+            "status": "success",
+            "report": report
+        }
+        return sanitize_nan(response)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/outbound-calls/stats/overview")
+async def get_outbound_calls_stats():
+    """Get aggregate statistics for outbound call reports"""
+    try:
+        stats = get_outbound_stats()
+        response = {
+            "status": "success",
+            "stats": stats
+        }
+        return sanitize_nan(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/outbound-calls/upload")
+async def upload_outbound_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV file with outbound call recordings for processing.
+    
+    Processing pipeline:
+    1. Validate CSV structure
+    2. Download audio from recording URLs
+    3. Classify call as PRE-PURCHASE or POST-PURCHASE (using first 20 seconds)
+    4. For PRE-PURCHASE: Full analysis with Gemini 2.0 Flash
+    5. For POST-PURCHASE: Store in separate discarded_calls collection
+    6. Save to MongoDB
+    
+    CSV Requirements:
+    - Store_Name
+    - Recording_URL
+    - Duration
+    - Customer_Name
+    - Customer_Phone
+    - Store_Visit_Date
+    - Products_Shown
+    - Estimated_Deal_Value
+    - Call_Date
+    - Locality
+    - City
+    - State
+    - Region
+    """
+    try:
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
+
+        temp_path = None
+        try:
+            content = await file.read()
+
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as temp_file:
+                temp_file.write(content)
+                temp_path = temp_file.name
+
+            try:
+                processor = OutboundCallUploadProcessor()
+                job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=1.0)
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
+
+            # Save processed pre-purchase calls
+            processed_calls = processor.get_processed_calls()
+            for call_data in processed_calls:
+                save_outbound_call_to_mongodb(call_data)
+
+            # Save discarded post-purchase calls
+            discarded_calls = processor.get_discarded_calls()
+            for call_data in discarded_calls:
+                save_discarded_call(call_data)
+
+            job_status = processor.get_job_status(job_id)
+
+            response = {
+                "status": "processing_complete",
+                "job_id": job_id,
+                "filename": file.filename,
+                "total_records": job_status.get('total_records'),
+                "processed": job_status.get('processed'),
+                "successful": job_status.get('successful'),
+                "failed": job_status.get('failed'),
+                "filtered_out": job_status.get('filtered_out'),
+                "message": f"Processed {job_status.get('successful')} pre-purchase calls, filtered out {job_status.get('filtered_out')} post-purchase calls",
+                "errors": job_status.get('errors')[:10] if isinstance(job_status.get('errors'), list) else job_status.get('errors')
+            }
+
+            return sanitize_nan(response)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API] Outbound call upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 if __name__ == "__main__":
     print("Starting Duroflex Video Analysis API...")
