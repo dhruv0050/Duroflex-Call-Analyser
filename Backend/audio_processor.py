@@ -173,6 +173,76 @@ class GeminiAudioAnalyzer:
                 except:
                     pass
 
+    def analyze_with_prompt(
+        self,
+        audio_data: bytes,
+        prompt: str
+    ) -> Tuple[Optional[Dict], Optional[str]]:
+        """
+        Analyze audio call using a fully formatted prompt.
+
+        Args:
+            audio_data: Raw audio bytes
+            prompt: Fully formatted prompt (no placeholders)
+
+        Returns: (analysis_dict, error_message)
+        """
+        temp_path = None
+        uploaded_file = None
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+                temp_file.write(audio_data)
+                temp_path = temp_file.name
+
+            print(f"[GEMINI] Uploading audio to Gemini storage...")
+
+            uploaded_file = genai.upload_file(temp_path, mime_type="audio/mp3")
+
+            while uploaded_file.state.name == "PROCESSING":
+                time.sleep(1)
+                uploaded_file = genai.get_file(uploaded_file.name)
+
+            if uploaded_file.state.name == "FAILED":
+                return None, "Gemini file processing failed"
+
+            print(f"[GEMINI] Analyzing audio...")
+
+            response = self.model.generate_content([prompt, uploaded_file])
+
+            if not response.text:
+                return None, "Empty response from Gemini"
+
+            json_text = response.text.strip()
+
+            if json_text.startswith("```"):
+                json_text = json_text.split("```")[1]
+                if json_text.startswith("json"):
+                    json_text = json_text[4:]
+            json_text = json_text.strip()
+
+            analysis = json.loads(json_text)
+            print(f"[GEMINI] Analysis complete")
+            return analysis, None
+
+        except json.JSONDecodeError as e:
+            return {"parse_error": str(e), "raw_response": response.text}, None
+        except Exception as e:
+            return None, f"Analysis error: {str(e)}"
+
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+
+            if uploaded_file:
+                try:
+                    genai.delete_file(uploaded_file.name)
+                except:
+                    pass
+
     def analyze_with_retry(
         self,
         audio_data: bytes,

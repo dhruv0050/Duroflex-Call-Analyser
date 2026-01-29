@@ -26,6 +26,8 @@ from drive_mirror_integration import trigger_drive_mirror
 from video_chatbot_service import chat_with_video_context, get_chat_insights, get_all_video_transcripts
 from outbound_call_service import load_outbound_reports, get_outbound_report_by_id, get_outbound_stats, save_outbound_call_to_mongodb, save_discarded_call
 from outbound_processor import OutboundCallUploadProcessor
+from abc_processor import AbcCallProcessor
+from abc_service import load_abc_reports, get_abc_report_by_id, get_abc_stats, save_abc_call_to_mongodb, save_abc_discarded_call
 
 
 
@@ -723,6 +725,117 @@ async def upload_outbound_csv(file: UploadFile = File(...)):
         raise
     except Exception as e:
         print(f"[API] Outbound call upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+# ===== ABC CART RECOVERY CALLS ENDPOINTS =====
+
+@app.get("/api/abc-calls/reports")
+async def get_abc_call_reports():
+    """Get all ABC call reports"""
+    try:
+        reports = load_abc_reports()
+        response = {
+            "status": "success",
+            "total": len(reports),
+            "reports": reports
+        }
+        return sanitize_nan(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/abc-calls/{call_id}")
+async def get_abc_call_report(call_id: str):
+    """Get a specific ABC call report by call ID"""
+    try:
+        report = get_abc_report_by_id(call_id)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"ABC call report not found for ID {call_id}")
+        response = {
+            "status": "success",
+            "report": report
+        }
+        return sanitize_nan(response)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/abc-calls/stats/overview")
+async def get_abc_calls_stats():
+    """Get aggregate statistics for ABC call reports"""
+    try:
+        stats = get_abc_stats()
+        response = {
+            "status": "success",
+            "stats": stats
+        }
+        return sanitize_nan(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/abc-calls/upload")
+async def upload_abc_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV file with ABC Cart Recovery call recordings for processing.
+    """
+    try:
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
+
+        temp_path = None
+        try:
+            content = await file.read()
+
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.csv', delete=False) as temp_file:
+                temp_file.write(content)
+                temp_path = temp_file.name
+
+            try:
+                processor = AbcCallProcessor()
+                job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=1.0)
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
+
+            # Save processed pre-purchase calls
+            processed_calls = processor.processed_calls
+            for call_data in processed_calls:
+                save_abc_call_to_mongodb(call_data)
+
+            # Save discarded post-purchase calls
+            discarded_calls = processor.discarded_calls
+            for call_data in discarded_calls:
+                save_abc_discarded_call(call_data)
+
+            job_status = processor.get_job_status(job_id)
+
+            response = {
+                "status": "processing_complete",
+                "job_id": job_id,
+                "filename": file.filename,
+                "total_records": job_status.get('total_records'),
+                "processed": job_status.get('processed'),
+                "successful": job_status.get('successful'),
+                "failed": job_status.get('failed'),
+                "filtered_out": job_status.get('filtered_out'),
+                "message": f"Processed {job_status.get('successful')} cart recovery calls, filtered out {job_status.get('filtered_out')} post-purchase calls",
+                "errors": job_status.get('errors')[:10] if isinstance(job_status.get('errors'), list) else job_status.get('errors')
+            }
+
+            return sanitize_nan(response)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API] ABC call upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 if __name__ == "__main__":

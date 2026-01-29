@@ -15,6 +15,10 @@ import OutboundCallsList from './components/OutboundCallsList';
 import OutboundCallUpload from './components/OutboundCallUpload';
 import OutboundCallDetail from './components/OutboundCallDetail';
 import OutboundAggregatedDashboard from './components/OutboundAggregatedDashboard';
+import AbcCallUpload from './components/AbcCallUpload';
+import AbcReportsList from './components/AbcReportsList';
+import AbcReportDetail from './components/AbcReportDetail';
+import AbcAggregatedDashboard from './components/AbcAggregatedDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -50,7 +54,13 @@ function App() {
           <Route path="/outbound-calls" element={<ProtectedRoute><OutboundCallsList /></ProtectedRoute>} />
           <Route path="/outbound-calls/upload" element={<ProtectedRoute><OutboundCallUpload /></ProtectedRoute>} />
           <Route path="/outbound-calls/:callId" element={<ProtectedRoute><OutboundCallDetail /></ProtectedRoute>} />
-          <Route path="/outbound-calls/analytics" element={<ProtectedRoute><OutboundAggregatedDashboard /></ProtectedRoute>} />
+                    <Route path="/outbound-calls/analytics" element={<ProtectedRoute><OutboundAggregatedDashboard /></ProtectedRoute>} />
+
+          {/* ABC Cart Recovery Routes */}
+          <Route path="/abc-calls" element={<ProtectedRoute><AbcReportsList /></ProtectedRoute>} />
+          <Route path="/abc-calls/upload" element={<ProtectedRoute><AbcCallUpload /></ProtectedRoute>} />
+          <Route path="/abc-calls/:callId" element={<ProtectedRoute><AbcReportDetail /></ProtectedRoute>} />
+          <Route path="/abc-calls/analytics" element={<ProtectedRoute><AbcAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

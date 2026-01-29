@@ -28,8 +28,10 @@ const Dashboard = () => {
   const [audioReports, setAudioReports] = useState([]);
   const [videoReports, setVideoReports] = useState([]);
   const [outboundReports, setOutboundReports] = useState([]);
+  const [abcReports, setAbcReports] = useState([]);
   const [callStats, setCallStats] = useState(null);
   const [outboundStats, setOutboundStats] = useState(null);
+  const [abcStats, setAbcStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,12 +39,14 @@ const Dashboard = () => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [audioRes, videoRes, statsRes, outboundRes, outboundStatsRes] = await Promise.all([
+        const [audioRes, videoRes, statsRes, outboundRes, outboundStatsRes, abcRes, abcStatsRes] = await Promise.all([
           fetch(`${API_BASE}/api/call-reports`),
           fetch(`${API_BASE}/api/video-reports`),
           fetch(`${API_BASE}/api/call-reports/stats/overview`).catch(() => null),
           fetch(`${API_BASE}/api/outbound-calls`).catch(() => null),
           fetch(`${API_BASE}/api/outbound-calls/stats/overview`).catch(() => null),
+          fetch(`${API_BASE}/api/abc-calls/reports`).catch(() => null),
+          fetch(`${API_BASE}/api/abc-calls/stats/overview`).catch(() => null),
         ]);
 
         if (audioRes.ok) {
@@ -70,6 +74,16 @@ const Dashboard = () => {
         if (outboundStatsRes && outboundStatsRes.ok) {
           const outboundStatsJson = await outboundStatsRes.json();
           setOutboundStats(outboundStatsJson.stats || null);
+        }
+
+        if (abcRes && abcRes.ok) {
+          const abcJson = await abcRes.json();
+          setAbcReports(abcJson.reports || []);
+        }
+
+        if (abcStatsRes && abcStatsRes.ok) {
+          const abcStatsJson = await abcStatsRes.json();
+          setAbcStats(abcStatsJson.stats || null);
         }
       } catch (err) {
         setError('Unable to load dashboard metrics right now.');
@@ -179,6 +193,30 @@ const Dashboard = () => {
     };
   }, [outboundReports, outboundStats]);
 
+  const abcMetrics = useMemo(() => {
+    // Only count analysed calls (pre-purchase) in the main metrics?
+    // Or users want to see total coverage including discarded ones?
+    // The previous modules calculate coverage as Analyzed / Total.
+    // Here total includes Post-Purchase (discarded) calls?
+    // Let's assume total is all reports returned (which are all analysed ones right now based on Get All filtering for pre-purchase + discarded count if we want).
+    // Actually, backend /api/abc-calls returns all reports from `abc_call_reports` collection (Analysed ones).
+    // The stats endpoint returns total_processed, total_analysed (Pre-Purchase), total_discarded (Post-Purchase).
+    
+    // So `abcReports` state contains only ANALYSED calls (Pre-Purchase).
+    // But `abcStats` contains the counts for both.
+
+    const totalAnalysed = abcReports.length; // Actually analysed
+    const totalProcessed = abcStats?.total_processed || totalAnalysed; // Total uploaded/processed
+
+    return {
+      total: totalProcessed,
+      analyzed: totalAnalysed,
+      discarded: abcStats?.total_discarded || 0,
+      coverage: totalProcessed ? Math.round((totalAnalysed / totalProcessed) * 100) : 0,
+      conversionRate: abcStats?.conversion_rate || 0, // Placeholder if we had conversion logic
+    };
+  }, [abcReports, abcStats]);
+
   const combinedMetrics = useMemo(() => {
     const total = (audioMetrics?.total || 0) + (videoMetrics?.total || 0);
     const analyzed = (audioMetrics?.analyzed || 0) + (videoMetrics?.analyzed || 0);
@@ -249,15 +287,14 @@ const Dashboard = () => {
       id: 'abc',
       title: 'ABC Calls',
       badge: 'Outbound',
-      description: 'Abandoned cart and booking follow-up analytics with recovery rate tracking and conversion optimization insights.',
+      description: 'Abandoned cart and booking follow-up analytics with Pre/Post purchase filtering and recovery tracking.',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-          <path d="M12 6v6l4 2"/>
+          <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
-      onClick: () => navigate('/')
+      stats: { calls: formatNumber(abcMetrics.total), trend: `${abcMetrics.coverage}% assessed (Pre-Purchase-Intent)` },
+      onClick: () => navigate('/abc-calls/analytics')
     }
   ];
 
