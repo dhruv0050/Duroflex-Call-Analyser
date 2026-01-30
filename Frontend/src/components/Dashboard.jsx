@@ -20,6 +20,71 @@ const deriveType = (objective) => {
   return serviceKeywords.some((k) => text.includes(k)) ? 'Service' : 'Sales';
 };
 
+// Helpers to extract/format latest datetime from a report list
+const extractDateFromReport = (r) => {
+  if (!r) return null;
+  const tryParse = (v) => {
+    if (!v && v !== 0) return null;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') {
+      const d = new Date(v);
+      return isNaN(d) ? null : d;
+    }
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (!trimmed) return null;
+      const direct = new Date(trimmed);
+      if (!isNaN(direct)) return direct;
+
+      const dashMatch = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{4})(.*)$/);
+      if (dashMatch) {
+        const [, day, month, year, rest] = dashMatch;
+        const timePart = rest.replace(/\./g, ':').trim();
+        const iso = `${year}-${month}-${day}${timePart ? `T${timePart}` : ''}`;
+        const isoDate = new Date(iso);
+        if (!isNaN(isoDate)) return isoDate;
+      }
+    }
+    return null;
+  };
+
+  const candidates = [
+    r.created_at,
+    r.createdAt,
+    r.uploaded_at,
+    r.uploadedAt,
+    r.Call_Time,
+    r.call_time,
+    r.Timestamp,
+    r.timestamp,
+    r.analysis && r.analysis.Functional && r.analysis.Functional.Call_Time,
+    r.analysis_data && r.analysis_data.Functional && r.analysis_data.Functional.Call_Time,
+    r.Functional && r.Functional.Call_Time,
+    r.processed_at,
+    r.upload_timestamp,
+    r.driveSyncedAt,
+    r.metadata && r.metadata.date,
+    r.metadata && r.metadata.clean_datetime,
+    r.analyzed_at,
+    r.created_date,
+    r.call_date,
+  ];
+
+  for (const c of candidates) {
+    const dt = tryParse(c);
+    if (dt) return dt;
+  }
+  return null;
+};
+
+const getLatestDateStr = (reports) => {
+  if (!Array.isArray(reports) || reports.length === 0) return null;
+  const dates = reports.map(extractDateFromReport).filter(Boolean);
+  if (!dates.length) return null;
+  const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
+  return latest.toLocaleString();
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const adminEmail = localStorage.getItem('admin_email') || 'admin@duroflex.com';
@@ -129,6 +194,7 @@ const Dashboard = () => {
       salesShare: total ? Math.round((sales / total) * 100) : 0,
       serviceShare: total ? Math.round((service / total) * 100) : 0,
       storeList: Array.from(stores),
+      latest: getLatestDateStr(audioReports),
     };
   }, [audioReports]);
 
@@ -163,6 +229,7 @@ const Dashboard = () => {
       salesShare: total ? Math.round((sales / total) * 100) : 0,
       serviceShare: total ? Math.round((service / total) * 100) : 0,
       storeList: Array.from(stores),
+      latest: getLatestDateStr(videoReports),
     };
   }, [videoReports]);
 
@@ -190,6 +257,7 @@ const Dashboard = () => {
       coverage: total ? Math.round((analyzed / total) * 100) : 0,
       conversionRate: outboundStats?.conversion_rate || 0,
       storeList: Array.from(stores),
+      latest: getLatestDateStr(outboundReports),
     };
   }, [outboundReports, outboundStats]);
 
@@ -214,6 +282,7 @@ const Dashboard = () => {
       discarded: abcStats?.total_discarded || 0,
       coverage: totalProcessed ? Math.round((totalAnalysed / totalProcessed) * 100) : 0,
       conversionRate: abcStats?.conversion_rate || 0, // Placeholder if we had conversion logic
+      latest: getLatestDateStr(abcReports),
     };
   }, [abcReports, abcStats]);
 
@@ -242,9 +311,9 @@ const Dashboard = () => {
   const moduleCards = [
 {
       id: 'gmb',
-      title: 'GMB Calls',
+      title: 'Google My Business Calls',
       badge: 'Inbound',
-      description: 'Google My Business call analytics with comprehensive metrics, customer intent mapping, and conversion tracking.',
+      description: "When Customers Call to Duroflex Stores' Phone number",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
@@ -252,48 +321,48 @@ const Dashboard = () => {
           <path d="M14.05 6A5 5 0 0 1 18 10" opacity="0.5"/>
         </svg>
       ),
-      stats: { calls: formatNumber(audioMetrics.total), trend: `${audioMetrics.coverage}% analyzed` },
+      stats: { calls: formatNumber(audioMetrics.total), analyzed: formatNumber(audioMetrics.analyzed), latest: audioMetrics.latest },
       onClick: () => navigate('/call-reports/analytics')
     },
     {
       id: 'popin',
-      title: 'Popin Calls',
+      title: 'Popin Video Calls',
       badge: 'Inbound',
-      description: 'Video consultation analytics with AI-powered insights, visual engagement metrics, and customer interaction patterns.',
+      description: 'When Customers Request Video Call Demo from Top Stores',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
           <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
           <rect x="2" y="6" width="14" height="12" rx="2"/>
         </svg>
       ),
-      stats: { calls: formatNumber(videoMetrics.total), trend: `${videoMetrics.coverage}% analyzed` },
+      stats: { calls: formatNumber(videoMetrics.total), analyzed: formatNumber(videoMetrics.analyzed), latest: videoMetrics.latest },
       onClick: () => navigate('/video-reports/analytics')
     },
     {
       id: 'walkin',
-      title: 'Store Walkin Outbound Calls',
+      title: 'Store Walkin Leads Recovery',
       badge: 'Outbound',
-      description: 'Post-visit follow-up call analysis with Pre/Post-Purchase filtering, recovery tracking, and customer barrier identification.',
+      description: "When Central CX team calls Consumer who visited Store but didn't Purchase",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       ),
-      stats: { calls: formatNumber(outboundMetrics.total), trend: `${outboundMetrics.conversionRate}% conversion` },
+      stats: { calls: formatNumber(outboundMetrics.total), analyzed: formatNumber(outboundMetrics.analyzed), latest: outboundMetrics.latest },
       onClick: () => navigate('/outbound-calls/analytics')
     },
     {
       id: 'abc',
-      title: 'ABC Calls',
+      title: 'ABC Leads Recovery',
       badge: 'Outbound',
-      description: 'Abandoned cart and booking follow-up analytics with Pre/Post purchase filtering and recovery tracking.',
+      description: 'When Central CX team calls Consumer who abandoned Online purchase post Checkout',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
           <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
         </svg>
       ),
-      stats: { calls: formatNumber(abcMetrics.total), trend: `${abcMetrics.coverage}% assessed (Pre-Purchase-Intent)` },
+      stats: { calls: formatNumber(abcMetrics.total), analyzed: formatNumber(abcMetrics.analyzed), latest: abcMetrics.latest },
       onClick: () => navigate('/abc-calls/analytics')
     }
   ];
@@ -494,8 +563,9 @@ const Dashboard = () => {
                   
                   {/* Stats */}
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">{module.stats.calls}</p>
-                    <p className="text-xs font-semibold text-emerald-600">{module.stats.trend}</p>
+                    <p className="text-3xl font-bold text-gray-900">{module.stats.calls}</p>
+                    <p className="text-xs text-gray-500 mt-1">{module.stats.analyzed ? `${module.stats.analyzed} analysed` : '0 analysed'}</p>
+                    <p className="text-xs font-semibold text-emerald-600 mt-1">Latest: {module.stats.latest || '—'}</p>
                   </div>
                 </div>
                 
@@ -524,18 +594,6 @@ const Dashboard = () => {
           ))}
         </section>
 
-        {/* Footer Stats */}
-        <section className="border-t border-gray-100 pt-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
-            {headlineMetrics.map((stat, i) => (
-              <div key={i}>
-                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* Error Banner */}
         {error && (
           <div className="mt-8 text-center text-sm text-red-500 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
@@ -546,7 +604,7 @@ const Dashboard = () => {
         {/* Footer */}
         <footer className="mt-16 pt-8 border-t border-gray-100 text-center">
           <p className="text-sm text-gray-400">
-            © 2025 Duroflex. All rights reserved. Built with ❤️ by <span className="text-red-500 font-medium">Beyond AI</span>
+            © 2026 Duroflex. All rights reserved. Built with ❤️ by <span className="text-red-500 font-medium">Beyond AI</span>
           </p>
         </footer>
       </div>
