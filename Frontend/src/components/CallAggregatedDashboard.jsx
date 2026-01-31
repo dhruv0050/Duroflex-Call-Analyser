@@ -62,6 +62,7 @@ const CallAggregatedDashboard = () => {
   const [selectedRegion, setSelectedRegion] = useState('South');
   const [selectedCity, setSelectedCity] = useState('Bangalore');
   const [selectedIntent, setSelectedIntent] = useState('All');
+  const [selectedExperience, setSelectedExperience] = useState('All');
   const [selectedStore, setSelectedStore] = useState('');
   const [storePeriod, setStorePeriod] = useState('week');
   const [allCalls, setAllCalls] = useState([]);
@@ -235,6 +236,11 @@ const CallAggregatedDashboard = () => {
     // Apply intent filter (Intent to Purchase)
     if (selectedIntent !== 'All') {
       filtered = filtered.filter((call) => call.intent === selectedIntent);
+    }
+
+    // Apply customer experience filter
+    if (selectedExperience !== 'All') {
+      filtered = filtered.filter((call) => call.experience === selectedExperience);
     }
     
     return filtered;
@@ -598,9 +604,9 @@ const CallAggregatedDashboard = () => {
               </Link>
               <div>
                 <h1 className="text-3xl font-semibold tracking-tight mb-1" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-                  Audio Call Analytics
+                  GMB Call Analytics
                 </h1>
-                <p className="text-gray-400 text-sm">Aggregated insights across recorded calls</p>
+                {/* <p className="text-gray-400 text-sm">Aggregated insights across recorded calls</p> */}
               </div>
             </div>
 
@@ -612,7 +618,87 @@ const CallAggregatedDashboard = () => {
                 <Download className="w-4 h-4" />
                 Download All Reports
               </button>
-              <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="flex flex-wrap items-center gap-3 bg-[#111116] border border-amber-400/60 rounded-xl px-4 py-3">
+              {/* View toggles */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setView('overall')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    view === 'overall'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  Overall Overview
+                </button>
+                <button
+                  onClick={() => setView('region')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    view === 'region'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  Region-wise
+                </button>
+                <button
+                  onClick={() => setView('city')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    view === 'city'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  City-wise
+                </button>
+              </div>
+
+              {/* Region filter */}
+              {view === 'region' && (
+                <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  {regions.map((region) => (
+                    <button
+                      key={region}
+                      onClick={() => setSelectedRegion(region)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        selectedRegion === region
+                          ? 'bg-amber-500 text-gray-900'
+                          : 'bg-[#16161d] text-gray-400 hover:bg-white/5 hover:text-gray-100'
+                      }`}
+                    >
+                      {region}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* City filter */}
+              {view === 'city' && (
+                <div className="flex items-center gap-3 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    {cities.map((city) => (
+                      <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+              )}
+
+              {/* Time range filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <select
                   value={timeRange}
@@ -627,95 +713,42 @@ const CallAggregatedDashboard = () => {
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 mt-6">
-            <button
-              onClick={() => setView('overall')}
-              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                view === 'overall'
-                  ? 'bg-amber-500 text-gray-900 shadow-lg'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-              }`}
-            >
-              Overall Overview
-            </button>
-            <button
-              onClick={() => setView('region')}
-              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                view === 'region'
-                  ? 'bg-amber-500 text-gray-900 shadow-lg'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-              }`}
-            >
-              Region-wise
-            </button>
-            <button
-              onClick={() => setView('city')}
-              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                view === 'city'
-                  ? 'bg-amber-500 text-gray-900 shadow-lg'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-              }`}
-            >
-              City-wise
-            </button>
-
-            {view === 'region' && (
-              <div className="flex items-center gap-2 ml-8 pl-8 border-l border-white/10">
-                <Filter className="w-4 h-4 text-gray-500" />
-                {regions.map((region) => (
-                  <button
-                    key={region}
-                    onClick={() => setSelectedRegion(region)}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      selectedRegion === region
-                        ? 'bg-amber-500 text-gray-900'
-                        : 'bg-[#16161d] text-gray-400 hover:bg-white/5 hover:text-gray-100'
-                    }`}
-                  >
-                    {region}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {view === 'city' && (
-              <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <Filter className="w-4 h-4 text-gray-500" />
+              {/* Intent to Purchase Filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <span className="text-xs text-gray-400">Intent to Purchase</span>
                 <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
+                  value={selectedIntent}
+                  onChange={(e) => setSelectedIntent(e.target.value)}
                   className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
                   style={{ colorScheme: 'dark' }}
                 >
-                  {cities.map((city) => (
-                    <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
-                      {city}
+                  {['All','High','Medium','Low'].map((opt) => (
+                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
+                      {opt}
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
-            )}
 
-            {/* Intent to Purchase Filter */}
-            <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-              <span className="text-xs text-gray-400">Intent to Purchase</span>
-              <select
-                value={selectedIntent}
-                onChange={(e) => setSelectedIntent(e.target.value)}
-                className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                style={{ colorScheme: 'dark' }}
-              >
-                {['All','High','Medium','Low'].map((opt) => (
-                  <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              {/* Customer Experience Filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <span className="text-xs text-gray-400">Customer Experience</span>
+                <select
+                  value={selectedExperience}
+                  onChange={(e) => setSelectedExperience(e.target.value)}
+                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  {['All','High','Medium','Low'].map((opt) => (
+                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
             </div>
           </div>
         </div>
@@ -804,7 +837,7 @@ const CallAggregatedDashboard = () => {
               🎯
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-white">Intent × Customer Experience Matrix</h2>
+              <h2 className="text-2xl font-semibold text-white">Purchase Intent × Customer Experience</h2>
               <p className="text-sm text-slate-400">Click a cell to drill into matching calls</p>
             </div>
           </div>

@@ -72,6 +72,12 @@ const CallReportsList = () => {
   };
 
   const storePerformanceData = useMemo(() => {
+    // When coming from aggregated matrix/store clicks with filters applied,
+    // skip heavy store performance calculations and just show filtered calls.
+    if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
+      return [];
+    }
+
     const storeMap = {};
 
     visibleReports.forEach((report) => {
@@ -167,7 +173,7 @@ const CallReportsList = () => {
       .sort((a, b) => b.overallScore - a.overallScore);
 
     return performance;
-  }, [visibleReports]);
+  }, [visibleReports, filterIds]);
 
   const topStores = storePerformanceData.slice(0, 10);
   const remainingStores = storePerformanceData.slice(10);
@@ -193,9 +199,6 @@ const CallReportsList = () => {
       </div>
     );
   }
-
-  const analyzedCount = reports.filter(r => r.analysis && !r.analysis.error).length;
-  const pendingCount = reports.length - analyzedCount;
 
   return (
     <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -345,47 +348,51 @@ const CallReportsList = () => {
           </div>
         )}
 
-        {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Total Calls */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                  <Phone className="w-8 h-8 text-amber-400" />
+        {/* Stats Cards Row - only for unfiltered view */}
+        {!filterIds && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Total Calls */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                    <Phone className="w-8 h-8 text-amber-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Total Calls</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Total Calls</span>
               </div>
+              <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
-          </div>
 
-          {/* Analyzed */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
-                  <BarChart3 className="w-8 h-8 text-green-400" />
+            {/* Analyzed */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
+                    <BarChart3 className="w-8 h-8 text-green-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Analyzed</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Analyzed</span>
               </div>
+              <div className="text-4xl font-serif font-bold text-white">{reports.filter(r => r.analysis && !r.analysis.error).length}</div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{analyzedCount}</div>
-          </div>
 
-          {/* Pending Analysis */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
-                  <Clock className="w-8 h-8 text-orange-400" />
+            {/* Pending Analysis */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-orange-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
+              </div>
+              <div className="text-4xl font-serif font-bold text-white">
+                {reports.length - reports.filter(r => r.analysis && !r.analysis.error).length}
               </div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{pendingCount}</div>
           </div>
-        </div>
+        )}
 
         {filterIds && (
           <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
