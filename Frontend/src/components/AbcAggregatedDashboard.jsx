@@ -61,6 +61,8 @@ const AbcAggregatedDashboard = () => {
   const [view, setView] = useState('overall');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedIntent, setSelectedIntent] = useState('All');
+  const [selectedExperience, setSelectedExperience] = useState('All');
+  const [selectedPriceBucket, setSelectedPriceBucket] = useState('All');
   const [allCalls, setAllCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -125,6 +127,9 @@ const AbcAggregatedDashboard = () => {
       const intent = normalizeIntent(p1.Intent_to_Purchase_Rating || 'MEDIUM');
       const experience = normalizeExperience(p2.Overall_Experience_Rating || 3);
 
+      const rawPrice = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
+      const cartAmount = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+
       // Determine type based on outcome
       const outcome = (analysis.Functional?.Call_Outcome || '').toLowerCase();
       const type = outcome.includes('purchased') || outcome.includes('converted') ? 'Recovered' : 'Pending';
@@ -135,7 +140,8 @@ const AbcAggregatedDashboard = () => {
         intent,
         experience,
         type,
-        cartValue: rawData['Lineitem price'] || rawData.Lineitem_price || 0,
+        cartValue: rawPrice,
+        cartAmount,
         scores: {
           overall: ratingToScore(p3.RELAX_Overall_Score || 3, 60),
           rapport: ratingToScore(p3.R_Reach_Out?.Rating || 3, 60),
@@ -182,9 +188,25 @@ const AbcAggregatedDashboard = () => {
     if (selectedIntent !== 'All') {
       filtered = filtered.filter((call) => call.intent === selectedIntent);
     }
+
+    // Apply customer experience filter
+    if (selectedExperience !== 'All') {
+      filtered = filtered.filter((call) => call.experience === selectedExperience);
+    }
+
+    // Apply price bucket filter based on cartAmount
+    if (selectedPriceBucket !== 'All') {
+      filtered = filtered.filter((call) => {
+        const amount = call.cartAmount || 0;
+        if (selectedPriceBucket === 'High') return amount > 20000;
+        if (selectedPriceBucket === 'Medium') return amount >= 10000 && amount <= 20000;
+        if (selectedPriceBucket === 'Low') return amount > 0 && amount < 10000;
+        return true;
+      });
+    }
     
     return filtered;
-  }, [abcCalls, view, selectedCity, timeRange, selectedIntent]);
+  }, [abcCalls, view, selectedCity, timeRange, selectedIntent, selectedExperience, selectedPriceBucket]);
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
@@ -358,7 +380,6 @@ const AbcAggregatedDashboard = () => {
                 <h1 className="text-3xl font-semibold tracking-tight mb-1" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
                   ABC Cart Recovery Analytics
                 </h1>
-                <p className="text-gray-400 text-sm">Aggregated insights across cart recovery calls</p>
               </div>
             </div>
 
@@ -370,7 +391,57 @@ const AbcAggregatedDashboard = () => {
                 <Download className="w-4 h-4" />
                 Download All Reports
               </button>
-              <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="flex flex-wrap items-center gap-3 bg-[#111116] border border-amber-400/60 rounded-xl px-4 py-3">
+              {/* View toggles */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setView('overall')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    view === 'overall'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  Overall Overview
+                </button>
+                <button
+                  onClick={() => setView('city')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                    view === 'city'
+                      ? 'bg-amber-500 text-gray-900 shadow-lg'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  City-wise
+                </button>
+              </div>
+
+              {/* City filter */}
+              {view === 'city' && (
+                <div className="flex items-center gap-3 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    {cities.map((city) => (
+                      <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+              )}
+
+              {/* Time range filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <select
                   value={timeRange}
@@ -385,66 +456,59 @@ const AbcAggregatedDashboard = () => {
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 mt-6">
-            <button
-              onClick={() => setView('overall')}
-              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                view === 'overall'
-                  ? 'bg-amber-500 text-gray-900 shadow-lg'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-              }`}
-            >
-              Overall Overview
-            </button>
-            <button
-              onClick={() => setView('city')}
-              className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                view === 'city'
-                  ? 'bg-amber-500 text-gray-900 shadow-lg'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-              }`}
-            >
-              City-wise
-            </button>
-
-            {view === 'city' && (
-              <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <Filter className="w-4 h-4 text-gray-500" />
+              {/* Intent to Purchase Filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <span className="text-xs text-gray-400">Intent to Purchase</span>
                 <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
+                  value={selectedIntent}
+                  onChange={(e) => setSelectedIntent(e.target.value)}
                   className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
                   style={{ colorScheme: 'dark' }}
                 >
-                  {cities.map((city) => (
-                    <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
-                      {city}
+                  {['All','High','Medium','Low'].map((opt) => (
+                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
+                      {opt}
                     </option>
                   ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
-            )}
 
-            {/* Intent to Purchase Filter */}
-            <div className="flex items-center gap-3 ml-8 pl-8 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-              <span className="text-xs text-gray-400">Intent to Purchase</span>
-              <select
-                value={selectedIntent}
-                onChange={(e) => setSelectedIntent(e.target.value)}
-                className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                style={{ colorScheme: 'dark' }}
-              >
-                {['All','High','Medium','Low'].map((opt) => (
-                  <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              {/* Customer Experience Filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <span className="text-xs text-gray-400">Customer Experience</span>
+                <select
+                  value={selectedExperience}
+                  onChange={(e) => setSelectedExperience(e.target.value)}
+                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  {['All','High','Medium','Low'].map((opt) => (
+                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+
+              {/* Price Bucket Filter */}
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
+                <span className="text-xs text-gray-400">Price Bucket</span>
+                <select
+                  value={selectedPriceBucket}
+                  onChange={(e) => setSelectedPriceBucket(e.target.value)}
+                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option value="All" className="bg-[#1a1a1f] text-gray-200">All</option>
+                  <option value="High" className="bg-[#1a1a1f] text-gray-200">High (&gt; 20k)</option>
+                  <option value="Medium" className="bg-[#1a1a1f] text-gray-200">Medium (10k - 20k)</option>
+                  <option value="Low" className="bg-[#1a1a1f] text-gray-200">Low (&lt; 10k)</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
             </div>
           </div>
         </div>
@@ -533,7 +597,7 @@ const AbcAggregatedDashboard = () => {
               🎯
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-white">Intent × Customer Experience Matrix</h2>
+              <h2 className="text-2xl font-semibold text-white">Purchase Intent × Customer Experience</h2>
               <p className="text-sm text-slate-400">Click a cell to drill into matching calls</p>
             </div>
           </div>

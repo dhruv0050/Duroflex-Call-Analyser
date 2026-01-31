@@ -71,6 +71,11 @@ const AbcReportsList = () => {
   };
 
   const cityPerformanceData = useMemo(() => {
+    // When coming from aggregated matrix/city clicks with filters applied,
+    // skip heavy city performance calculations and summary UI.
+    if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
+      return [];
+    }
     const cityMap = {};
 
     visibleReports.forEach((report) => {
@@ -150,7 +155,7 @@ const AbcReportsList = () => {
       .sort((a, b) => b.overallScore - a.overallScore);
 
     return performance;
-  }, [visibleReports]);
+  }, [visibleReports, filterIds]);
 
   const topStores = cityPerformanceData.slice(0, 10);
   const remainingStores = cityPerformanceData.slice(10);
@@ -176,9 +181,6 @@ const AbcReportsList = () => {
       </div>
     );
   }
-
-  const analyzedCount = reports.filter(r => r.analysis && !r.analysis.error).length;
-  const pendingCount = reports.length - analyzedCount;
 
   return (
     <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -327,47 +329,53 @@ const AbcReportsList = () => {
           </div>
         )}
 
-        {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Total Calls */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                  <Phone className="w-8 h-8 text-amber-400" />
+        {/* Stats Cards Row - only for unfiltered view */}
+        {!filterIds && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Total Calls */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                    <Phone className="w-8 h-8 text-amber-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Total Calls</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Total Calls</span>
               </div>
+              <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
-          </div>
 
-          {/* Analyzed */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
-                  <BarChart3 className="w-8 h-8 text-green-400" />
+            {/* Analyzed */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
+                    <BarChart3 className="w-8 h-8 text-green-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Analyzed</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Analyzed</span>
+              </div>
+              <div className="text-4xl font-serif font-bold text-white">
+                {reports.filter(r => r.analysis && !r.analysis.error).length}
               </div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{analyzedCount}</div>
-          </div>
 
-          {/* Pending Analysis */}
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
-                  <Clock className="w-8 h-8 text-orange-400" />
+            {/* Pending Analysis */}
+            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-orange-400" />
+                  </div>
+                  <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
                 </div>
-                <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
+              </div>
+              <div className="text-4xl font-serif font-bold text-white">
+                {reports.length - reports.filter(r => r.analysis && !r.analysis.error).length}
               </div>
             </div>
-            <div className="text-4xl font-serif font-bold text-white">{pendingCount}</div>
           </div>
-        </div>
+        )}
 
         {filterIds && (
           <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
@@ -407,6 +415,24 @@ const AbcReportsList = () => {
             const minutes = parseInt(timeParts[0]) || 0;
             const seconds = parseInt(timeParts[1]) || 0;
             const durationSeconds = minutes * 60 + seconds;
+
+            const rawIntent = pillar1.Intent_to_Purchase_Rating || 'MEDIUM';
+            const intentUpper = rawIntent.toString().toUpperCase();
+            let intentLevel = 'Medium';
+            if (intentUpper.includes('HIGH')) intentLevel = 'High';
+            else if (intentUpper.includes('LOW')) intentLevel = 'Low';
+
+            const expRaw = pillar2.Overall_Experience_Rating || 3;
+            const expNum = typeof expRaw === 'number' ? expRaw : parseFloat(expRaw) || 3;
+            let experienceLevel = 'Medium';
+            if (expNum >= 4) experienceLevel = 'High';
+            else if (expNum <= 2) experienceLevel = 'Low';
+
+            const levelColor = (level) => {
+              if (level === 'High') return 'text-emerald-400';
+              if (level === 'Medium') return 'text-amber-400';
+              return 'text-red-400';
+            };
             
             return (
               <Link
@@ -464,37 +490,30 @@ const AbcReportsList = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Intent Badges */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(pillar1.Intent_to_Purchase_Rating || 'MEDIUM')}`}>
-                        Purchase: {pillar1.Intent_to_Purchase_Rating || 'MEDIUM'}
-                      </span>
-                    </div>
-
-                    {/* Satisfaction Score & Invited at Store */}
+                    {/* Intent & Customer Experience Levels */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Satisfaction</p>
-                        <p className="text-lg font-bold text-amber-400">{pillar2.Overall_Experience_Rating || 3}/5</p>
+                        <p className="text-xs text-gray-500 mb-1">Intent to Purchase</p>
+                        <p className={`text-sm font-semibold ${levelColor(intentLevel)}`}>{intentLevel}</p>
                       </div>
                       <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Invited to Store</p>
-                        <p className={`text-sm font-semibold ${pillar4.Invitation_Attempted ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {pillar4.Invitation_Attempted ? '✓ Yes' : '✗ No'}
+                        <p className="text-xs text-gray-500 mb-1">Customer Experience</p>
+                        <p className={`text-sm font-semibold ${levelColor(experienceLevel)}`}>
+                          {experienceLevel} <span className="text-gray-400 text-xs">({expNum}/5)</span>
                         </p>
                       </div>
+                    </div>
+
+                    {/* Satisfaction Score */}
+                    <div className="bg-[#16161d] rounded-lg p-3 mb-4">
+                      <p className="text-xs text-gray-500 mb-1">Satisfaction Score</p>
+                      <p className="text-lg font-bold text-amber-400">{pillar2.Overall_Experience_Rating || 3}/5</p>
                     </div>
 
                     {/* Objective */}
                     <div className="bg-[#16161d] rounded-lg p-3 mb-4">
                       <p className="text-xs text-gray-500 mb-1">Objective</p>
                       <p className="text-sm text-gray-300">{functional.Call_Outcome || 'Cart Recovery'}</p>
-                    </div>
-
-                    {/* AIDA Stage */}
-                    <div className="bg-[#16161d] rounded-lg p-3">
-                      <p className="text-xs text-gray-500 mb-1">Customer Stage</p>
-                      <p className="text-sm text-amber-400 font-semibold">{pillar1.Customer_Stage_AIDA || 'Interest'}</p>
                     </div>
                   </>
                 )}
