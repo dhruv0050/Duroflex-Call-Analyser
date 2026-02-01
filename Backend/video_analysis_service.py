@@ -11,6 +11,7 @@ from typing import List, Dict
 import re
 from pymongo import MongoClient
 from drive_mirror_integration import trigger_drive_mirror_for_video
+from analysis_utils import is_failed_analysis
 
 # Load environment variables
 load_dotenv()
@@ -401,6 +402,10 @@ def load_video_csv():
 def save_video_analysis(report_id: str, analysis_data: dict, metadata: dict | None = None):
   """Save video analysis to MongoDB if available; otherwise JSON file.
   Triggers async Drive mirror if recording_url is present."""
+  if is_failed_analysis(analysis_data):
+    print(f"[MONGODB] Skipping save for {report_id} - analysis failed")
+    return False
+
   collection = get_video_collection()
 
   # Persist to Mongo with optional metadata for uploaded CSV rows

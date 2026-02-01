@@ -9,6 +9,7 @@ from pathlib import Path
 from pymongo import MongoClient
 from typing import Optional, List, Dict
 from drive_mirror_integration import trigger_drive_mirror
+from analysis_utils import is_failed_analysis
 
 def sanitize_nan(obj):
     """Recursively replace NaN values with None for JSON serialization."""
@@ -97,12 +98,17 @@ def get_abc_report_by_id(call_id: str) -> Optional[Dict]:
 
 def save_abc_call_to_mongodb(call_record: Dict) -> bool:
     """Save an ABC call record to MongoDB."""
+    call_id = call_record.get("call_id")
+    analysis = call_record.get("analysis")
+    if is_failed_analysis(analysis):
+        print(f"[MONGODB] Skipping save for {call_id} - analysis failed")
+        return False
+
     collection = get_abc_collection()
     if collection is None:
         return False
 
     try:
-        call_id = call_record.get("call_id")
         collection.update_one(
             {"call_id": call_id},
             {"$set": call_record},

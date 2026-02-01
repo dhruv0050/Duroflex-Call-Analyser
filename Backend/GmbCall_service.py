@@ -6,6 +6,7 @@ from pathlib import Path
 from pymongo import MongoClient
 from typing import Optional, List, Dict
 from drive_mirror_integration import trigger_drive_mirror_for_call
+from analysis_utils import is_failed_analysis
 
 def sanitize_nan(obj):
     """Recursively replace NaN values with None for JSON serialization."""
@@ -53,12 +54,17 @@ def save_call_to_mongodb(call_record: Dict) -> bool:
     Triggers async Drive mirror if recording_url is present.
     Returns: True if successful, False otherwise
     """
+    call_id = call_record.get("call_id")
+    analysis = call_record.get("analysis")
+    if is_failed_analysis(analysis):
+        print(f"[MONGODB] Skipping save for {call_id} - analysis failed")
+        return False
+
     collection = get_call_collection()
     if collection is None:
         return False
 
     try:
-        call_id = call_record.get("call_id")
         collection.update_one(
             {"call_id": call_id},
             {"$set": call_record},
