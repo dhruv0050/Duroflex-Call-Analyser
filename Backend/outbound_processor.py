@@ -359,14 +359,6 @@ class OutboundCallUploadProcessor:
 ## CONTEXT
 You are analyzing an Outbound Call made by a Duroflex Central Sales Agent to a customer who visited a Duroflex store but did not purchase. These customers experienced the products in-store, interacted with store staff, and left their contact details for follow-up. The Central Sales Team now calls to understand their barriers and nudge them toward successful purchase completion. Unlike online abandons, these customers have already physically tried the products — the agent must leverage this in-store experience.
 
-## OBJECTIVE
-Analyze this call through FIVE critical lenses:
-1. **CUSTOMER INTENT & BARRIERS** — What is the customer's true purchase intent and what's blocking them?
-2. **EXPERIENCE DELIVERED** — What experience did we deliver from both customer and sales perspectives?
-3. **RELAX FRAMEWORK** — How well did the agent execute the Duroflex sales methodology?
-4. **INVITATION TO CONVERT** — Did we provide clear, compelling paths to purchase?
-5. **AGENT COMPETENCY** — Product knowledge, sales acumen, and interpersonal skills
-
 ## CALL & STORE VISIT CONTEXT
 - Store_Name: {call_record.get('store_name', 'N/A')}
 - Customer_Phone: {call_record.get('customer_phone', 'N/A')}
@@ -375,165 +367,205 @@ Analyze this call through FIVE critical lenses:
 - CallStartDateTime: {call_record.get('call_date', 'N/A')}
 - Duration_Seconds: {call_record.get('duration', 'N/A')}
 - is_Converted: {call_record.get('is_converted', '0')}
+
+## RATING SCALE
+- 1: Poor / Not Attempted
+- 2: Below Average / Weak
+- 3: Average / Acceptable
 - 4: Good / Effective
 - 5: Excellent / Exemplary
 
 ---
 
-## PILLAR 1: CUSTOMER INTENT & PURCHASE BARRIERS
-**Purpose:** Understand where the customer truly stands in their buying journey and what obstacles exist.
+## PILLAR 1: DOUBLE AUDIT (Store + Call Experience)
+**Purpose:** Assess BOTH the in-store experience AND the follow-up call quality from the customer's perspective.
+
+### A. STORE AUDIT (Based on what customer mentions about their store visit)
+- **Rating**: 1-5 (Customer's sentiment about their store experience)
+- **Sentiment_Label**: Excellent / Positive / Neutral / Negative / Not Discussed
+- **Specific_Feedback**: What did the customer specifically mention about their store visit? (Product demo, staff behavior, ambience, wait time, etc.)
+
+### B. CALL AUDIT (Quality of this follow-up call)
+- **Rating**: 1-5 (Overall quality of this call from customer's perspective)
+- **Sentiment_Label**: Excellent / Positive / Neutral / Negative / Frustrated
+- **Skill_Highlight**: What specific skill did the agent demonstrate well? (Problem Solving / Active Listening / Empathy / Product Knowledge / Persuasion / Patience)
+
+---
+
+## PILLAR 2: DIAGNOSIS (Understanding the Customer)
+**Purpose:** Diagnose the core reason for not purchasing and the customer's decision-making context.
 
 Evaluate:
-- **Intent_to_Purchase_Rating**: HIGH / MEDIUM / LOW
-  - HIGH: Ready to buy, just needed nudge/resolution
-  - MEDIUM: Interested but has unresolved concerns
-  - LOW: Not planning to purchase / was just browsing / already bought elsewhere
+- **Primary_WalkOut_Reason**: The ONE main reason customer didn't purchase at the store
+  - Options: Price Concern / Product Confusion / Need Spouse Approval / Comparing Options / Budget Constraints / Size/Space Concerns / Delivery Timing / Just Browsing / Wanted Better Offer / Already Purchased Elsewhere / Not Disclosed
 
-- **Primary_NonPurchase_Reason**: Why didn't they buy during store visit?
-  - Price Concern / Need Family/Spouse Consultation / Comparing Options / Not Ready to Decide / Size/Space Concerns / Delivery/Installation Timing / Budget Constraints / Just Browsing / Wanted Better Offer / Already Purchased Elsewhere / Not Disclosed
+- **Primary_Barrier_Icon**: Categorize the barrier type
+  - Options: Price / Product / Family / Timing / Trust / Other
 
-- **Secondary_Barriers**: Other concerns surfaced during call
+- **Decision_Maker**: Who makes the final purchase decision?
+  - Options: Self / Spouse / Joint / Family / Other
 
-- **Barrier_Resolution_Status**: Resolved / Partially Resolved / Unresolved / Not Attempted
-
-- **Timeline_to_Purchase**: Immediate (Today/This Week) / Short (2-4 Weeks) / Long (>1 Month) / Uncertain / Not Purchasing
-
-- **Customer_Stage_AIDA**: Where are they post-call?
-  - Awareness / Interest / Desire / Action
-
-- **Intent_Shift**: Did the call improve their purchase intent?
-  - Increased / Unchanged / Decreased
+- **Timeline_Label**: When are they likely to purchase?
+  - Options: Immediate / Short Term / Long Term / Uncertain / Not Purchasing
 
 ---
 
-## PILLAR 2: EXPERIENCE DELIVERED
-**Purpose:** Evaluate the call from two perspectives — how the customer experienced it, and how effective it was as a sales interaction.
+## PILLAR 3: RECOVERY HOOKS (What agent offered to bring customer back)
+**Purpose:** Evaluate the specific tactics agent used to recover the sale.
 
-### A. CUSTOMER EXPERIENCE (Customer's Perspective)
-- **Opening_Experience**: How did the call begin for the customer?
-- **Listening_Quality**: Did agent genuinely listen to concerns?
-- **Empathy_Displayed**: Did agent show understanding of customer's situation?
-- **Pressure_Level**: Was the call consultative or pushy? (Consultative / Balanced / Pushy)
-- **Closing_Sentiment**: How did customer feel at end of call? (Positive / Neutral / Negative)
-- **Customer_Experience_Rating**: HIGH / MEDIUM / LOW
+### A. SWEETENER HOOK (Offers/Discounts)
+- **Rating_Label**: HIGH / MEDIUM / LOW / NOT OFFERED
+  - HIGH: Compelling, time-bound offer clearly communicated
+  - MEDIUM: Generic offer mentioned
+  - LOW: Weak/unclear offer
+  - NOT OFFERED: No offer discussed
+- **Details**: What specific offer/discount was mentioned?
 
-### B. SALES EXPERIENCE (Business Perspective)
-- **Opportunity_Utilization**: Did agent leverage store visit context and customer data?
-- **Conversation_Control**: Did agent guide conversation purposefully?
-- **Objection_Conversion**: Were objections turned into opportunities?
-- **Value_Articulation**: Did agent communicate compelling reasons to buy?
-- **Time_Efficiency**: Was the call duration productive?
-- **Commercial_Outcome_Alignment**: Did the call progress toward a business outcome?
-- **Sales_Experience_Rating**: HIGH / MEDIUM / LOW
+### B. HOME MEASURE HOOK (Home Visit Service)
+- **Offered**: true / false (Did agent offer home measurement/demo visit?)
+- **Reasoning**: Why was this service offered? (Size uncertainty / Comfort trial / Family demonstration / Delivery consultation / Other)
 
-### C. OVERALL EXPERIENCE RATING
-- **Overall_Experience_Rating**: 1-5 (Weighted combination of Customer and Sales Experience)
-- **Overall_Experience_Summary**: 1-2 sentence summary explaining the rating
+### C. OTHER HOOKS (Optional - if applicable)
+- Video Call Demo Offered
+- Store Re-Visit Incentive
+- Product Upgrade Suggestion
+- EMI/Financing Option
 
 ---
 
-## PILLAR 3: RELAX FRAMEWORK EXECUTION
-**Purpose:** Evaluate agent's adherence to Duroflex's structured sales methodology.
+## PILLAR 4: LEAD HEALTH (Where is the customer now?)
+**Purpose:** Assess the customer's current position in the buying journey after this call.
+
+Evaluate:
+- **AIDA_Stage**: Where is the customer after this call?
+  - Options: Awareness / Interest / Desire / Action / Lost
+
+- **Next_Action_Text**: Specific, actionable next step with timeline
+  - Example: "Coordinate with Technician for Home Measurement visit tomorrow"
+  - Example: "Customer to visit store this weekend to finalize size"
+  - Example: "Send WhatsApp link for online purchase by Friday"
+
+---
+
+## PILLAR 5: METHODOLOGY (RELAX Framework + Soft Skills)
+**Purpose:** Evaluate agent's execution of Duroflex's structured sales methodology and interpersonal skills.
+
+### A. RELAX SCORES
 
 **R - REACH OUT** (Opening & Connection)
-- Professional greeting with brand identification
-- Clear introduction of self and purpose
-- Permission to continue conversation
+- **Score**: 1-5
+- **Reason**: Short explanation
+  - Did agent professionally greet, identify brand, and establish the store visit context?
 
 **E - EXPLORE NEEDS** (Discovery & Understanding)
-- Asked about reason for not purchasing during visit
-- Probed deeper into underlying concerns
-- Understood customer's specific requirements
+- **Score**: 1-5
+- **Reason**: Short explanation
+  - Did agent probe to find the REAL reason for not purchasing during store visit?
 
 **L - LINK EXPERIENCE** (Connecting Solution to Need)
-- Reinforced positive in-store experience
-- Connected product benefits to stated concerns
-- Addressed any gaps from visit
+- **Score**: 1-5
+- **Reason**: Short explanation
+  - Did agent remind customer of their positive in-store experience and link product benefits to their concerns?
 
 **A - ADD VALUE** (Enhancing the Proposition)
-- Mentioned relevant offers/discounts
-- Presented financing/EMI options
-- Suggested complementary products
+- **Score**: 1-5
+- **Reason**: Short explanation
+  - Did agent position offers, services (home measure, EMI, accessories) as value additions?
 
 **X - EXPRESS CLOSING** (Commitment & Next Steps)
-- Asked for commitment/next step
-- Provided clear action path
-- Confirmed logistics
+- **Score**: 1-5
+- **Reason**: Short explanation
+  - Did agent close with a clear, specific commitment and action plan?
 
-Rate each element 1-5 with specific reasons.
-
----
-
-## PILLAR 4: INVITATION TO CONVERT
-**Purpose:** Did the agent provide clear, compelling path(s) to complete the purchase?
-
-Evaluate:
-- **Invitation_Attempted**: Yes / No
-- **Conversion_Paths_Offered**: (Store Re-Visit / Purchase on Call / Home Visit/Demo / Online Purchase / Video Call/Demo)
-- **Primary_Path_Pushed**: Which path did agent primarily recommend?
-- **Path_Appropriateness**: Highly Appropriate / Somewhat Appropriate / Inappropriate / Not Assessed
-- **Urgency_Creation_Rating**: 1-5 (offer expiry, stock availability, delivery timelines)
-- **Clarity_of_Next_Steps_Rating**: 1-5
-- **Commitment_Obtained**: (Purchase Completed / Store Visit Scheduled / Home Visit Scheduled / Video Demo Scheduled / Online Purchase Promised / Call-Back Requested / Will Think About It / Declined / None)
-- **Invitation_Quality_Rating**: 1-5
+### B. SOFT SKILLS (1-5 for each)
+- **Empathy**: Understanding and acknowledging customer's concerns
+- **Patience**: Not rushing, allowing customer to express themselves
+- **Persuasion**: Convincing without being pushy
+- **Tone**: Professional, warm, confident delivery
 
 ---
 
-## PILLAR 5: AGENT COMPETENCY
-**Purpose:** Evaluate the agent's skills across three dimensions.
+## SUMMARY
+**Purpose:** Provide a concise, actionable overview of the call.
 
-### A. PRODUCT KNOWLEDGE (1-5)
-- Did agent know the products customer tried?
-- Could they explain benefits clearly?
-- Could they differentiate from alternatives?
-- Policy knowledge (delivery, returns, warranty, EMI)
+- **Call_Synopsis**: 2-3 sentences covering the customer's store visit reason, main barrier discussed, and the outcome of this call.
 
-### B. SALES SKILLS (1-5)
-- Objection handling
-- Value selling (not just features)
-- Negotiation ability (offers/discounts)
-- Closing technique
-- Recovery tactics for store walkin
-
-### C. SOFT SKILLS & ETIQUETTE (1-5)
-- Tone quality (warm, professional, confident)
-- Patience level (didn't rush)
-- Language fluency
-- Adaptability
-
----
-
-## FUNCTIONAL INFORMATION (Supporting Data)
-- Call_ID: {call_record.get('call_id', 'N/A')}
-- Call_Time: From audio or "Not mentioned"
-- Customer_Phone: {call_record.get('customer_phone', 'N/A')}
-- Agent_Name: If mentioned
-- Store_Name: {call_record.get('store_name', 'N/A')}
-- Customer_Language: Primary language (English/Hindi/Kannada/Telugu/Tamil/Mix)
-- Agent_Audio_Quality_Rating: 1-5
-- Call_Outcome: (Connected-Converted / Connected-Follow-Up Scheduled / Connected-Not Interested / Connected-Already Purchased / Not Connected-Voicemail / Not Connected-No Answer / Not Connected-Wrong Number)
-
----
-
-## OVERALL SUMMARY
-- **Call_Synopsis**: 2-3 sentences covering non-purchase reason from store visit, agent approach, and outcome
-- **What_Worked_Well**: Top 2-3 things agent did effectively
-- **Critical_Improvement_Areas**: Top 3 specific, actionable improvements
-- **Recovery_Verdict**: Did this call move customer closer to purchase? (Yes-Significantly / Yes-Slightly / No Change / Negative Impact)
-- **Next_Action**: Specific follow-up with timeline
+- **Recovery_Verdict**: What is the likelihood of this lead converting?
+  - Options: Hot Lead / Warm Lead / Cold Lead / Lost / In-Progress
 
 ---
 
 ## OUTPUT FORMAT
-Return ONLY a valid JSON object. Do not include any text before or after the JSON.
+Return ONLY a valid JSON object matching this exact schema:
 
-Important:
-1. All scores must be integers 1-5
-2. All arrays must have at least one element
-3. "Invitation_Attempted" must be boolean true/false
-4. For calls that don't connect, use 0 for scores and "N/A - Call Not Connected" for reason fields
-5. Transcribe the conversation as best as possible in Transcript_Log
-6. Remember: This customer has ALREADY tried the product in-store — leverage this context in your analysis
+{{
+  "Header_Data": {{
+    "Call_ID": "{call_record.get('call_id', 'N/A')}",
+    "Product_of_Interest": "String (mention specific product if discussed, else 'Not Specified')",
+    "Lead_Status_Label": "Hot Lead | Warm Lead | Cold Lead | Lost | In-Progress"
+  }},
+  "Pillar_1_Double_Audit": {{
+    "Store_Audit": {{
+      "Rating": 0,
+      "Sentiment_Label": "Excellent | Positive | Neutral | Negative | Not Discussed",
+      "Specific_Feedback": "String (What customer said about store experience)"
+    }},
+    "Call_Audit": {{
+      "Rating": 0,
+      "Sentiment_Label": "Excellent | Positive | Neutral | Negative | Frustrated",
+      "Skill_Highlight": "String (Primary skill agent demonstrated)"
+    }}
+  }},
+  "Pillar_2_Diagnosis": {{
+    "Primary_WalkOut_Reason": "String",
+    "Primary_Barrier_Icon": "Price | Product | Family | Timing | Trust | Other",
+    "Decision_Maker": "Self | Spouse | Joint | Family | Other",
+    "Timeline_Label": "Immediate | Short Term | Long Term | Uncertain | Not Purchasing"
+  }},
+  "Pillar_3_Recovery_Hooks": {{
+    "Sweetener_Hook": {{
+      "Rating_Label": "HIGH | MEDIUM | LOW | NOT OFFERED",
+      "Details": "String (Specific offer mentioned)"
+    }},
+    "Home_Measure_Hook": {{
+      "Offered": true/false,
+      "Reasoning": "String (Why this service was relevant)"
+    }}
+  }},
+  "Pillar_4_Lead_Health": {{
+    "AIDA_Stage": "Awareness | Interest | Desire | Action | Lost",
+    "Next_Action_Text": "String (Specific next step with timeline)"
+  }},
+  "Pillar_5_Methodology": {{
+    "RELAX_Scores": {{
+      "R": {{"Score": 0, "Reason": "String"}},
+      "E": {{"Score": 0, "Reason": "String"}},
+      "L": {{"Score": 0, "Reason": "String"}},
+      "A": {{"Score": 0, "Reason": "String"}},
+      "X": {{"Score": 0, "Reason": "String"}}
+    }},
+    "Soft_Skills": {{
+      "Empathy": 0,
+      "Patience": 0,
+      "Persuasion": 0,
+      "Tone": 0
+    }}
+  }},
+  "Summary": {{
+    "Call_Synopsis": "String (2-3 sentences)",
+    "Recovery_Verdict": "Hot Lead | Warm Lead | Cold Lead | Lost | In-Progress"
+  }},
+  "Transcript_Log": [
+    {{"Speaker": "Agent/Customer", "Text": "...", "Timestamp": "00:00"}}
+  ]
+}}
+
+**Important Notes:**
+1. All scores must be integers 1-5 (use 0 only if call didn't connect)
+2. For calls that don't connect properly, use neutral/low ratings and explain in Synopsis
+3. Transcribe the conversation as accurately as possible in Transcript_Log
+4. Remember: This customer has ALREADY tried the product in-store — leverage this context
+5. Return ONLY the JSON object, no additional text before or after
 """
 
     def _add_error(self, row_num: int, store_name: str, error: str):

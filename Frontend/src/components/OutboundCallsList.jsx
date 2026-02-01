@@ -111,17 +111,19 @@ const OutboundCallsList = () => {
 
   const getOverallScore = (report) => {
     const analysis = report.analysis || {};
-    // Handle all possible keys for overall score
+    // Handle all possible keys for overall score - prioritize old schema paths
     const score = getAnalysisField(
       analysis,
+      'PILLAR_2_EXPERIENCE_DELIVERED.Overall_Experience_Rating',
       'Pillar_2_Experience_Delivered.Overall_Experience_Rating',
       'PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE.Overall_Experience_Rating',
       'Call_Analysis.PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE_RATING.Overall_Experience_Rating',
       'PILLAR_2_EXPERIENCE_DELIVERED.OVERALL_EXPERIENCE.Overall_Experience_Rating',
       'PILLAR_2.Overall_Experience_Rating',
       'PILLAR_2.OVERALL_EXPERIENCE.Overall_Experience_Rating'
-    ) || 0;
-    return score; // 1-5 scale as per requirement
+    );
+    const numScore = typeof score === 'number' ? score : parseInt(score) || 0;
+    return Math.max(0, Math.min(5, numScore)); // Clamp between 0-5
   };
 
   const storePerformanceData = useMemo(() => {
@@ -372,26 +374,6 @@ const OutboundCallsList = () => {
               </div>
             </>
           )}
-        </div>
-
-        {/* Intent Filters */}
-        <div className="mb-6 flex items-center gap-3">
-          <span className="text-sm text-gray-400">Filter by Intent:</span>
-          <div className="flex gap-2">
-            {['ALL', 'HIGH', 'MEDIUM', 'LOW'].map(intent => (
-              <button
-                key={intent}
-                onClick={() => setSelectedIntent(intent)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                  selectedIntent === intent
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
-                }`}
-              >
-                {intent === 'ALL' ? 'All' : `${intent} Intent`}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Reports Grid */}

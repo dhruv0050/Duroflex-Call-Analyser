@@ -92,6 +92,8 @@ const OutboundAggregatedDashboard = () => {
   const [selectedIntent, setSelectedIntent] = useState('All');
   const [selectedStore, setSelectedStore] = useState('');
   const [storePeriod, setStorePeriod] = useState('week');
+  const [selectedCallExperience, setSelectedCallExperience] = useState('All');
+  const [selectedStoreExperience, setSelectedStoreExperience] = useState('All');
 
   useEffect(() => {
     fetchAll();
@@ -170,10 +172,57 @@ const OutboundAggregatedDashboard = () => {
     return Math.round(num * 20);
   };
 
+  const getStoreExperienceRating = (report) => {
+    const analysis = report.analysis || {};
+    // New schema: Pillar_1_Double_Audit.Store_Audit.Rating
+    // Old schema: derive from PILLAR_2_EXPERIENCE_DELIVERED.A_CUSTOMER_EXPERIENCE
+    const storeAudit = analysis.Pillar_1_Double_Audit?.Store_Audit || {};
+    if (storeAudit.Rating) return storeAudit.Rating;
+    
+    const custExp = getField(analysis,
+      'PILLAR_2_EXPERIENCE_DELIVERED.A_CUSTOMER_EXPERIENCE.Customer_Experience_Rating',
+      'Pillar_2_Experience_Delivered.A_Customer_Experience.Customer_Experience_Rating'
+    );
+    return custExp || 3;
+  };
+
+  const getCallExperienceRating = (report) => {
+    const analysis = report.analysis || {};
+    // New schema: Pillar_1_Double_Audit.Call_Audit.Rating
+    // Old schema: derive from Overall_Experience_Rating
+    const callAudit = analysis.Pillar_1_Double_Audit?.Call_Audit || {};
+    if (callAudit.Rating) return callAudit.Rating;
+    
+    return getField(analysis,
+      'PILLAR_2_EXPERIENCE_DELIVERED.Overall_Experience_Rating',
+      'Pillar_2_Experience_Delivered.Overall_Experience_Rating'
+    ) || 3;
+  };
+
+  const normalizeExperience = (rating) => {
+    const num = parseFloat(rating) || 3;
+    if (num >= 4) return 'High';
+    if (num >= 3) return 'Medium';
+    return 'Low';
+  };
+
   const filteredReports = useMemo(() => {
-    if (selectedIntent === 'All') return reports;
-    return reports.filter(r => normalizeIntent(getIntentRating(r)) === selectedIntent);
-  }, [reports, selectedIntent]);
+    let result = reports;
+    
+    if (selectedIntent !== 'All') {
+      result = result.filter(r => normalizeIntent(getIntentRating(r)) === selectedIntent);
+    }
+    
+    if (selectedStoreExperience !== 'All') {
+      result = result.filter(r => normalizeExperience(getStoreExperienceRating(r)) === selectedStoreExperience);
+    }
+    
+    if (selectedCallExperience !== 'All') {
+      result = result.filter(r => normalizeExperience(getCallExperienceRating(r)) === selectedCallExperience);
+    }
+    
+    return result;
+  }, [reports, selectedIntent, selectedStoreExperience, selectedCallExperience]);
 
   const intentDistribution = useMemo(() => {
     const dist = { High: 0, Medium: 0, Low: 0 };
@@ -248,7 +297,7 @@ const OutboundAggregatedDashboard = () => {
       store.totalCalls = count;
     });
 
-    return Object.values(storeMap).sort((a, b) => b.avgScore - a.avgScore);
+    return Object.values(storeMap).sort((a, b) => b.totalCalls - a.totalCalls);
   }, [filteredReports]);
 
   // Set default selected store
@@ -544,22 +593,65 @@ const OutboundAggregatedDashboard = () => {
             </div>
           </div>
 
-          {/* Intent Filter */}
-          <div className="flex items-center gap-2 mt-6">
-            <span className="text-sm text-gray-400 mr-2">Filter by Intent:</span>
-            {['All', 'High', 'Medium', 'Low'].map((intent) => (
-              <button
-                key={intent}
-                onClick={() => setSelectedIntent(intent)}
-                className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                  selectedIntent === intent
-                    ? 'bg-amber-500 text-gray-900 shadow-lg'
-                    : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                }`}
-              >
-                {intent === 'All' ? 'All Intents' : `${intent} Intent`}
-              </button>
-            ))}
+          {/* Filter Strip */}
+          <div className="flex flex-wrap items-center gap-6 mt-6 px-4 py-3 bg-[#0f0f14]/50 rounded-xl border border-white/5">
+            {/* Intent Filter */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Intent:</span>
+              {['All', 'High', 'Medium', 'Low'].map((intent) => (
+                <button
+                  key={intent}
+                  onClick={() => setSelectedIntent(intent)}
+                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-all ${
+                    selectedIntent === intent
+                      ? 'bg-amber-500 text-gray-900 shadow-md'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  {intent}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-px h-6 bg-white/10"></div>
+
+            {/* Store Experience Filter */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Store Experience:</span>
+              {['All', 'High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`store-${exp}`}
+                  onClick={() => setSelectedStoreExperience(exp)}
+                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-all ${
+                    selectedStoreExperience === exp
+                      ? 'bg-indigo-500 text-white shadow-md'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  {exp}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-px h-6 bg-white/10"></div>
+
+            {/* Call Experience Filter */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Call Experience:</span>
+              {['All', 'High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`call-${exp}`}
+                  onClick={() => setSelectedCallExperience(exp)}
+                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-all ${
+                    selectedCallExperience === exp
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
+                  }`}
+                >
+                  {exp}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -661,7 +753,7 @@ const OutboundAggregatedDashboard = () => {
               <div></div>
               {experiences.map((exp) => (
                 <div key={`header-${exp}`} className="text-center font-semibold text-base text-slate-100 py-3">
-                  {exp} Experience
+                  {exp} Call Exp
                 </div>
               ))}
 
@@ -683,7 +775,7 @@ const OutboundAggregatedDashboard = () => {
                         ) || 3;
                         const e = expScore >= 4 ? 'High' : expScore >= 3 ? 'Medium' : 'Low';
                         return i === intent && e === exp;
-                      }, `${intent} intent × ${exp} experience`)}
+                      }, `${intent} intent × ${exp} call experience`)}
                       className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${matrixPalette[intent][exp]} p-6 sm:p-7 text-center transition transform hover:-translate-y-1 hover:scale-[1.02] shadow-[0_12px_40px_rgba(0,0,0,0.35)]`}
                     >
                       <div className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">{matrix[intent][exp]}</div>
@@ -942,64 +1034,6 @@ const OutboundAggregatedDashboard = () => {
             </div>
           </div>
         )}
-
-        {/* Agent Performance Rankings */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden">
-          <div className="p-8 border-b border-white/6">
-            <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
-              <Users className="w-6 h-6 text-emerald-400" />
-              Agent Performance Rankings
-            </h2>
-            <p className="text-sm text-gray-400 mt-1">Individual competency scores</p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#16161d] border-b border-white/6">
-                <tr>
-                  <th className="text-left px-8 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rank</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Agent Name</th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider"># Calls</th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Overall Score</th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-blue-400 uppercase tracking-wider">Product Knowledge</th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">Sales Skills</th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-emerald-400 uppercase tracking-wider">Soft Skills</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/6">
-                {agentPerformance.map((agent, idx) => (
-                  <tr key={agent.name} className="hover:bg-white/5 transition-colors">
-                    <td className="px-8 py-5">
-                      <span className="text-2xl font-bold text-gray-600">#{idx + 1}</span>
-                    </td>
-                    <td className="px-4 py-5">
-                      <div className="font-semibold text-gray-100">{agent.name}</div>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#16161d] text-gray-300">
-                        {agent.totalCalls}
-                      </span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreBg(agent.avgScore)} ${getScoreColor(agent.avgScore)}`}>
-                        {agent.avgScore}
-                      </span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`font-semibold ${getScoreColor(agent.avgProduct)}`}>{agent.avgProduct}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`font-semibold ${getScoreColor(agent.avgSales)}`}>{agent.avgSales}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`font-semibold ${getScoreColor(agent.avgSoft)}`}>{agent.avgSoft}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );
