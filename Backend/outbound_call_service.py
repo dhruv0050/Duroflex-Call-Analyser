@@ -10,7 +10,7 @@ import math
 from pathlib import Path
 from pymongo import MongoClient
 from typing import Optional, List, Dict
-from drive_mirror_integration import trigger_drive_mirror_for_call
+from drive_mirror_integration import trigger_drive_mirror
 
 def sanitize_nan(obj):
     """Recursively replace NaN values with None for JSON serialization."""
@@ -118,7 +118,7 @@ def save_outbound_call_to_mongodb(call_record: Dict) -> bool:
         # Trigger Drive mirror asynchronously
         recording_url = call_record.get("recording_url")
         if recording_url:
-            trigger_drive_mirror_for_call(call_id, recording_url, is_audio=True)
+            trigger_drive_mirror(call_id, recording_url, is_audio=True, collection_type="outbound")
         
         return True
     except Exception as e:

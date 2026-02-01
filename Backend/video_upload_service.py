@@ -42,6 +42,50 @@ class VideoCSVValidator:
         "is_converted",
     ]
 
+    COLUMN_ALIASES = {
+        "storename": "Store Name",
+        "store": "Store Name",
+        "customer": "Store Name",
+        "customername": "Store Name",
+        "recordingurl": "Recording URL",
+        "recordinglink": "Recording URL",
+        "recordedfile": "Recording URL",
+        "recordedfileurl": "Recording URL",
+        "recordedfilelink": "Recording URL",
+        "recordedf": "Recording URL",
+        "videourl": "Recording URL",
+        "videolink": "Recording URL",
+        "duration": "Duration",
+        "cleandatetime": "CleanDateTime",
+        "cleandatet": "CleanDateTime",
+        "cleandatetim": "CleanDateTime",
+        "date": "Date",
+        "weeknum": "WeekNum",
+        "week": "WeekNum",
+        "month": "Month",
+        "cleannumber": "CleanNumber",
+        "isconverted": "is_converted",
+        "isconvertedflag": "is_converted",
+        "converted": "is_converted",
+    }
+
+    @staticmethod
+    def _normalize_key(value: str) -> str:
+        return "".join(ch.lower() for ch in str(value) if ch.isalnum())
+
+    @staticmethod
+    def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            return df
+
+        normalized = {}
+        for col in df.columns:
+            key = VideoCSVValidator._normalize_key(col)
+            normalized[col] = VideoCSVValidator.COLUMN_ALIASES.get(key, col)
+
+        df = df.rename(columns=normalized)
+        return df
+
     @staticmethod
     def validate(df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
         missing = [col for col in VideoCSVValidator.REQUIRED_COLUMNS if col not in df.columns]
@@ -175,6 +219,7 @@ class VideoUploadProcessor:
     def process_csv_file(self, csv_file_path: str, rate_limit_delay: float = 1.0) -> str:
         """Validate and process an uploaded CSV file."""
         df = pd.read_csv(csv_file_path)
+        df = VideoCSVValidator.normalize_columns(df)
         is_valid, error = VideoCSVValidator.validate(df)
         if not is_valid:
             raise ValueError(error)

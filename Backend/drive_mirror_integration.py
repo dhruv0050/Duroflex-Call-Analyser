@@ -8,17 +8,31 @@ from typing import Dict, Optional
 from drive_upload_service import upload_file_to_drive
 
 
-def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = True):
+def _get_audio_collection(collection_type: str):
+    try:
+        if collection_type == "abc":
+            from abc_service import get_abc_collection
+            return get_abc_collection()
+        if collection_type == "outbound":
+            from outbound_call_service import get_outbound_collection
+            return get_outbound_collection()
+        from GmbCall_service import get_call_collection
+        return get_call_collection()
+    except Exception as exc:
+        print(f"[DRIVE] Collection lookup failed for {collection_type}: {exc}")
+        return None
+
+
+def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = True, collection_type: str = "gmb"):
     """
     Mirror a recording file from S3 to Google Drive
     Runs in background thread, updates Mongo with drive link and status
     """
     try:
         # Lazy imports to avoid circular dependency
-        from GmbCall_service import get_call_collection
         from video_analysis_service import get_video_collection
-        
-        collection = get_call_collection() if is_audio else get_video_collection()
+
+        collection = _get_audio_collection(collection_type) if is_audio else get_video_collection()
         if collection is None:
             print(f"[DRIVE] No collection available for {report_id}")
             return
@@ -76,10 +90,9 @@ def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = T
         print(f"[DRIVE] Exception for {report_id}: {str(e)}")
         try:
             # Lazy imports to avoid circular dependency
-            from GmbCall_service import get_call_collection
             from video_analysis_service import get_video_collection
-            
-            collection = get_call_collection() if is_audio else get_video_collection()
+
+            collection = _get_audio_collection(collection_type) if is_audio else get_video_collection()
             query = {"call_id": report_id} if is_audio else {"report_id": report_id}
             
             error_msg = str(e)[:500]
@@ -97,7 +110,7 @@ def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = T
             pass
 
 
-def trigger_drive_mirror(report_id: str, recording_url: str, is_audio: bool = True) -> bool:
+def trigger_drive_mirror(report_id: str, recording_url: str, is_audio: bool = True, collection_type: str = "gmb") -> bool:
     """
     Trigger async Drive mirror job for a recording.
     Starts a background thread.
@@ -118,7 +131,7 @@ def trigger_drive_mirror(report_id: str, recording_url: str, is_audio: bool = Tr
         # Start background thread
         thread = threading.Thread(
             target=mirror_to_drive_async,
-            args=(report_id, recording_url, is_audio),
+            args=(report_id, recording_url, is_audio, collection_type),
             daemon=True
         )
         thread.start()
@@ -131,7 +144,7 @@ def trigger_drive_mirror(report_id: str, recording_url: str, is_audio: bool = Tr
         return False
 
 
-def trigger_drive_mirror_for_call(call_record: Dict) -> None:
+def trigger_drive_mirror_for_call(call_record: Dict, collection_type: str = "gmb") -> None:
     """
     Helper to trigger Drive mirror for an audio call record.
     Extracts call_id and recording_url from the record.
@@ -140,7 +153,7 @@ def trigger_drive_mirror_for_call(call_record: Dict) -> None:
     recording_url = call_record.get("recording_url")
     
     if call_id and recording_url:
-        trigger_drive_mirror(call_id, recording_url, is_audio=True)
+        trigger_drive_mirror(call_id, recording_url, is_audio=True, collection_type=collection_type)
 
 
 def trigger_drive_mirror_for_video(video_record: Dict) -> None:
