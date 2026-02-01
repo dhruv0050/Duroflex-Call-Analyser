@@ -27,7 +27,7 @@ const CallReportsList = () => {
 
   const fetchReports = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/call-reports`);
+      const res = await fetch(`${API_BASE}/api/GmbCalls`);
       const data = await res.json();
       setReports(data.reports || []);
     } catch (err) {
@@ -39,7 +39,7 @@ const CallReportsList = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/call-reports/stats/overview`);
+      const res = await fetch(`${API_BASE}/api/GmbCalls/stats/overview`);
       const data = await res.json();
       setStats(data.stats);
     } catch (err) {
@@ -219,7 +219,7 @@ const CallReportsList = () => {
 
           <div className="flex items-center gap-3">
             <Link
-              to="/call-reports/upload"
+              to="/GmbCalls/upload"
               className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-lg text-purple-300 text-sm font-semibold transition"
             >
               <Upload className="w-4 h-4" />
@@ -227,7 +227,7 @@ const CallReportsList = () => {
             </Link>
 
             <Link
-              to="/call-reports/analytics"
+              to="/GmbCalls/analytics"
               className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-lg text-amber-200 text-sm font-semibold transition"
             >
               <BarChart3 className="w-4 h-4" />
@@ -400,7 +400,7 @@ const CallReportsList = () => {
               Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
             </div>
             <button
-              onClick={() => navigate('/call-reports')}
+              onClick={() => navigate('/GmbCalls')}
               className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
             >
               Clear filter
@@ -422,7 +422,7 @@ const CallReportsList = () => {
             return (
               <Link
                 key={report.call_id}
-                to={`/call-reports/${report.call_id}`}
+                to={`/GmbCalls/${report.call_id}`}
                 className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:border-amber-500/50 transition-all overflow-hidden relative"
               >
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>

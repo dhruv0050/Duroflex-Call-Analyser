@@ -85,7 +85,7 @@ const AudioCallUpload = () => {
       formData.append('file', selectedFile);
 
       console.log('[UPLOAD] Sending file to backend...');
-      const response = await fetch(`${API_BASE}/api/call-reports/upload`, {
+      const response = await fetch(`${API_BASE}/api/GmbCalls/upload`, {
         method: 'POST',
         body: formData
       });
@@ -125,7 +125,7 @@ const AudioCallUpload = () => {
 
   // Navigate back to call reports
   const handleBackToReports = () => {
-    navigate('/call-reports');
+    navigate('/GmbCalls');
   };
 
   return (

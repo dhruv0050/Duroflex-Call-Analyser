@@ -16,11 +16,11 @@ from json import JSONEncoder
 # Load environment variables from .env file
 load_dotenv()
 
-from csv_analysis_service import load_call_reports, get_call_report_by_id, get_call_stats, save_call_to_mongodb, save_calls_to_json
+from GmbCall_service import load_call_reports, get_call_report_by_id, get_call_stats, save_call_to_mongodb, save_calls_to_json
 from video_analysis_service import analyze_video_with_gemini, get_all_video_reports_with_metadata, get_video_analysis_by_id, save_video_analysis
 from auth_service import authenticate_admin, create_access_token, create_admin_in_db
 from preprocess_videos import preprocess_all_videos
-from call_upload_service import CallUploadProcessor
+from GmbCall_processor import CallUploadProcessor
 from video_upload_service import VideoUploadProcessor
 from drive_mirror_integration import trigger_drive_mirror
 from video_chatbot_service import chat_with_video_context, get_chat_insights, get_all_video_transcripts
@@ -135,7 +135,7 @@ async def root():
             "get_result": "GET /api/results/{video_id}",
             "get_all_results": "GET /api/results",
             "health": "GET /api/health",
-            "call_reports": "GET /api/call-reports"
+            "call_reports": "GET /api/GmbCalls"
         }
     }
 
@@ -326,7 +326,7 @@ async def upload_video_csv(file: UploadFile = File(...)):
 
 # ===== CSV CALL ANALYSIS ENDPOINTS =====
 
-@app.get("/api/call-reports")
+@app.get("/api/GmbCalls")
 async def get_all_call_reports():
     """Get all call analysis reports from CSV"""
     try:
@@ -342,7 +342,7 @@ async def get_all_call_reports():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/call-reports/{call_id}")
+@app.get("/api/GmbCalls/{call_id}")
 async def get_call_report(call_id: str):
     """Get a specific call report by call ID"""
     try:
@@ -361,7 +361,7 @@ async def get_call_report(call_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/call-reports/stats/overview")
+@app.get("/api/GmbCalls/stats/overview")
 async def get_call_reports_stats():
     """Get aggregate statistics for all call reports"""
     try:
@@ -378,7 +378,7 @@ async def get_call_reports_stats():
 
 # ===== CSV AUDIO CALL UPLOAD ENDPOINTS =====
 
-@app.post("/api/call-reports/upload")
+@app.post("/api/GmbCalls/upload")
 async def upload_audio_csv(file: UploadFile = File(...)):
     """
     Upload a CSV file with audio call recordings for processing.
@@ -468,7 +468,7 @@ async def upload_audio_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-@app.get("/api/call-reports/upload-status/{job_id}")
+@app.get("/api/GmbCalls/upload-status/{job_id}")
 async def get_upload_status(job_id: str):
     """
     Get the processing status of an uploaded CSV file.
@@ -480,13 +480,13 @@ async def get_upload_status(job_id: str):
         return {
             "status": "success",
             "message": "Job status tracking requires job persistence. Calls are saved to MongoDB after upload.",
-            "note": "Query /api/call-reports to see all available calls"
+            "note": "Query /api/GmbCalls to see all available calls"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/call-reports/{call_id}/retry-drive-sync")
+@app.post("/api/GmbCalls/{call_id}/retry-drive-sync")
 async def retry_audio_drive_sync(call_id: str):
     """Retry Drive sync for a specific audio call report"""
     try:

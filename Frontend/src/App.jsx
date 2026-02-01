@@ -38,11 +38,11 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
 
-          {/* Audio Call Reports Routes */}
-          <Route path="/call-reports" element={<ProtectedRoute><CallReportsList /></ProtectedRoute>} />
-          <Route path="/call-reports/upload" element={<ProtectedRoute><AudioCallUpload /></ProtectedRoute>} />
-          <Route path="/call-reports/:callId" element={<ProtectedRoute><CallReportDetail /></ProtectedRoute>} />
-          <Route path="/call-reports/analytics" element={<ProtectedRoute><CallAggregatedDashboard /></ProtectedRoute>} />
+          {/* GMB Audio Call Reports Routes */}
+          <Route path="/GmbCalls" element={<ProtectedRoute><CallReportsList /></ProtectedRoute>} />
+          <Route path="/GmbCalls/upload" element={<ProtectedRoute><AudioCallUpload /></ProtectedRoute>} />
+          <Route path="/GmbCalls/:callId" element={<ProtectedRoute><CallReportDetail /></ProtectedRoute>} />
+          <Route path="/GmbCalls/analytics" element={<ProtectedRoute><CallAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Video Call Reports Routes */}
           <Route path="/video-reports" element={<ProtectedRoute><VideoCallsList /></ProtectedRoute>} />

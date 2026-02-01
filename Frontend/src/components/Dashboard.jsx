@@ -105,9 +105,9 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const [audioRes, videoRes, statsRes, outboundRes, outboundStatsRes, abcRes, abcStatsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/call-reports`),
+          fetch(`${API_BASE}/api/GmbCalls`),
           fetch(`${API_BASE}/api/video-reports`),
-          fetch(`${API_BASE}/api/call-reports/stats/overview`).catch(() => null),
+          fetch(`${API_BASE}/api/GmbCalls/stats/overview`).catch(() => null),
           fetch(`${API_BASE}/api/outbound-calls`).catch(() => null),
           fetch(`${API_BASE}/api/outbound-calls/stats/overview`).catch(() => null),
           fetch(`${API_BASE}/api/abc-calls/reports`).catch(() => null),
@@ -322,7 +322,7 @@ const Dashboard = () => {
         </svg>
       ),
       stats: { calls: formatNumber(audioMetrics.total), analyzed: formatNumber(audioMetrics.analyzed), latest: audioMetrics.latest },
-      onClick: () => navigate('/call-reports/analytics')
+      onClick: () => navigate('/GmbCalls/analytics')
     },
     {
       id: 'popin',

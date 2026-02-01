@@ -17,7 +17,7 @@ const CallReportDetail = () => {
 
   const fetchReport = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/call-reports/${callId}`);
+      const res = await fetch(`${API_BASE}/api/GmbCalls/${callId}`);
       if (!res.ok) throw new Error('Failed to load report');
       const data = await res.json();
       setReport(data.report);
@@ -175,7 +175,7 @@ const CallReportDetail = () => {
       <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error || 'Report not found'}</p>
-          <Link to="/call-reports" className="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-2">
+          <Link to="/GmbCalls" className="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Reports
           </Link>
         </div>
@@ -189,7 +189,7 @@ const CallReportDetail = () => {
   if (hasError) {
     return (
       <div className="min-h-screen bg-[#08080c] p-8">
-        <Link to="/call-reports" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 mb-6">
+        <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 mb-6">
           <ArrowLeft className="w-4 h-4" /> Back to Reports
         </Link>
         <div className="max-w-4xl mx-auto bg-gray-900 border border-gray-800 rounded-xl p-8">
@@ -257,7 +257,7 @@ const CallReportDetail = () => {
       <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
         {/* Back Button and Download Buttons */}
         <div className="flex items-center justify-between mb-6">
-          <Link to="/call-reports" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
+          <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
             <ArrowLeft className="w-4 h-4" /> Back to All Reports
           </Link>
           

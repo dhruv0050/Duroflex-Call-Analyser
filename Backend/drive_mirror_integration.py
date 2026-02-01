@@ -15,7 +15,7 @@ def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = T
     """
     try:
         # Lazy imports to avoid circular dependency
-        from csv_analysis_service import get_call_collection
+        from GmbCall_service import get_call_collection
         from video_analysis_service import get_video_collection
         
         collection = get_call_collection() if is_audio else get_video_collection()
@@ -76,7 +76,7 @@ def mirror_to_drive_async(report_id: str, recording_url: str, is_audio: bool = T
         print(f"[DRIVE] Exception for {report_id}: {str(e)}")
         try:
             # Lazy imports to avoid circular dependency
-            from csv_analysis_service import get_call_collection
+            from GmbCall_service import get_call_collection
             from video_analysis_service import get_video_collection
             
             collection = get_call_collection() if is_audio else get_video_collection()
