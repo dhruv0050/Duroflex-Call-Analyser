@@ -89,7 +89,16 @@ const OutboundCallsList = () => {
 
   const getIntentRating = (report) => {
     const analysis = report.analysis || {};
-    // Handle both expected and actual Gemini response structures
+    // NEW SCHEMA: Map Recovery_Verdict to intent levels
+    const summary = analysis.Summary || {};
+    const verdict = summary.Recovery_Verdict;
+    if (verdict) {
+      if (verdict.includes('Hot')) return 'HIGH';
+      if (verdict.includes('Warm')) return 'MEDIUM';
+      if (verdict.includes('Cold') || verdict.includes('Lost')) return 'LOW';
+    }
+    
+    // OLD SCHEMA FALLBACK
     const intent = getAnalysisField(analysis,
       'Pillar_1_Customer_Intent_and_Barriers.Intent_to_Purchase_Rating',
       'PILLAR_1_INTENT_BARRIERS.Intent_to_Purchase_Rating',
@@ -120,7 +129,25 @@ const OutboundCallsList = () => {
 
   const getOverallScore = (report) => {
     const analysis = report.analysis || {};
-    // Handle all possible keys for overall score - prioritize old schema paths
+    // NEW SCHEMA: Use average of RELAX scores from Pillar_5_Methodology
+    const pillar5 = analysis.Pillar_5_Methodology || {};
+    const relaxScores = pillar5.RELAX_Scores || {};
+    
+    // Calculate average of R, E, L, A, X scores
+    const scores = [
+      relaxScores.R?.Score,
+      relaxScores.E?.Score,
+      relaxScores.L?.Score,
+      relaxScores.A?.Score,
+      relaxScores.X?.Score
+    ].filter(s => typeof s === 'number');
+    
+    if (scores.length > 0) {
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      return Math.round(avg);
+    }
+    
+    // OLD SCHEMA FALLBACK
     const score = getAnalysisField(
       analysis,
       'PILLAR_2_EXPERIENCE_DELIVERED.Overall_Experience_Rating',
@@ -403,13 +430,16 @@ const OutboundCallsList = () => {
             const intent = getIntentRating(report);
             const score = getOverallScore(report);
             const analysis = report.analysis || {};
-            // Handle both expected and actual Gemini response structures
-            const commitment = getAnalysisField(analysis,
-              'Pillar_4_Invitation_to_Convert.Commitment_Obtained',
-              'PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
-              'Call_Analysis.PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
-              'PILLAR_4.Commitment_Obtained'
-            ) || 'N/A';
+            // NEW SCHEMA: Extract commitment from Next_Action_Text or Recovery_Verdict
+            const pillar4 = analysis.Pillar_4_Lead_Health || {};
+            const summary = analysis.Summary || {};
+            const commitment = pillar4.AIDA_Stage || summary.Recovery_Verdict || 
+              getAnalysisField(analysis,
+                'Pillar_4_Invitation_to_Convert.Commitment_Obtained',
+                'PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
+                'Call_Analysis.PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
+                'PILLAR_4.Commitment_Obtained'
+              ) || 'N/A';
             
             return (
               <Link

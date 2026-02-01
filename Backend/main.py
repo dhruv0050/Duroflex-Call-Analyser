@@ -691,15 +691,25 @@ async def upload_outbound_csv(file: UploadFile = File(...)):
 
             # Save processed pre-purchase calls
             processed_calls = processor.get_processed_calls()
+            print(f"[API] Saving {len(processed_calls)} successfully processed calls to MongoDB...")
             for call_data in processed_calls:
-                save_outbound_call_to_mongodb(call_data)
+                result = save_outbound_call_to_mongodb(call_data)
+                if not result:
+                    print(f"[API] Failed to save {call_data.get('call_id')}")
 
             # Save discarded post-purchase calls
             discarded_calls = processor.get_discarded_calls()
+            print(f"[API] Saving {len(discarded_calls)} discarded calls to MongoDB...")
             for call_data in discarded_calls:
                 save_discarded_call(call_data)
 
             job_status = processor.get_job_status(job_id)
+            
+            # Print errors for debugging
+            if job_status.get('errors'):
+                print(f"[API] Processing errors ({len(job_status['errors'])}):")
+                for err in job_status['errors'][:5]:  # Print first 5
+                    print(f"  Row {err.get('row')}: {err.get('error')}")
 
             response = {
                 "status": "processing_complete",

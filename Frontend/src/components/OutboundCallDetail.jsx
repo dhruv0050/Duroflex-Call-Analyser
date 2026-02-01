@@ -31,8 +31,9 @@ const OutboundCallDetail = () => {
   }, [callId]);
 
   const playRecording = () => {
-    if (report?.recording_url) {
-      window.open(report.recording_url, '_blank');
+    const url = report?.driveLink || report?.recording_url;
+    if (url) {
+      window.open(url, '_blank');
     }
   };
 

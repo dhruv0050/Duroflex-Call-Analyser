@@ -300,31 +300,36 @@ class OutboundCallUploadProcessor:
                     # PRE-PURCHASE: Do full analysis
                     print(f"[OUTBOUND] Call is PRE_PURCHASE - performing full analysis...")
                     
-                    # Create prompt template with context
-                    prompt_template_str = self._create_prompt_template(base_record)
+                    # Create fully formatted prompt with context
+                    prompt_str = self._create_prompt_template(base_record)
                     
-                    # Analyze
-                    analysis, analysis_error = self.analyzer_full.analyze(
-                        audio_data=audio_data,
-                        row_data={
-                            "store_name": store_name,
-                            "customer_phone": customer_phone,
-                            "duration": duration
-                        },
-                        prompt_template=prompt_template_str
-                    )
-                    
-                    if analysis is None:
-                        self._add_error(row_num, store_name, analysis_error or "Analysis failed")
+                    # Analyze using fully formatted prompt
+                    try:
+                        analysis, analysis_error = self.analyzer_full.analyze_with_prompt(
+                            audio_data=audio_data,
+                            prompt=prompt_str
+                        )
+                        
+                        if analysis is None:
+                            error_msg = analysis_error or "Analysis failed (returned None)"
+                            print(f"[OUTBOUND] ❌ Analysis failed for row {row_num}: {error_msg}")
+                            self._add_error(row_num, store_name, error_msg)
+                            continue
+                        
+                        print(f"[OUTBOUND] ✅ Analysis completed for row {row_num}")
+                        
+                        # Store successful record
+                        base_record["analysis"] = analysis
+                        self.processed_calls.append(base_record)
+                        self.job_status["successful"] += 1
+                        self.job_status["processed"] += 1
+                        
+                        print(f"[OUTBOUND] ✓ Row {row_num} processed successfully")
+                    except Exception as analysis_exc:
+                        error_msg = f"Analysis exception: {str(analysis_exc)}"
+                        print(f"[OUTBOUND] ❌ {error_msg}")
+                        self._add_error(row_num, store_name, error_msg)
                         continue
-                    
-                    # Store successful record
-                    base_record["analysis"] = analysis
-                    self.processed_calls.append(base_record)
-                    self.job_status["successful"] += 1
-                    self.job_status["processed"] += 1
-                    
-                    print(f"[OUTBOUND] ✓ Row {row_num} processed successfully")
                     
                     # Rate limiting
                     time.sleep(rate_limit_delay)
