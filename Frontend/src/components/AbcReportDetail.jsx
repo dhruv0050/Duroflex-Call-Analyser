@@ -29,8 +29,10 @@ const AbcReportDetail = () => {
   };
 
   const playAudio = () => {
-    if (report?.audio_url) {
-      window.open(report.audio_url, '_blank');
+    // Prioritize Drive link if available, fallback to S3 audio URL
+    const recordingUrl = report?.driveLink || report?.audio_url;
+    if (recordingUrl) {
+      window.open(recordingUrl, '_blank');
     }
   };
 
@@ -233,8 +235,9 @@ const AbcReportDetail = () => {
             <button 
               onClick={playAudio}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+              title={report?.driveLink ? 'Open from Google Drive' : 'Open from S3'}
             >
-              <Play className="w-4 h-4" /> Access Recording
+              <Play className="w-4 h-4" /> {report?.driveLink ? 'Play from Drive' : 'Access Recording'}
             </button>
             <button
               onClick={downloadReport}
