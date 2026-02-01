@@ -346,10 +346,10 @@ const VideoCallDetail = () => {
             <button
               onClick={downloadCSV}
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-              title="Download Video Report as CSV"
+              title="Download Video Report"
             >
               <Download className="w-4 h-4" />
-              Download CSV
+              Download Report
             </button>
             <button
               onClick={downloadTranscript}

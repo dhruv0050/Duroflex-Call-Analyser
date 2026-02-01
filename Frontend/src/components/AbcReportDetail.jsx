@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Play, Home, Video, Percent, CalendarCheck } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Play, Home, Video, Percent, CalendarCheck, Download } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -53,6 +53,16 @@ const AbcReportDetail = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `transcript_${report.call_id}.txt`;
     link.click();
+  };
+
+  const downloadReport = () => {
+    if (!report) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `abc_report_${report.call_id}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   if (loading) return <div className="min-h-screen bg-[#08080c] flex items-center justify-center text-gray-300">Loading...</div>;
@@ -224,7 +234,13 @@ const AbcReportDetail = () => {
               onClick={playAudio}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
             >
-              <Play className="w-4 h-4" /> Play Audio
+              <Play className="w-4 h-4" /> Access Recording
+            </button>
+            <button
+              onClick={downloadReport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Download Report
             </button>
             <button 
               onClick={downloadTranscript} 

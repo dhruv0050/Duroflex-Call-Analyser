@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, Play, FileDown, Home, Package, Users, Calendar, Percent } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Play, FileDown, Home, Package, Users, Calendar, Percent, Download } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -66,6 +66,16 @@ const OutboundCallDetail = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `walkin_transcript_${report.call_id}.txt`;
     link.click();
+  };
+
+  const downloadReport = () => {
+    if (!report) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `walkin_report_${report.call_id}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   if (loading) {
@@ -340,7 +350,13 @@ const OutboundCallDetail = () => {
               onClick={playRecording}
               className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
             >
-              <Play className="w-4 h-4" /> Play Recording
+              <Play className="w-4 h-4" /> Access Recording
+            </button>
+            <button
+              onClick={downloadReport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Download Report
             </button>
             <button 
               onClick={downloadTranscript}

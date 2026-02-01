@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, TrendingUp, Users, Video, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Phone } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Video, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Phone, Upload } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -647,6 +647,13 @@ const VideoAggregatedDashboard = () => {
                 <Download className="w-4 h-4" />
                 Download All Reports
               </button>
+              <Link
+                to="/video-reports/upload"
+                className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg font-semibold text-sm transition"
+              >
+                <Upload className="w-4 h-4" />
+                Upload CSV
+              </Link>
               <div className="flex items-center gap-3 bg-[#16161d] border border-white/6 rounded-lg px-4 py-2">
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <select
