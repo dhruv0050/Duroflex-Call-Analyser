@@ -109,10 +109,11 @@ def save_abc_call_to_mongodb(call_record: Dict) -> bool:
             upsert=True
         )
         
-        # Trigger Drive mirror asynchronously if needed
-        # recording_url = call_record.get("recording_url")
-        # if recording_url:
-        #     trigger_drive_mirror_for_call(call_id, recording_url, "ABC_Calls")
+        # Trigger Drive mirror asynchronously (using recording_url)
+        recording_url = call_record.get("recording_url") or call_record.get("audio_url")
+        if recording_url:
+            from drive_mirror_integration import trigger_drive_mirror
+            trigger_drive_mirror(call_id, recording_url, is_audio=True)
         
         return True
     except Exception as e:

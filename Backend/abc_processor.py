@@ -202,6 +202,7 @@ class AbcCallProcessor:
         phone = str(row.get('Billing Phone', ''))
         city = str(row.get('Billing City', ''))
         audio_url = str(row.get('CallAudio', ''))
+        agent_name = str(row.get('Agent_Name', row.get('AgentName', 'Unknown Agent')))  # Extract agent name from CSV
         call_id = f"abc_call_{uuid.uuid4().hex[:8]}" # Generate ID if not present
 
         if not audio_url or pd.isna(audio_url) or audio_url == 'nan':
@@ -225,7 +226,9 @@ class AbcCallProcessor:
           "call_id": call_id,
           "phone": phone,
           "city": city,
+          "agent_name": agent_name,  # Save agent name from CSV
           "audio_url": audio_url,
+          "recording_url": audio_url,  # For Drive upload compatibility
           "processed_at": datetime.now().isoformat(),
           "call_type_detected": call_type,
           "raw_data": row.to_dict()
@@ -259,408 +262,141 @@ class AbcCallProcessor:
         """Create the ABC analysis prompt with call context"""
         
         # Extract headers (mapping CSV to Prompt fields)
+        customer_name = row.get('Customer_Name', 'Not Specified')
         cart_value = row.get('Lineitem price', 'Unknown')
         abandonment_date = row.get('LeadCreatedDate', 'Unknown')
         call_date = row.get('CallStartDateTime', 'Unknown')
         phone = row.get('Billing Phone', 'Unknown')
         city = row.get('Billing City', 'Unknown')
+        locality = row.get('Locality', 'Unknown')
         zip_code = row.get('Billing Zip', 'Unknown')
-        duration = row.get('Duration', 'Unknown') # Might be missing
-
-        template = f"""
-You are an expert Retail Operations & Sales Analyst for Duroflex.
-... (Prompt Content) ...
-
-## CALL & CART CONTEXT
-- Customer_Name: Not Specified
-- Cart_Products: Not Specified (General Cart Recovery)
-- Cart_Value: {cart_value}
-- Abandonment_Date: {abandonment_date}
-- Days_Since_Abandonment: Unknown
-- Abandonment_Stage: Unknown
-- Store_Name (Nearest): Not Specified
-- Location: {city}, {zip_code}
-- Region: Unknown
-- Call_Date: {call_date}
-- Call_Duration: {duration} seconds
-
-... (Rest of User Prompt) ...
-"""
-        # Append the full prompt text provided by user
-        # I will inject the full detailed prompt here.
+        store_name = row.get('Store_Name', 'Central CX Team')
         
-        full_prompt = f"""
-You are an expert Retail Operations & Sales Analyst for Duroflex, a premium mattress and sleep solutions brand.
+        full_prompt = f"""You are an expert Retail Operations & Sales Analyst for Duroflex.
 
 ## CONTEXT
-You are analyzing an Outbound Call made by a Duroflex Sales Agent to a customer who abandoned their online checkout. These calls are part of the Cart Recovery program where agents proactively reach out to understand barriers and nudge customers toward successful purchase completion. Your analysis must deeply evaluate the agent's ability to recover the sale while delivering an excellent customer experience.
+You are analyzing an Abandoned Checkout (ABC) Recovery Call. 
+Your analysis will populate a visual dashboard for the Head of Sales. The dashboard prioritizes:
+1. **The Verdict:** Is this lead saved/hot, or lost?
+2. **The Barrier:** Why did they drop off? (Price, Product, Tech)
+3. **The Effort:** Did the agent try to get them into a Store or Video Call?
 
-## OBJECTIVE
-Analyze this call through FIVE critical lenses:
-1. **CUSTOMER INTENT & BARRIERS** — What is the customer's true purchase intent and what's blocking them?
-2. **EXPERIENCE DELIVERED** — What experience did we deliver from both customer and sales perspectives?
-3. **RELAX FRAMEWORK** — How well did the agent execute the Duroflex sales methodology?
-4. **INVITATION TO CONVERT** — Did we provide clear, compelling paths to purchase?
-5. **AGENT COMPETENCY** — Product knowledge, sales acumen, and interpersonal skills
-
-## CALL & CART CONTEXT
-- Customer_Name: Not Specified
-- Cart_Products: Not Specified
-- Cart_Value: {cart_value}
+## CALL METADATA
+- Customer_Name: {customer_name}
+- Cart_Value: ₹{cart_value}
 - Abandonment_Date: {abandonment_date}
-- Days_Since_Abandonment: Unknown
-- Abandonment_Stage: Unknown
-- Store_Name (Nearest): Not Specified
-- Location: {city}, {zip_code}
-- Region: Unknown
+- Store_Name: {store_name}
+- Location: {locality}, {city}
 - Call_Date: {call_date}
-- Call_Duration: {duration} seconds
 
-## RATING SCALE (Use for all scores)
-- 1: Poor / Not Attempted
-- 2: Below Average
-- 3: Average / Met Minimum Standard
-- 4: Good / Effective
-- 5: Excellent / Exemplary
+## RATING SCALE
+- 1 (Poor/Not Attempted) to 5 (Excellent)
 
 ---
 
-## PILLAR 1: CUSTOMER INTENT & PURCHASE BARRIERS
-**Purpose:** Understand where the customer truly stands in their buying journey and what obstacles exist.
+## PILLAR 1: LEAD STATUS & BARRIERS (The "Verdict")
+**Purpose:** Determine if the sale is recoverable and what stopped it.
 
-Evaluate:
-- **Intent_to_Purchase_Rating**: HIGH / MEDIUM / LOW
-  - HIGH: Ready to buy, just needed nudge/resolution
-  - MEDIUM: Interested but has unresolved concerns
-  - LOW: Not planning to purchase / was just browsing / already bought elsewhere
-
-- **Primary_Abandonment_Reason**: Why did they leave checkout?
-  - Price Concern / Delivery Issues / Product Doubt / Payment Failure / Comparing Options / Just Browsing / Technical Issue / Personal/Financial Reasons / Already Purchased Elsewhere / Not Disclosed
-
-- **Secondary_Barriers**: Other concerns surfaced during call
-
-- **Barrier_Resolution_Status**: Resolved / Partially Resolved / Unresolved / Not Attempted
-
-- **Timeline_to_Purchase**: Immediate (Today/This Week) / Short (2-4 Weeks) / Long (>1 Month) / Uncertain / Not Purchasing
-
-- **Customer_Stage_AIDA**: Where are they post-call?
-  - Awareness / Interest / Desire / Action
-
-- **Intent_Shift**: Did the call improve their purchase intent?
-  - Increased / Unchanged / Decreased
+1. **Recovery_Outcome_Headline**: A short, punchy title summarizing the result (e.g., "Visit Scheduled for Jan 6th" or "Lost - Price too high").
+2. **Lead_Status_Label**:
+   - **HOT LEAD**: Visit scheduled or Purchase promised.
+   - **NURTURING**: Interested but needs time/follow-up.
+   - **COLD/LOST**: Not interested or bought elsewhere.
+3. **Primary_Barrier**: The ONE main reason they didn't buy online (Price / Trust / Delivery / Tech Issue).
+4. **Funnel_Stage_AIDA**: Where did the call end? (Awareness / Interest / Desire / Action).
+5. **Intent_Gauge**: LOW / MEDIUM / HIGH.
 
 ---
 
-## PILLAR 2: EXPERIENCE DELIVERED
-**Purpose:** Evaluate the call from two perspectives — how the customer experienced it, and how effective it was as a sales interaction. This dual lens helps the Sales Head understand both brand impact and commercial effectiveness.
+## PILLAR 2: CONVERSION ATTEMPTS (The "Effort")
+**Purpose:** Check if the agent pushed for specific conversion channels.
 
-### A. CUSTOMER EXPERIENCE (Customer's Perspective)
-*Did we make the customer feel valued and respected?*
-
-- **Opening_Experience**: How did the call begin for the customer?
-  - Was introduction clear and professional?
-  - Was permission sought before proceeding?
-  - Did customer feel respected, not ambushed?
-
-- **Listening_Quality**: Did agent genuinely listen to concerns?
-  - Active listening demonstrated
-  - Customer felt understood
-  - Concerns acknowledged before solutioning
-
-- **Empathy_Displayed**: Did agent show understanding of customer's situation?
-  - Acknowledged frustrations/concerns
-  - Didn't dismiss objections
-  - Personalized the conversation
-
-- **Pressure_Level**: Was the call consultative or pushy?
-  - Consultative: Customer-led, helpful
-  - Balanced: Some urgency but respectful
-  - Pushy: Aggressive, made customer uncomfortable
-
-- **Closing_Sentiment**: How did customer feel at end of call?
-  - Positive / Neutral / Negative
-
-- **Customer_Experience_Rating**: HIGH / MEDIUM / LOW
-  - HIGH: Customer felt heard, valued, and appreciated the call
-  - MEDIUM: Neutral/transactional experience, no negative impact
-  - LOW: Customer felt annoyed, rushed, or poorly treated
-
-### B. SALES EXPERIENCE (Business Perspective)
-*Was this a well-executed sales interaction that maximized the recovery opportunity?*
-
-- **Opportunity_Utilization**: Did agent fully leverage the cart context and customer data?
-  - Referenced specific products in cart
-  - Used cart value to tailor approach
-  - Acknowledged abandonment stage appropriately
-
-- **Conversation_Control**: Did agent guide the conversation purposefully?
-  - Maintained direction toward conversion goal
-  - Balanced customer concerns with sales progression
-  - Avoided aimless or circular discussion
-
-- **Objection_Conversion**: Were objections turned into opportunities?
-  - Reframed concerns as reasons to buy
-  - Used objections to introduce value-adds
-  - Didn't leave objections hanging
-
-- **Value_Articulation**: Did agent communicate compelling reasons to buy now?
-  - Differentiated Duroflex from alternatives
-  - Justified price with value/benefits
-  - Created relevance for customer's specific situation
-
-- **Time_Efficiency**: Was the call duration productive?
-  - Appropriate length for outcome achieved
-  - No unnecessary tangents
-  - Efficient yet not rushed
-
-- **Commercial_Outcome_Alignment**: Did the call progress toward a business outcome?
-  - Clear ask made
-  - Next step defined
-  - Pipeline value protected or advanced
-
-- **Sales_Experience_Rating**: HIGH / MEDIUM / LOW
-  - HIGH: Textbook sales call — controlled, persuasive, outcome-oriented
-  - MEDIUM: Decent attempt but missed opportunities or lacked structure
-  - LOW: Poorly executed — lost control, missed cues, no clear commercial direction
-
-### C. OVERALL EXPERIENCE RATING
-- **Overall_Experience_Rating**: 1-5
-  - Weighted combination of Customer Experience and Sales Experience
-  - 5: Exceptional on both dimensions — customer delighted AND sales excellence demonstrated
-  - 4: Strong on both, minor gaps in one area
-  - 3: Adequate — met basic standards but not memorable or highly effective
-  - 2: Weak on one or both dimensions — clear improvement needed
-  - 1: Poor — negative customer experience OR completely ineffective sales interaction
-
-- **Overall_Experience_Summary**: 1-2 sentence summary explaining the rating
+1. **Store_Visit_Invitation**:
+   - Status: Invited & Accepted / Invited & Declined / Not Invited
+   - Note: Did they emphasize "Touch & Feel"?
+2. **Video_Call_Invitation**:
+   - Status: Offered & Accepted / Offered & Declined / Not Offered
+   - Note: Was it used as a fallback for customers who can't visit?
+3. **Discount_Negotiation**:
+   - Status: Offered / Discussed / Not Mentioned
+   - Note: Did they use offers (bank offers, coupons) to close?
 
 ---
 
-## PILLAR 3: RELAX FRAMEWORK EXECUTION
-**Purpose:** Evaluate agent's adherence to Duroflex's structured sales methodology.
-
-**R - REACH OUT** (Opening & Connection)
-- Professional greeting with brand identification
-- Clear introduction of self and purpose
-- Permission to continue conversation
-- Warm, confident tone from start
-
-**E - EXPLORE NEEDS** (Discovery & Understanding)
-- Asked about abandonment reason
-- Probed deeper into underlying concerns
-- Understood customer's specific requirements
-- Identified decision-making factors (price, timeline, features)
-
-**L - LINK EXPERIENCE** (Connecting Solution to Need)
-- Connected product benefits to stated concerns
-- Positioned store visit/trial as solution to doubts
-- Made the experience tangible and relevant
-- Addressed "why Duroflex" for their specific need
-
-**A - ADD VALUE** (Enhancing the Proposition)
-- Mentioned relevant offers/discounts
-- Presented financing/EMI options
-- Suggested complementary products/accessories
-- Created perception of added value beyond base purchase
-
-**X - EXPRESS CLOSING** (Commitment & Next Steps)
-- Asked for commitment/next step
-- Provided clear action path
-- Confirmed logistics (timing, location, contact)
-- Left door open for follow-up if not converting now
-
-Rate each element 1-5 with specific reasons.
+## PILLAR 3: RELAX FRAMEWORK (Methodology)
+**Purpose:** Score the standard Duroflex methodology.
+- **R (Reach Out)**: Professional greeting, identified brand?
+- **E (Explore)**: Did they find the *real* reason for abandonment?
+- **L (Link)**: Did they link the mattress benefits to that specific barrier?
+- **A (Add Value)**: Did they calculate cost-per-night or offer EMI/Accessories?
+- **X (Express)**: Clear next steps/closing?
 
 ---
 
-## PILLAR 4: INVITATION TO CONVERT
-**Purpose:** Did the agent provide clear, compelling path(s) to complete the purchase?
-
-Evaluate:
-- **Invitation_Attempted**: Yes / No
-
-- **Conversion_Paths_Offered** (check all that apply):
-  - Online Completion: Guided to complete checkout, offered assistance
-  - Store Visit: Invited to nearest store for trial/purchase
-  - Video Call/Demo: Offered virtual product demonstration
-  - None Offered
-
-- **Primary_Path_Pushed**: Which path did agent primarily recommend?
-
-- **Path_Appropriateness**: Was the recommended path suitable for customer's situation?
-  - Highly Appropriate / Somewhat Appropriate / Inappropriate / Not Assessed
-
-- **Urgency_Creation**: Did agent create appropriate urgency?
-  - Offer expiry, stock availability, delivery timelines
-  - 1-5 rating
-
-- **Clarity_of_Next_Steps**: Were next steps crystal clear?
-  - 1-5 rating
-
-- **Commitment_Obtained**: What did customer agree to?
-  - Purchase Completed on Call
-  - Store Visit Scheduled (Date/Time confirmed)
-  - Video Demo Scheduled
-  - Online Completion Promised
-  - Call-Back Requested
-  - Will Think About It
-  - Declined / Not Interested
-  - None
-
-- **Invitation_Quality_Rating**: 1-5 overall
-
----
-
-## PILLAR 5: AGENT COMPETENCY
-**Purpose:** Evaluate the agent's skills across three dimensions.
-
-### A. PRODUCT KNOWLEDGE
-- **Product_Understanding**: Did agent know the products in cart?
-- **Feature_Articulation**: Could they explain benefits clearly?
-- **Comparison_Ability**: Could they differentiate from alternatives?
-- **Policy_Knowledge**: Delivery, returns, warranty, EMI options
-- **Product_Knowledge_Score**: 1-5
-
-### B. SALES SKILLS
-- **Objection_Handling**: How well did they address concerns?
-- **Value_Selling**: Did they sell value, not just features?
-- **Negotiation_Ability**: Appropriate use of offers/discounts
-- **Closing_Technique**: Ability to ask for commitment
-- **Recovery_Tactics**: Specific cart recovery techniques used
-- **Sales_Skills_Score**: 1-5
-
-### C. SOFT SKILLS & ETIQUETTE
-- **Tone_Quality**: Warm, professional, confident
-- **Patience_Level**: Didn't rush, allowed customer to speak
-- **Language_Fluency**: Clear communication in customer's language
-- **Hold_Management**: Professional if holds were needed
-- **Adaptability**: Adjusted approach based on customer responses
-- **Soft_Skills_Score**: 1-5
-
----
-
-## FUNCTIONAL INFORMATION (Supporting Data)
-- Call_ID: Format "ABC_{call_date}_{{timestamp}}"
-- Call_Time: From audio or "Not mentioned"
-- Customer_Name: Confirmed name
-- Agent_Name: If mentioned
-- Store_Location: {city}
-- Customer_Language: Primary language (English/Hindi/Kannada/Telugu/Tamil/Mix)
-- Agent_Audio_Quality_Rating: 1-5
-- Call_Outcome: Connected-Converted / Connected-Follow-Up Scheduled / Connected-Not Interested / Connected-Already Purchased / Not Connected-Voicemail / Not Connected-No Answer / Not Connected-Wrong Number
-
----
-
-## OVERALL SUMMARY
-- **Call_Synopsis**: 2-3 sentences covering abandonment reason, agent approach, and outcome
-- **What_Worked_Well**: Top 2-3 things agent did effectively
-- **Critical_Improvement_Areas**: Top 3 specific, actionable improvements
-- **Recovery_Verdict**: Did this call move customer closer to purchase? (Yes-Significantly / Yes-Slightly / No Change / Negative Impact)
-- **Next_Action**: Specific follow-up with timeline
+## PILLAR 4: EXPERIENCE & SKILLS
+**Purpose:** Soft skills assessment.
+- **Customer_Sentiment**: Positive / Neutral / Negative.
+- **Empathy_Score**: (1-5) Understanding the customer's hesitation.
+- **Active_Listening_Score**: (1-5) Not interrupting, acknowledging concerns.
+- **Objection_Handling_Score**: (1-5) Turning "It's too expensive" into value.
+- **CSAT_Score**: (1-5) Overall customer satisfaction.
 
 ---
 
 ## OUTPUT FORMAT
-Return ONLY a valid JSON object matching this exact schema.
-Do not include any text before or after the JSON:
+Return ONLY a valid JSON object matching this exact schema:
 
 {{
-  "Functional": {{
-    "Call_ID": "",
-    "Call_Time": "",
-    "Customer_Name": "",
-    "Agent_Name": "",
-    "Store_Location": "",
-    "Customer_Language": "",
-    "Agent_Audio_Quality_Rating": 0,
-    "Call_Outcome": ""
+  "Header_Data": {{
+    "Call_ID": "ABC_{store_name}_{call_date}_{{hash}}",
+    "Audio_Quality_Rating": 0,
+    "Lead_Status_Label": "HOT LEAD | NURTURING | COLD/LOST"
   }},
-  "Pillar_1_Customer_Intent_and_Barriers": {{
-    "Intent_to_Purchase_Rating": "",
-    "Intent_to_Purchase_Reasons": [],
-    "Primary_Abandonment_Reason": "",
-    "Secondary_Barriers": [],
-    "Barrier_Resolution_Status": "",
-    "Timeline_to_Purchase": "",
-    "Customer_Stage_AIDA": "",
-    "Intent_Shift": ""
+  "The_Verdict": {{
+    "Recovery_Outcome_Headline": "String (Max 40 chars)",
+    "Recovery_Outcome_Description": "String (1-2 sentences explaining the outcome)",
+    "Primary_Barrier": "String",
+    "Purchase_Intent": "LOW | MEDIUM | HIGH",
+    "Funnel_Stage_AIDA": "Awareness | Interest | Desire | Action"
   }},
-  "Pillar_2_Experience_Delivered": {{
-    "Customer_Experience": {{
-      "Opening_Experience_Rating": 0,
-      "Opening_Experience_Reasons": [],
-      "Listening_Quality_Rating": 0,
-      "Listening_Quality_Reasons": [],
-      "Empathy_Displayed_Rating": 0,
-      "Empathy_Displayed_Reasons": [],
-      "Pressure_Level": "",
-      "Closing_Sentiment": "",
-      "Customer_Experience_Rating": "",
-      "Customer_Experience_Reasons": []
+  "Conversion_Attempts": {{
+    "Store_Visit": {{
+      "Status": "Invited & Accepted | Invited & Declined | Not Invited",
+      "Details": "String (Short note on how they asked)"
     }},
-    "Sales_Experience": {{
-      "Opportunity_Utilization_Rating": 0,
-      "Opportunity_Utilization_Reasons": [],
-      "Conversation_Control_Rating": 0,
-      "Conversation_Control_Reasons": [],
-      "Objection_Conversion_Rating": 0,
-      "Objection_Conversion_Reasons": [],
-      "Value_Articulation_Rating": 0,
-      "Value_Articulation_Reasons": [],
-      "Time_Efficiency_Rating": 0,
-      "Time_Efficiency_Reasons": [],
-      "Commercial_Outcome_Alignment_Rating": 0,
-      "Commercial_Outcome_Alignment_Reasons": [],
-      "Sales_Experience_Rating": "",
-      "Sales_Experience_Reasons": []
+    "Video_Call": {{
+      "Status": "Offered & Accepted | Offered & Declined | Not Offered",
+      "Details": "String"
     }},
-    "Overall_Experience_Rating": 0,
-    "Overall_Experience_Summary": ""
-  }},
-  "Pillar_3_RELAX_Framework": {{
-    "R_Reach_Out": {{"Rating": 0, "Reasons": []}},
-    "E_Explore_Needs": {{"Rating": 0, "Reasons": []}},
-    "L_Link_Experience": {{"Rating": 0, "Reasons": []}},
-    "A_Add_Value": {{"Rating": 0, "Reasons": []}},
-    "X_Express_Closing": {{"Rating": 0, "Reasons": []}},
-    "RELAX_Overall_Score": 0
-  }},
-  "Pillar_4_Invitation_to_Convert": {{
-    "Invitation_Attempted": false,
-    "Conversion_Paths_Offered": [],
-    "Primary_Path_Pushed": "",
-    "Path_Appropriateness": "",
-    "Urgency_Creation_Rating": 0,
-    "Urgency_Creation_Reasons": [],
-    "Clarity_of_Next_Steps_Rating": 0,
-    "Clarity_of_Next_Steps_Reasons": [],
-    "Commitment_Obtained": "",
-    "Invitation_Quality_Rating": 0,
-    "Invitation_Quality_Reasons": []
-  }},
-  "Pillar_5_Agent_Competency": {{
-    "Product_Knowledge": {{
-      "Score": 0,
-      "Reasons": []
-    }},
-    "Sales_Skills": {{
-      "Score": 0,
-      "Reasons": []
-    }},
-    "Soft_Skills": {{
-      "Score": 0,
-      "Reasons": []
+    "Discount_Offer": {{
+      "Status": "Discussed | Not Discussed",
+      "Details": "String"
     }}
   }},
-  "Overall_Summary": {{
-    "Call_Synopsis": "",
-    "What_Worked_Well": [],
-    "Critical_Improvement_Areas": [],
-    "Recovery_Verdict": "",
-    "Next_Action": ""
+  "RELAX_Framework": {{
+    "R_Reach_Out": {{"Score": 0, "Reason": "String"}},
+    "E_Explore": {{"Score": 0, "Reason": "String"}},
+    "L_Link": {{"Score": 0, "Reason": "String"}},
+    "A_Add_Value": {{"Score": 0, "Reason": "String"}},
+    "X_Express": {{"Score": 0, "Reason": "String"}}
   }},
+  "Experience_and_Skills": {{
+    "CSAT_Score": 0,
+    "Customer_Sentiment": "Positive | Neutral | Negative",
+    "Sentiment_Reason": "String",
+    "Soft_Skills": {{
+      "Empathy_Score": 0,
+      "Active_Listening_Score": 0,
+      "Objection_Handling_Score": 0
+    }}
+  }},
+  "Next_Actions": [
+    "String (Action 1)",
+    "String (Action 2)"
+  ],
+  "Summary_Narrative": "String (2-3 sentences summarizing the call logic)",
   "Transcript_Log": [
-    {{"Speaker": "", "Text": "", "Timestamp": ""}}
+    {{"Speaker": "Agent/Customer", "Text": "...", "Timestamp": "00:00"}}
   ]
 }}
 """

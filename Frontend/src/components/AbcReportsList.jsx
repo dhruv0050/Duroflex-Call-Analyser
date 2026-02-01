@@ -70,40 +70,54 @@ const AbcReportsList = () => {
     return Math.round(num * 20);
   };
 
-  const cityPerformanceData = useMemo(() => {
-    // When coming from aggregated matrix/city clicks with filters applied,
-    // skip heavy city performance calculations and summary UI.
+  const priceBucketData = useMemo(() => {
+    // When coming from aggregated matrix/agent clicks with filters applied,
+    // skip heavy performance calculations and summary UI.
     if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
       return [];
     }
-    const cityMap = {};
 
-    visibleReports.forEach((report) => {
-      const cityName = report.city || 'Unknown';
-      const cityKey = cityName;
-      if (!cityMap[cityKey]) {
-        cityMap[cityKey] = {
-          cityName: report.city || 'Unknown',
-          calls: [],
-        };
-      }
-      cityMap[cityKey].calls.push(report);
+    // Define price buckets
+    const buckets = [
+      { label: '₹0 - ₹5,000', min: 0, max: 5000 },
+      { label: '₹5,001 - ₹10,000', min: 5001, max: 10000 },
+      { label: '₹10,001 - ₹15,000', min: 10001, max: 15000 },
+      { label: '₹15,001 - ₹20,000', min: 15001, max: 20000 },
+      { label: '₹20,000+', min: 20001, max: Infinity },
+    ];
+
+    const bucketMap = {};
+    buckets.forEach(bucket => {
+      bucketMap[bucket.label] = {
+        label: bucket.label,
+        calls: [],
+      };
     });
 
-    const performance = Object.values(cityMap)
-      .map((city) => {
-        const calls = city.calls;
+    visibleReports.forEach((report) => {
+      const cartValue = report.raw_data?.['Lineitem price'] || report.raw_data?.Lineitem_price || 0;
+      const bucket = buckets.find(b => cartValue >= b.min && cartValue <= b.max);
+      if (bucket && bucketMap[bucket.label]) {
+        bucketMap[bucket.label].calls.push(report);
+      }
+    });
+
+    const performance = Object.values(bucketMap)
+      .filter(bucket => bucket.calls.length > 0) // Only show buckets with calls
+      .map((bucket) => {
+        const calls = bucket.calls;
         
         const processedCalls = calls.map((report) => {
           const analysis = report.analysis || {};
-          const p3 = analysis.Pillar_3_RELAX_Framework || {};
-          const p5 = analysis.Pillar_5_Agent_Competency || {};
+          const relax = analysis.RELAX_Framework || {};
+          const skills = analysis.Experience_and_Skills || {};
+          const softSkillsData = skills.Soft_Skills || {};
 
-          const reach = p3.R_Reach_Out?.Rating;
-          const explore = p3.E_Explore_Needs?.Rating;
-          const link = p3.L_Link_Experience?.Rating;
-          const add = p3.A_Add_Value?.Rating;
-          const close = p3.X_Express_Closing?.Rating;
+          const reach = relax.R_Reach_Out?.Score;
+          const explore = relax.E_Explore?.Score;
+          const link = relax.L_Link?.Score;
+          const add = relax.A_Add_Value?.Score;
+          const close = relax.X_Express?.Score;
 
           const rapportScore = ratingToScore(reach, 75);
           const exploreScore = ratingToScore(explore, 75);
@@ -117,8 +131,11 @@ const AbcReportsList = () => {
             ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
             : 75;
 
-          const productKnowledgeScore = ratingToScore(p5.Product_Knowledge?.Score, 75);
-          const softSkillsScore = ratingToScore(p5.Soft_Skills?.Score, 75);
+          const empathy = softSkillsData.Empathy_Score || 3;
+          const listening = softSkillsData.Active_Listening_Score || 3;
+          const objection = softSkillsData.Objection_Handling_Score || 3;
+          const softSkillsScore = ratingToScore((empathy + listening + objection) / 3, 75);
+          const productKnowledgeScore = softSkillsScore;
 
           return {
             overall: overallRelax,
@@ -138,9 +155,105 @@ const AbcReportsList = () => {
         };
 
         return {
-          storeName: city.cityName,
-          city: city.cityName,
-          state: '',
+          bucketName: bucket.label,
+          totalCalls: calls.length,
+          overallScore: avgScore('overall'),
+          rapport: avgScore('rapport'),
+          explore: avgScore('explore'),
+          listen: avgScore('listen'),
+          advise: avgScore('advise'),
+          execute: avgScore('execute'),
+          productKnowledge: avgScore('productKnowledge'),
+          softSkills: avgScore('softSkills'),
+        };
+      })
+      .sort((a, b) => b.overallScore - a.overallScore);
+
+    return performance;
+  }, [visibleReports, filterIds]);
+
+  const cityPerformanceData = useMemo(() => {
+    // When coming from aggregated matrix/agent clicks with filters applied,
+    // skip heavy agent performance calculations and summary UI.
+    if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
+      return [];
+    }
+    const agentMap = {};
+
+    visibleReports.forEach((report) => {
+      // Check multiple locations for agent name (prioritize CSV data as source of truth)
+      const agentName = 
+        report.agent_name ||                    // New field (for future uploads)
+        report.raw_data?.AgentName ||           // CSV data (primary source)
+        report.raw_data?.Agent_Name ||          // CSV data (alternative column)
+        report.analysis?.Functional?.Agent_Name || // Gemini analysis (fallback)
+        'Unknown Agent';
+      
+      const agentKey = agentName;
+      if (!agentMap[agentKey]) {
+        agentMap[agentKey] = {
+          agentName: agentName,
+          calls: [],
+        };
+      }
+      agentMap[agentKey].calls.push(report);
+    });
+
+    const performance = Object.values(agentMap)
+      .map((agent) => {
+        const calls = agent.calls;
+        
+        const processedCalls = calls.map((report) => {
+          const analysis = report.analysis || {};
+          const relax = analysis.RELAX_Framework || {};
+          const skills = analysis.Experience_and_Skills || {};
+          const softSkillsData = skills.Soft_Skills || {};
+
+          const reach = relax.R_Reach_Out?.Score;
+          const explore = relax.E_Explore?.Score;
+          const link = relax.L_Link?.Score;
+          const add = relax.A_Add_Value?.Score;
+          const close = relax.X_Express?.Score;
+
+          const rapportScore = ratingToScore(reach, 75);
+          const exploreScore = ratingToScore(explore, 75);
+          const listenScore = ratingToScore(link, 75);
+          const adviseScore = ratingToScore(add, 75);
+          const executeScore = ratingToScore(close, 75);
+
+          const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
+          const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
+          const overallRelax = availableRelax.length
+            ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
+            : 75;
+
+          // Calculate soft skills from the new prompt structure
+          const empathy = softSkillsData.Empathy_Score || 3;
+          const listening = softSkillsData.Active_Listening_Score || 3;
+          const objection = softSkillsData.Objection_Handling_Score || 3;
+          const softSkillsScore = ratingToScore((empathy + listening + objection) / 3, 75);
+          const productKnowledgeScore = softSkillsScore; // Using soft skills as proxy
+
+          return {
+            overall: overallRelax,
+            rapport: rapportScore,
+            explore: exploreScore,
+            listen: listenScore,
+            advise: adviseScore,
+            execute: executeScore,
+            productKnowledge: productKnowledgeScore,
+            softSkills: softSkillsScore,
+          };
+        });
+
+        const avgScore = (metric) => {
+          const scores = processedCalls.map(c => c[metric]).filter(v => v !== undefined && v !== null);
+          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        };
+
+        return {
+          storeName: agent.agentName,
+          agentName: agent.agentName,
           totalCalls: calls.length,
           overallScore: avgScore('overall'),
           rapport: avgScore('rapport'),
@@ -234,20 +347,103 @@ const AbcReportsList = () => {
           <p className="text-sm text-gray-400">Comprehensive analysis of abandoned cart recovery calls</p>
         </div>
 
-        {/* Store Performance Analysis */}
+        {/* Price Bucket Performance Analysis */}
+        {priceBucketData.length > 0 && (
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
+            <div className="px-8 py-6 border-b border-[#2a2a2a]">
+              <div className="flex items-center gap-4 mb-2">
+                <span className="text-3xl">💰</span>
+                <h2 className="text-2xl font-semibold text-white">Price Bucket Performance Analytics</h2>
+              </div>
+              <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores by Cart Value Range</p>
+            </div>
+
+            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Buckets</p>
+                <p className="text-2xl font-bold text-white">{priceBucketData.length}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
+                <p className="text-2xl font-bold text-white">{priceBucketData.reduce((sum, b) => sum + b.totalCalls, 0)}</p>
+              </div>
+              {priceBucketData.length > 0 && (
+                <>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Score</p>
+                    <p className="text-2xl font-bold text-white">{Math.round(priceBucketData.reduce((sum, s) => sum + s.overallScore, 0) / priceBucketData.length)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Top Score</p>
+                    <p className="text-2xl font-bold text-emerald-400">{priceBucketData[0]?.overallScore || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Lowest Score</p>
+                    <p className="text-2xl font-bold text-red-400">{priceBucketData[priceBucketData.length - 1]?.overallScore || 0}</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
+                  <tr>
+                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Price Bucket</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">E</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">A</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">X</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Knowledge</th>
+                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Soft Skills</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {priceBucketData.map((bucket) => (
+                    <tr key={bucket.bucketName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
+                      <td className="px-6 py-6">
+                        <div className="font-semibold text-white text-base">{bucket.bucketName}</div>
+                      </td>
+                      <td className="text-center px-6 py-6">
+                        <span className="text-slate-200 font-semibold text-base">{bucket.totalCalls}</span>
+                      </td>
+                      <td className="text-center px-6 py-6">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm" style={{ color: bucket.overallScore >= 70 ? '#10b981' : bucket.overallScore >= 50 ? '#f59e0b' : '#dc2626' }}>
+                          {bucket.overallScore}
+                        </div>
+                      </td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.rapport}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.explore}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.listen}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.advise}</span></td>
+                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.execute}</span></td>
+                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${bucket.productKnowledge >= 70 ? 'text-emerald-400' : bucket.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{bucket.productKnowledge}</span></td>
+                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${bucket.softSkills >= 70 ? 'text-emerald-400' : bucket.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{bucket.softSkills}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Agent Performance Analysis */}
         {cityPerformanceData.length > 0 && (
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
             <div className="px-8 py-6 border-b border-[#2a2a2a]">
               <div className="flex items-center gap-4 mb-2">
                 <span className="text-3xl">📊</span>
-                <h2 className="text-2xl font-semibold text-white">City Performance Analysis</h2>
+                <h2 className="text-2xl font-semibold text-white">Agent Performance Analytics</h2>
               </div>
               <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores & Key Metrics</p>
             </div>
 
             <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Cities</p>
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Agents</p>
                 <p className="text-2xl font-bold text-white">{cityPerformanceData.length}</p>
               </div>
               <div>
@@ -276,7 +472,7 @@ const AbcReportsList = () => {
               <table className="w-full">
                 <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
                   <tr>
-                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">City Name</th>
+                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Agent Name</th>
                     <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
                     <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
                     <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
@@ -321,7 +517,7 @@ const AbcReportsList = () => {
                   onClick={() => setExpandedStores(!expandedStores)}
                   className={`inline-flex items-center gap-3 px-8 py-3 rounded-lg font-semibold transition transform hover:-translate-y-0.5 ${expandedStores ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white' : 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white'}`}
                 >
-                  {expandedStores ? 'Show Less' : 'Show More Cities'}
+                  {expandedStores ? 'Show Less' : 'Show More Agents'}
                   <span className={`text-lg leading-none transition ${expandedStores ? 'rotate-180' : ''}`}>▼</span>
                 </button>
               </div>
