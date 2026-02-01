@@ -368,13 +368,7 @@ const OutboundAggregatedDashboard = () => {
     };
     filteredReports.forEach(report => {
       const intent = normalizeIntent(getIntentRating(report));
-      const analysis = report.analysis || {};
-      // Handle both expected and actual structures
-      const expScore = getField(analysis,
-        'Pillar_2_Experience_Delivered.Overall_Experience_Rating',
-        'PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE.Overall_Experience_Rating'
-      ) || 3;
-      const experience = expScore >= 4 ? 'High' : expScore >= 3 ? 'Medium' : 'Low';
+      const experience = normalizeExperience(getCallExperienceRating(report));
       if (m[intent] && m[intent][experience] !== undefined) {
         m[intent][experience]++;
       }
@@ -768,12 +762,7 @@ const OutboundAggregatedDashboard = () => {
                       type="button"
                       onClick={() => navigateWithFilter((r) => {
                         const i = normalizeIntent(getIntentRating(r));
-                        const analysis = r.analysis || {};
-                        const expScore = getField(analysis,
-                          'Pillar_2_Experience_Delivered.Overall_Experience_Rating',
-                          'PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE.Overall_Experience_Rating'
-                        ) || 3;
-                        const e = expScore >= 4 ? 'High' : expScore >= 3 ? 'Medium' : 'Low';
+                        const e = normalizeExperience(getCallExperienceRating(r));
                         return i === intent && e === exp;
                       }, `${intent} intent × ${exp} call experience`)}
                       className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${matrixPalette[intent][exp]} p-6 sm:p-7 text-center transition transform hover:-translate-y-1 hover:scale-[1.02] shadow-[0_12px_40px_rgba(0,0,0,0.35)]`}

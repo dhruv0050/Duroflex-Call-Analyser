@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Phone, MapPin, Calendar, Clock, LogOut, BarChart3, Upload } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
@@ -43,12 +43,16 @@ const normalizeStoreName = (name) => {
 
 const OutboundCallsList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
   const [selectedIntent, setSelectedIntent] = useState('ALL');
   const [expandedStores, setExpandedStores] = useState(false);
+
+  const filterIds = location.state?.filterIds;
+  const filterDescription = location.state?.filterDescription;
 
   useEffect(() => {
     fetchReports();
@@ -104,10 +108,15 @@ const OutboundCallsList = () => {
     return 'bg-red-900/30 text-red-300 border-red-600/40';
   };
 
+  const visibleReports = useMemo(() => {
+    if (!filterIds || !Array.isArray(filterIds)) return reports;
+    return reports.filter((r) => filterIds.includes(r.call_id));
+  }, [reports, filterIds]);
+
   const filteredReports = useMemo(() => {
-    if (selectedIntent === 'ALL') return reports;
-    return reports.filter(r => getIntentRating(r) === selectedIntent);
-  }, [reports, selectedIntent]);
+    if (selectedIntent === 'ALL') return visibleReports;
+    return visibleReports.filter(r => getIntentRating(r) === selectedIntent);
+  }, [visibleReports, selectedIntent]);
 
   const getOverallScore = (report) => {
     const analysis = report.analysis || {};
