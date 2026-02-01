@@ -595,40 +595,54 @@ const AbcReportsList = () => {
           {visibleReports.map((report) => {
             const analysis = report.analysis || {};
             const hasError = analysis.error;
-            const functional = analysis.Functional || {};
-            const pillar1 = analysis.Pillar_1_Customer_Intent_and_Barriers || {};
-            const pillar2 = analysis.Pillar_2_Experience_Delivered || {};
-            const pillar4 = analysis.Pillar_4_Invitation_to_Convert || {};
-            const summary = analysis.Overall_Summary || {};
+            const verdict = analysis.The_Verdict || {};
+            const experienceSkills = analysis.Experience_and_Skills || {};
+            const conversionAttempts = analysis.Conversion_Attempts || {};
+            const relaxFramework = analysis.RELAX_Framework || {};
             const rawData = report.raw_data || {};
             
             // Get cart value
             const cartValue = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
             
-            // Get duration from call time or default
-            const callTime = functional.Call_Time || '00:00';
-            const timeParts = callTime.split(':');
-            const minutes = parseInt(timeParts[0]) || 0;
-            const seconds = parseInt(timeParts[1]) || 0;
-            const durationSeconds = minutes * 60 + seconds;
+            // Get duration - try transcript timestamps or raw call duration
+            let durationSeconds = 0;
+            if (analysis.Transcript_Log && analysis.Transcript_Log.length > 0) {
+              const lastEntry = analysis.Transcript_Log[analysis.Transcript_Log.length - 1];
+              if (lastEntry.Timestamp) {
+                const parts = lastEntry.Timestamp.split(':');
+                durationSeconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+              }
+            }
+            if (durationSeconds === 0 && rawData.CallStartDateTime) {
+              const timeStr = rawData.CallStartDateTime.toString();
+              const match = timeStr.match(/(\d+):(\d+)/);
+              if (match) {
+                durationSeconds = (parseInt(match[1]) || 0) * 60 + (parseInt(match[2]) || 0);
+              }
+            }
 
-            const rawIntent = pillar1.Intent_to_Purchase_Rating || 'MEDIUM';
+            // Intent to Purchase from The_Verdict.Purchase_Intent
+            const rawIntent = verdict.Purchase_Intent || 'MEDIUM';
             const intentUpper = rawIntent.toString().toUpperCase();
             let intentLevel = 'Medium';
             if (intentUpper.includes('HIGH')) intentLevel = 'High';
             else if (intentUpper.includes('LOW')) intentLevel = 'Low';
 
-            const expRaw = pillar2.Overall_Experience_Rating || 3;
-            const expNum = typeof expRaw === 'number' ? expRaw : parseFloat(expRaw) || 3;
+            // Customer Experience from Experience_and_Skills.CSAT_Score
+            const expNum = experienceSkills.CSAT_Score || 3;
+            const csatScore = typeof expNum === 'number' ? expNum : parseFloat(expNum) || 3;
             let experienceLevel = 'Medium';
-            if (expNum >= 4) experienceLevel = 'High';
-            else if (expNum <= 2) experienceLevel = 'Low';
+            if (csatScore >= 4) experienceLevel = 'High';
+            else if (csatScore <= 2) experienceLevel = 'Low';
 
             const levelColor = (level) => {
               if (level === 'High') return 'text-emerald-400';
               if (level === 'Medium') return 'text-amber-400';
               return 'text-red-400';
             };
+            
+            // Call outcome from verdict
+            const callOutcome = verdict.Recovery_Outcome_Headline || 'Cart Recovery';
             
             return (
               <Link
@@ -642,9 +656,9 @@ const AbcReportsList = () => {
                 <div className="mb-6 pb-6 border-b border-white/6">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold text-lg text-gray-100 group-hover:text-amber-400 transition" style={{ fontFamily: "'Fraunces', serif" }}>
-                      {report.city || functional.Store_Location || 'UNKNOWN CITY'}
+                      {report.city || report.raw_data?.Billing_City || 'UNKNOWN CITY'}
                     </h3>
-                    {rawData.is_Converted === 1 && (
+                    {(rawData.is_Converted === 1 || verdict.Recovery_Outcome_Headline?.toLowerCase().includes('sale')) && (
                       <span className="px-3 py-1 bg-emerald-900/30 border border-emerald-600/40 rounded-full text-xs font-semibold text-emerald-300">
                         ✓ Converted
                       </span>
@@ -695,7 +709,7 @@ const AbcReportsList = () => {
                       <div className="bg-[#16161d] rounded-lg p-3">
                         <p className="text-xs text-gray-500 mb-1">Customer Experience</p>
                         <p className={`text-sm font-semibold ${levelColor(experienceLevel)}`}>
-                          {experienceLevel} <span className="text-gray-400 text-xs">({expNum}/5)</span>
+                          {experienceLevel} <span className="text-gray-400 text-xs">({csatScore}/5)</span>
                         </p>
                       </div>
                     </div>
@@ -703,13 +717,13 @@ const AbcReportsList = () => {
                     {/* Satisfaction Score */}
                     <div className="bg-[#16161d] rounded-lg p-3 mb-4">
                       <p className="text-xs text-gray-500 mb-1">Satisfaction Score</p>
-                      <p className="text-lg font-bold text-amber-400">{pillar2.Overall_Experience_Rating || 3}/5</p>
+                      <p className="text-lg font-bold text-amber-400">{csatScore}/5</p>
                     </div>
 
                     {/* Objective */}
                     <div className="bg-[#16161d] rounded-lg p-3 mb-4">
                       <p className="text-xs text-gray-500 mb-1">Objective</p>
-                      <p className="text-sm text-gray-300">{functional.Call_Outcome || 'Cart Recovery'}</p>
+                      <p className="text-sm text-gray-300">{callOutcome}</p>
                     </div>
                   </>
                 )}
