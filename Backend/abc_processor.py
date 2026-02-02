@@ -344,13 +344,13 @@ class AbcCallProcessor:
   },
   \"13_Agent_Evaluation\": {
     \"Main_Skills\": {
-      \"Product_Knowledge\": \"High | Medium | Low\",
-      \"Sales_Skills\": \"High | Medium | Low\",
-      \"Upsell_Revenue_Skills\": \"High | Medium | Low\"
+      \"Product_Knowledge\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
+      \"Sales_Skills\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
+      \"Upsell_Revenue_Skills\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"}
     },
     \"Secondary_Traits\": {
-      \"Need_Discovery\": \"High | Medium | Low\",
-      \"Objection_Handling\": \"High | Medium | Low\",
+      \"Need_Discovery\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
+      \"Objection_Handling\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
       \"Agent_Nature\": \"Proactive | Responsive | Passive\"
     }
   },

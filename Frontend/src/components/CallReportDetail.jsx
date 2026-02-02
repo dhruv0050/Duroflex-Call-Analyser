@@ -328,7 +328,7 @@ const CallReportDetail = () => {
         <div className="max-w-4xl mx-auto bg-white border-2 border-gray-200 rounded-xl p-8 shadow-lg">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">{report.store_name}</h1>
           <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6">
-            <p className="text-red-700">⚠️ Analysis Error: {analysis.error}</p>
+            <p className="text-red-700">Analysis Error: {analysis.error}</p>
           </div>
         </div>
       </div>
@@ -384,7 +384,7 @@ const CallReportDetail = () => {
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
               >
-                📞 LISTEN TO CALL
+                LISTEN TO CALL
               </a>
             )}
           </div>

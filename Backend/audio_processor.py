@@ -341,18 +341,19 @@ OUTPUT SCHEMA (JSON)
     },
     "2_Intent_to_Purchase": {
         "Rating": "High | Medium | Low",
-        "Reason": "String (Evidence based)"
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "2A_Intent_to_Visit": {
         "Rating": "High | Medium | Low",
-        "Reason": "String (Evidence based)"
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "3_Customer_Experience": {
         "Rating": "High | Medium | Low",
-        "Reason": "String"
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "4_Funnel_Analysis": {
         "Stage": "Awareness | Consideration | Action",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
         "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown"
     },
     "5_Product_Intelligence": {
@@ -372,7 +373,7 @@ OUTPUT SCHEMA (JSON)
         },
         "Video_Demo": {
             "Rating": "High | Medium | Low",
-            "Reason": "String"
+            "Reason": "String (Did agent give a compelling reason to watch the video demo?)"
         }
     },
     "10_Conversion_Hooks": {
@@ -406,14 +407,14 @@ OUTPUT SCHEMA (JSON)
     },
     "12_Agent_Evaluation": {
         "Main_Skills": {
-            "Product_Knowledge": "High | Medium | Low",
-            "Sales_Skills": "High | Medium | Low",
-            "Upsell_Revenue_Skills": "High | Medium | Low"
+            "Product_Knowledge": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Sales_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Upsell_Revenue_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
         },
         "Secondary_Traits": {
-            "Need_Discovery": "High | Medium | Low",
-            "Objection_Handling": "High | Medium | Low",
-            "Agent_Nature": "Proactive | Responsive | Passive"
+            "Need_Discovery": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Objection_Handling": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Agent_Nature": "Proactive | Responsive | Passive","Reason": "String (Evidence-based)"}
         }
     },
     "13_Agent_Learnings": [

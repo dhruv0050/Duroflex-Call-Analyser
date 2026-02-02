@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Phone, ChevronDown, ChevronUp, Download, FileDown } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -88,41 +88,41 @@ const OutboundCallDetail = () => {
   const summaryOld = analysis.Summary || {};
 
   // Customer Name
-  const customerName = metaData.Customer_Name || report.customer_phone || 'Walk-in Customer';
-  const customerLocation = metaData.Customer_Location || report.store_name || 'Unknown Store';
-  const considerationValue = metaData.Consideration_Value || 'Not Specified';
-  const callQuality = metaData.Call_Quality_Overall || 'Medium';
-  const callDuration = metaData.Call_Duration || formatDuration(report.duration || 0);
-  const customerEnthusiasm = metaData.Customer_Enthusiasm || 'Medium';
+  const customerName = pickMeaningful(metaData.Customer_Name, report.customer_phone, 'Walk-in Customer');
+  const customerLocation = pickMeaningful(metaData.Customer_Location, report.store_name, 'Unknown Store');
+  const considerationValue = pickMeaningful(metaData.Consideration_Value, 'Not Specified');
+  const callQuality = pickMeaningful(metaData.Call_Quality_Overall, 'Medium');
+  const callDuration = pickMeaningful(metaData.Call_Duration, formatDuration(report.duration || 0));
+  const customerEnthusiasm = pickMeaningful(metaData.Customer_Enthusiasm, 'Medium');
   const connectedToCustomer = metaData.Connected_to_Customer !== false;
 
   // Intent
-  const intentRating = intentToPurchase.Rating || 'Medium';
-  const intentReason = intentToPurchase.Reason || '';
+  const intentRating = pickMeaningful(intentToPurchase.Rating, 'Medium');
+  const intentReason = pickMeaningful(intentToPurchase.Reason, '');
 
   // Store Experience
-  const storeExpRating = storeExperience.Rating || pillar1Double.Store_Audit?.Sentiment_Label || 'Medium';
-  const storeExpReason = storeExperience.Reason || pillar1Double.Store_Audit?.Specific_Feedback || '';
+  const storeExpRating = pickMeaningful(storeExperience.Rating, pillar1Double.Store_Audit?.Sentiment_Label, 'Medium');
+  const storeExpReason = pickMeaningful(storeExperience.Reason, pillar1Double.Store_Audit?.Specific_Feedback, '');
 
   // Call Experience
-  const callExpRating = callExperience.Rating || pillar1Double.Call_Audit?.Sentiment_Label || 'Medium';
-  const callExpReason = callExperience.Reason || pillar1Double.Call_Audit?.Skill_Highlight || '';
+  const callExpRating = pickMeaningful(callExperience.Rating, pillar1Double.Call_Audit?.Sentiment_Label, 'Medium');
+  const callExpReason = pickMeaningful(callExperience.Reason, pillar1Double.Call_Audit?.Skill_Highlight, '');
 
   // Funnel
-  const funnelStage = funnelAnalysis.Stage || pillar4Health.AIDA_Stage || 'Consideration';
-  const funnelReason = funnelAnalysis.Reason || funnelAnalysis.reason || '';
-  const timelineToPurchase = funnelAnalysis.Timeline_to_Purchase || pillar2Diag.Timeline_Label || 'Unknown';
+  const funnelStage = pickMeaningful(funnelAnalysis.Stage, pillar4Health.AIDA_Stage, 'Consideration');
+  const funnelReason = pickMeaningful(funnelAnalysis.Reason, funnelAnalysis.reason, '');
+  const timelineToPurchase = pickMeaningful(funnelAnalysis.Timeline_to_Purchase, pillar2Diag.Timeline_Label, 'Unknown');
 
   // Product Intelligence
-  const narrowDownStage = productIntelligence.Narrow_Down_Stage || 'Category';
-  const productOfInterest = productIntelligence.Product_of_Interest || 'Not Specified';
+  const narrowDownStage = pickMeaningful(productIntelligence.Narrow_Down_Stage, 'Category');
+  const productOfInterest = pickMeaningful(productIntelligence.Product_of_Interest, 'Not Specified');
 
   // Customer Needs
-  const needsDescription = customerNeeds.Description || '';
+  const needsDescription = pickMeaningful(customerNeeds.Description, '');
 
   // Barriers
-  const barrierAtStore = purchaseBarriers.At_Store || pillar2Diag.Primary_WalkOut_Reason || '';
-  const barrierOnCall = purchaseBarriers.On_Call || '';
+  const barrierAtStore = pickMeaningful(purchaseBarriers.At_Store, pillar2Diag.Primary_WalkOut_Reason, '');
+  const barrierOnCall = pickMeaningful(purchaseBarriers.On_Call, '');
 
   // Home Measurement Invitation
   const homeMeasurement = invitations.Home_Measurement || {};
@@ -151,12 +151,43 @@ const OutboundCallDetail = () => {
   const npsComment = npsData.Comment || '';
 
   // Next Actions (fallback)
-  const nextActionsText = nextActions || pillar4Health.Next_Action_Text || summaryOld.Call_Synopsis || '';
+  const nextActionsText = pickMeaningful(nextActions, pillar4Health.Next_Action_Text, summaryOld.Call_Synopsis, '');
 
   // Call Objective
-  const objectiveType = callObjective.Type || 'Store Walk-in Recovery';
+  const objectiveType = pickMeaningful(callObjective.Type, 'Store Walk-in Recovery');
 
   // ========== HELPER FUNCTIONS ==========
+  function isMeaningful(value) {
+    if (value === null || value === undefined) return false;
+
+    if (typeof value === 'string') {
+      const v = value.trim();
+      if (!v) return false;
+      const lower = v.toLowerCase();
+      const placeholders = new Set([
+        'na',
+        'n/a',
+        'n.a',
+        'none',
+        'null',
+        'undefined',
+        'unknown',
+        'not specified',
+        'not available',
+      ]);
+      if (placeholders.has(lower)) return false;
+    }
+
+    return true;
+  }
+
+  function pickMeaningful(...values) {
+    for (const value of values) {
+      if (isMeaningful(value)) return value;
+    }
+    return '';
+  }
+
   function formatDuration(seconds) {
     if (typeof seconds === 'string') return seconds;
     const mins = Math.floor(seconds / 60);
@@ -166,6 +197,10 @@ const OutboundCallDetail = () => {
 
   function normalizeRating(rating) {
     if (!rating) return 'Medium';
+    // Handle object with Rating property (new schema)
+    if (typeof rating === 'object' && rating.Rating) {
+      rating = rating.Rating;
+    }
     const r = String(rating).trim().toLowerCase();
     if (r === 'h' || r === 'high') return 'High';
     if (r === 'm' || r === 'med' || r === 'medium') return 'Medium';
@@ -173,7 +208,7 @@ const OutboundCallDetail = () => {
     if (r === 'positive' || r === 'excellent') return 'High';
     if (r === 'neutral') return 'Medium';
     if (r === 'negative') return 'Low';
-    return rating;
+    return String(rating);
   }
 
   function getScoreDotClass(rating) {
@@ -235,6 +270,25 @@ const OutboundCallDetail = () => {
     if (avg >= 2.5) return 'High';
     if (avg >= 1.5) return 'Medium';
     return 'Low';
+  }
+
+  function getRelaxAverageScore() {
+    const scoreToNumeric = (score) => {
+      if (!score) return null;
+      const scoreUpper = String(score).trim().toUpperCase();
+      if (scoreUpper === 'H' || scoreUpper === 'HIGH') return 3;
+      if (scoreUpper === 'M' || scoreUpper === 'MED' || scoreUpper === 'MEDIUM') return 2;
+      if (scoreUpper === 'L' || scoreUpper === 'LOW') return 1;
+      return null;
+    };
+
+    const nums = [relaxR, relaxE, relaxL, relaxA, relaxX]
+      .map((item) => scoreToNumeric(getRelaxScore(item)))
+      .filter((n) => typeof n === 'number');
+
+    if (nums.length === 0) return 'N/A';
+    const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+    return avg.toFixed(2);
   }
 
   // Funnel stages
@@ -308,9 +362,15 @@ const OutboundCallDetail = () => {
             </div>
           </div>
         </button>
-        {open && reason && (
+        {open && (
           <div className={`px-6 pb-6 text-base text-gray-700 border-t-2 pt-4 ${variant === 'green' ? 'border-emerald-200' : variant === 'yellow' ? 'border-amber-300' : 'border-gray-200'}`}>
-            <strong className={`text-sm uppercase ${variant === 'green' ? 'text-emerald-700' : variant === 'yellow' ? 'text-amber-700' : 'text-gray-500'}`}>Reason:</strong> {reason}
+            {reason ? (
+              <>
+                <strong className={`text-sm uppercase ${variant === 'green' ? 'text-emerald-700' : variant === 'yellow' ? 'text-amber-700' : 'text-gray-500'}`}>Reason:</strong> {reason}
+              </>
+            ) : (
+              <span className="text-sm text-gray-500 italic">No additional details available for this metric.</span>
+            )}
           </div>
         )}
       </div>
@@ -373,6 +433,93 @@ const OutboundCallDetail = () => {
         </div>
       </div>
     );
+  };
+
+  // ========== DOWNLOAD FUNCTIONS ==========
+  const downloadCSV = () => {
+    if (!report || !analysis) return;
+
+    const rows = [
+      ['Outbound Call Report - CSV Export'],
+      [''],
+      ['METADATA'],
+      ['Call ID', report.call_id],
+      ['Store Name', report.store_name || 'N/A'],
+      ['Customer Phone', report.customer_phone || 'N/A'],
+      ['Call Date', report.call_date || 'N/A'],
+      ['Duration (s)', report.duration || 'N/A'],
+      [''],
+      ['ANALYSIS DATA'],
+      ['Customer Name', metaData.Customer_Name || 'N/A'],
+      ['Customer Location', metaData.Customer_Location || 'N/A'],
+      ['Call Summary', callSummary || 'N/A'],
+      ['Funnel Stage', funnelStage || 'N/A'],
+      ['Funnel Reason', funnelReason || 'N/A'],
+      ['Intent to Purchase', intentRating || 'N/A'],
+      ['Store Experience', storeExpRating || 'N/A'],
+      ['Call Experience', callExpRating || 'N/A'],
+      ['Product of Interest', productOfInterest || 'N/A'],
+      ['Customer Needs', needsDescription || 'N/A'],
+      ['Decision Maker', decisionMaker || 'N/A'],
+      ['Walk-out Reason (Store)', barrierAtStore || 'N/A'],
+      ['Current Barrier', barrierOnCall || 'N/A'],
+      ['Next Actions', nextActionsText || 'N/A'],
+      ['NPS Score', npsScore !== '' ? npsScore : 'N/A'],
+      ['NPS Comment', npsComment || 'N/A'],
+      [''],
+      ['RELAX FRAMEWORK'],
+      ['R - Reach Out', getRelaxScore(relaxR)],
+      ['E - Explore Needs', getRelaxScore(relaxE)],
+      ['L - Link Product', getRelaxScore(relaxL)],
+      ['A - Add Value', getRelaxScore(relaxA)],
+      ['X - Express Closing', getRelaxScore(relaxX)],
+    ];
+
+    const csvContent = rows
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `outbound-call-${report.call_id}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const downloadTranscript = () => {
+    if (!report || !transcriptLog) return;
+
+    let transcriptContent = `OUTBOUND CALL TRANSCRIPT\n`;
+    transcriptContent += `Call ID: ${report.call_id}\n`;
+    transcriptContent += `Store: ${report.store_name || 'N/A'}\n`;
+    transcriptContent += `Date: ${report.call_date || 'N/A'}\n`;
+    transcriptContent += `Duration: ${formatDuration(report.duration || 0)}\n`;
+    transcriptContent += `\n${'='.repeat(80)}\n\n`;
+
+    if (typeof transcriptLog === 'string') {
+      transcriptContent += transcriptLog;
+    } else if (Array.isArray(transcriptLog)) {
+      transcriptContent += transcriptLog.map(item => {
+        if (typeof item === 'string') return item;
+        return `${item.Speaker}: ${item.Text}`;
+      }).join('\n');
+    } else {
+      transcriptContent += 'No transcript available.';
+    }
+
+    const blob = new Blob([transcriptContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `outbound-transcript-${report.call_id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -484,33 +631,34 @@ const OutboundCallDetail = () => {
                 </div>
               )}
               <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">Funnel Stage</p>
-              <span className="text-2xl font-bold text-blue-600">{funnelStage.toUpperCase()}</span>
+              <span className="text-2xl font-bold text-blue-600">{String(funnelStage || '').toUpperCase()}</span>
             </div>
           </div>
 
-          {/* Funnel Visual */}
-          <div className="flex items-center gap-1 mb-8">
+          {/* Funnel Visual - Compact */}
+          <div className="flex items-center gap-0 mb-8" style={{ maxWidth: '500px' }}>
             {funnelStages.map((stage, index) => (
               <div
                 key={stage}
-                className={`relative font-bold uppercase text-sm tracking-wider flex items-center justify-center py-3 px-4 border ${
+                className={`relative font-bold uppercase text-xs tracking-wider flex items-center justify-center py-2 px-3 border ${
                   index === 0 
-                    ? 'rounded-l-lg' 
+                    ? 'rounded-l-sm' 
                     : ''
                 } ${
                   index === funnelStages.length - 1 
-                    ? 'rounded-r-lg' 
+                    ? 'rounded-r-sm' 
                     : ''
                 } ${
                   index <= currentFunnelIndex
-                    ? 'bg-linear-to-r from-emerald-500 to-emerald-600 text-white border-emerald-600 shadow-md'
-                    : 'bg-gray-100 text-gray-500 border-gray-200'
+                    ? 'bg-linear-to-r from-emerald-500 to-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
                 }`}
                 style={{
                   clipPath: index === 0 
-                    ? 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)' 
-                    : 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)',
+                    ? 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)' 
+                    : 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)',
                   flex: 1,
+                  fontSize: '11px',
                 }}
               >
                 {stage}
@@ -522,7 +670,6 @@ const OutboundCallDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
               <div className="flex items-start gap-4">
-                <span className="text-3xl">🏬</span>
                 <div className="flex-1">
                   <p className="text-base font-bold text-gray-600 uppercase tracking-wider mb-2">Walk-out Reason (Store)</p>
                   <p className="text-lg text-gray-900 font-medium">{barrierAtStore || 'Not specified'}</p>
@@ -532,7 +679,6 @@ const OutboundCallDetail = () => {
 
             <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
               <div className="flex items-start gap-4">
-                <span className="text-3xl">✅</span>
                 <div className="flex-1">
                   <p className="text-base font-bold text-emerald-700 uppercase tracking-wider mb-2">Current Barrier / Recovery</p>
                   <p className="text-lg text-emerald-900 font-medium">{barrierOnCall || homeMeasureReason || 'Addressed via follow-up call'}</p>
@@ -640,9 +786,11 @@ const OutboundCallDetail = () => {
           <div className="lg:col-span-7 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
             <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>RELAX Framework</h2>
-              <span className={`text-4xl font-bold ${getRatingTextClass(getOverallRelaxAdherence())}`}>
-                {getOverallRelaxAdherence()}
-                <span className="text-xl text-gray-500 ml-1">Adherence</span>
+              <span className={`text-4xl font-bold ${
+                parseFloat(getRelaxAverageScore()) >= 2.5 ? 'text-emerald-600' : 
+                parseFloat(getRelaxAverageScore()) >= 1.5 ? 'text-amber-600' : 'text-red-600'
+              }`}>
+                {getRelaxAverageScore() !== 'N/A' ? `${getRelaxAverageScore()}/3` : 'N/A'}
               </span>
             </div>
 
@@ -690,18 +838,18 @@ const OutboundCallDetail = () => {
             <div className="space-y-4 mb-8">
               <ExpandableDetail 
                 title="Sales Skills" 
-                rating={mainSkills.Sales_Skills || 'Medium'} 
-                reason=""
+                rating={mainSkills.Sales_Skills?.Rating || mainSkills.Sales_Skills || 'Medium'} 
+                reason={mainSkills.Sales_Skills?.Reason || ''}
               />
               <ExpandableDetail 
                 title="Objection Handling" 
-                rating={secondaryTraits.Objection_Handling || 'Medium'} 
-                reason=""
+                rating={secondaryTraits.Objection_Handling?.Rating || secondaryTraits.Objection_Handling || 'Medium'} 
+                reason={secondaryTraits.Objection_Handling?.Reason || ''}
               />
               <ExpandableDetail 
                 title="Upsell Skills" 
-                rating={mainSkills.Upsell_Revenue_Skills || 'Medium'} 
-                reason=""
+                rating={mainSkills.Upsell_Revenue_Skills?.Rating || mainSkills.Upsell_Revenue_Skills || 'Medium'} 
+                reason={mainSkills.Upsell_Revenue_Skills?.Reason || ''}
               />
             </div>
 
@@ -805,6 +953,23 @@ const OutboundCallDetail = () => {
             )}
           </div>
         )}
+        {/* Download Actions */}
+        <div className="flex justify-center gap-4 mb-10">
+          <button
+            onClick={downloadCSV}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <Download className="w-5 h-5" />
+            Download Full Report (CSV)
+          </button>
+          <button
+            onClick={downloadTranscript}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <FileDown className="w-5 h-5" />
+            Download Transcript (TXT)
+          </button>
+        </div>
 
         {/* Footer */}
         <div className="text-center pt-8 border-t-2 border-gray-200">
