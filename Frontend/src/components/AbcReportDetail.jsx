@@ -309,7 +309,7 @@ const AbcReportDetail = () => {
   const agentEvaluation = analysis['13_Agent_Evaluation'] || {};
   const agentLearnings = analysis['14_Agent_Learnings'] || [];
   const nextActions = analysis['15_Next_Actions'] || '';
-  const npsData = analysis['16_End_to_End_NPS'] || {};
+  const npsData = analysis['16_End_to_end_NPS'] || {};
   const transcript = analysis.Transcript_Log || [];
 
   // Old schema fallback
@@ -350,7 +350,6 @@ const AbcReportDetail = () => {
 
   // Get call objective
   const objectiveType = callObjective.Type || theVerdict.Recovery_Outcome_Headline || 'Cart Recovery';
-  const objectivePhrase = callObjective.Objective_Phrase || productIntelligence.Product_of_Interest || '';
 
   // Get funnel stage
   const funnelStage = funnelAnalysis.Stage || theVerdict.Funnel_Stage_AIDA || 'Consideration';
@@ -433,7 +432,7 @@ const AbcReportDetail = () => {
   };
 
   // Get NPS
-  const npsScore = npsData.Score || experienceSkills.CSAT_Score || 'N/A';
+  const npsScore = npsData.Score !== undefined ? npsData.Score : (experienceSkills.CSAT_Score || 'N/A');
   const npsComment = npsData.Comment || experienceSkills.Sentiment_Reason || '';
 
   // Get next actions
@@ -455,14 +454,12 @@ const AbcReportDetail = () => {
 
   // Funnel stages for ABC
   const getFunnelStages = () => {
-    const stages = ['Consideration', 'Cart Addition', 'Checkout Recovery'];
+    const stages = ['Awareness', 'Consideration', 'Action','Already Purchased'];
     const stageMap = {
       'awareness': 0,
-      'consideration': 0,
-      'interest': 1,
-      'desire': 1,
+      'consideration': 1,
       'action': 2,
-      'recovered': 2
+      'already purchased': 3
     };
     const currentIndex = stageMap[funnelStage.toLowerCase()] || 1;
     return stages.map((stage, index) => ({
@@ -565,7 +562,7 @@ const AbcReportDetail = () => {
               <div className="mb-5">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Call Objective</span>
                 <h3 className="text-2xl text-gray-900 font-semibold" style={{ fontFamily: "'Fraunces', serif" }}>
-                  {objectiveType} {objectivePhrase && `| ${objectivePhrase}`}
+                  {objectiveType}
                 </h3>
               </div>
               
@@ -606,7 +603,7 @@ const AbcReportDetail = () => {
             <InfoCard 
               label="Funnel Stage" 
               value={funnelStage}
-              tooltip="Customer's position in the purchase funnel"
+              tooltip={funnelAnalysis.Reason || "Customer's position in the purchase funnel"}
             />
           </div>
 
@@ -615,7 +612,7 @@ const AbcReportDetail = () => {
             {funnelStages.map((stage, i) => (
               <div 
                 key={stage.name}
-                className={`relative flex items-center justify-center py-3 px-4 text-sm font-bold uppercase tracking-wider
+                className={`relative group flex items-center justify-center py-3 px-4 text-sm font-bold uppercase tracking-wider cursor-help
                   ${stage.isCurrent 
                     ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md' 
                     : stage.isActive 
@@ -631,6 +628,13 @@ const AbcReportDetail = () => {
                 }}
               >
                 {stage.name}
+                {stage.isCurrent && funnelAnalysis.Reason && (
+                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-80 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-10">
+                    <div className="font-medium mb-1">Stage Reasoning:</div>
+                    <div className="text-gray-200 font-normal normal-case tracking-normal">{funnelAnalysis.Reason}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -640,7 +644,6 @@ const AbcReportDetail = () => {
             {/* Abandonment Reason */}
             <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
               <div className="flex items-start gap-4">
-                <span className="text-3xl">⚠️</span>
                 <div className="flex-1">
                   <p className="text-base font-bold text-gray-600 uppercase tracking-wider mb-2">Abandonment Reason</p>
                   <p className="text-lg text-gray-900 font-medium">{primaryBarrier}</p>
@@ -652,7 +655,6 @@ const AbcReportDetail = () => {
             {/* Lead Status */}
             <div className={`${leadStyle.bg} border-2 ${leadStyle.border} rounded-xl p-6`}>
               <div className="flex items-start gap-4">
-                <span className="text-3xl">{leadStatusLabel.includes('HOT') ? '🔥' : leadStatusLabel.includes('NURTURING') ? '🌱' : '❄️'}</span>
                 <div className="flex-1">
                   <p className={`text-base font-bold ${leadStyle.text} uppercase tracking-wider mb-2`}>Lead Status</p>
                   <p className={`text-lg ${leadStyle.text} font-bold`}>{leadStatusLabel}</p>
@@ -680,31 +682,33 @@ const AbcReportDetail = () => {
             <div className="space-y-6">
               {/* Narrow Down Stage */}
               <div>
-                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Cart Contents</p>
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Narrow Down Stage</p>
                 <div className="flex items-center gap-1">
-                  {['Category', 'Range', 'Cart Items'].map((stage, i) => {
-                    const stageMap = { 'category': 0, 'range': 1, 'specific sku': 2, 'cart items': 2 };
-                    const currentIndex = stageMap[narrowDownStage.toLowerCase()] || 0;
-                    const isActive = i <= currentIndex;
+                  {(() => {
+                    const stages = ['Category', 'Range', 'Specific SKU'];
+                    const stageMap = { 'category': 0, 'range': 1, 'specific sku': 2, 'na': -1 };
+                    const currentStage = stageMap[narrowDownStage.toLowerCase()] ?? 0;
                     
-                    return (
+                    return stages.map((stage, i) => (
                       <div 
                         key={stage}
-                        className={`flex items-center justify-center py-3 px-6 text-sm font-semibold tracking-wide
-                          ${isActive 
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md' 
-                            : 'bg-gray-100 text-gray-500 border border-gray-200'
-                          }`}
+                        className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border ${
+                          currentStage >= i
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                            : 'bg-gray-100 text-gray-500 border-gray-300'
+                        }`}
                         style={{
                           clipPath: i === 0 
                             ? 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)'
+                            : i === stages.length - 1
+                            ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 15% 50%)'
                             : 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)'
                         }}
                       >
                         {stage}
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -995,7 +999,7 @@ const AbcReportDetail = () => {
                 onClick={downloadTranscript}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition"
               >
-                📥 Download
+                Download
               </button>
               <button
                 onClick={() => setExpandTranscript(!expandTranscript)}

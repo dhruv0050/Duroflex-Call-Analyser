@@ -305,7 +305,8 @@ class AbcCallProcessor:
     \"Reason\": \"String (How well did the agent handle the feedback?)\"
   },
   \"5_Funnel_Analysis\": {
-    \"Stage\": \"Awareness | Consideration | Action\",
+    \"Stage\": \"Awareness | Consideration | Action | Already Purchased\",
+    \"Reason\": \"String (State evidence based reasoning for the stage you are defining)\",
     \"Timeline_to_Purchase\": \"Immediate | Short Term | Long Term | Unknown\"
   },
   \"6_Product_Intelligence\": {
@@ -355,7 +356,7 @@ class AbcCallProcessor:
   },
   \"14_Agent_Learnings\": [\"String (Feedback 1)\", \"String (Feedback 2)\", \"String (Feedback 3)\"],
   \"15_Next_Actions\": \"String (e.g. Schedule Technician Visit, Send Brochure)\",
-  \"16_End_to_End_NPS\": {\"Score\": \"Integer (0-10)\", \"Comment\": \"String (For the Call Experience)\"},
+  \"16_End_to_end_NPS\": {\"Score\": \"Integer (0-10)\", \"Comment\": \"String (For the Call Experience)\"},
   \"Transcript_Log\": \"String (Full Transcript)\"
 }"""
         
