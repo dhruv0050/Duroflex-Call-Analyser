@@ -1,8 +1,96 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, Download, FileDown } from 'lucide-react';
+import { ArrowLeft, Download, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
+
+// Expandable Details Component
+const ExpandableCard = ({ title, subtitle, rating, ratingColor, children, defaultOpen = false }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  const getRatingStyles = () => {
+    const upper = (rating || '').toString().toUpperCase();
+    if (upper.includes('HIGH') || parseInt(upper) >= 4) {
+      return 'text-green-700 bg-green-100 border-green-300';
+    }
+    if (upper.includes('MEDIUM') || parseInt(upper) === 3) {
+      return 'text-yellow-700 bg-yellow-100 border-yellow-300';
+    }
+    return 'text-red-700 bg-red-100 border-red-300';
+  };
+
+  return (
+    <div className="bg-gray-50 border-2 border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full p-6 text-left transition ${isOpen ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-lg font-bold text-gray-900">{title}</p>
+            {subtitle && <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>}
+          </div>
+          <div className="flex items-center gap-3">
+            {rating && (
+              <span className={`text-base font-bold px-4 py-1.5 rounded-full border-2 ${getRatingStyles()}`}>
+                {rating}
+              </span>
+            )}
+            <span className="text-gray-400 text-xl font-bold">{isOpen ? '−' : '+'}</span>
+          </div>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-6 pb-6 text-base text-gray-700 border-t-2 border-gray-200 pt-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Info Card with Tooltip
+const InfoCard = ({ label, value, valueColor, tooltip, children }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  const getValueColor = () => {
+    const upper = (value || '').toString().toUpperCase();
+    if (upper.includes('HIGH')) return 'text-green-600';
+    if (upper.includes('MEDIUM')) return 'text-yellow-600';
+    if (upper.includes('LOW')) return 'text-red-600';
+    return valueColor || 'text-blue-600';
+  };
+
+  const getScoreDot = () => {
+    const upper = (value || '').toString().toUpperCase();
+    if (upper.includes('HIGH')) return 'bg-green-500';
+    if (upper.includes('MEDIUM')) return 'bg-yellow-500';
+    if (upper.includes('LOW')) return 'bg-red-500';
+    return 'bg-blue-500';
+  };
+
+  return (
+    <div 
+      className="relative bg-gray-50 border-2 border-gray-200 rounded-xl p-6 hover:border-blue-400 transition cursor-pointer"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {tooltip && showTooltip && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-3 bg-gray-800 border border-gray-700 px-4 py-3 rounded-lg text-sm text-gray-100 whitespace-normal w-max max-w-xs z-50 shadow-xl">
+          {tooltip}
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-800"></div>
+        </div>
+      )}
+      <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">{label}</p>
+      {children || (
+        <div className="flex items-center">
+          <span className={`inline-block w-2.5 h-2.5 rounded-full ${getScoreDot()} mr-2`}></span>
+          <span className={`text-2xl font-bold ${getValueColor()}`}>{value}</span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CallReportDetail = () => {
   const { callId } = useParams();
@@ -10,6 +98,7 @@ const CallReportDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandTranscript, setExpandTranscript] = useState(false);
+  const [expandedHooks, setExpandedHooks] = useState({});
 
   useEffect(() => {
     fetchReport();
@@ -41,7 +130,6 @@ const CallReportDetail = () => {
     const knowledge = agent.Verbal_Product_Knowledge || {};
     const invitation = agent.The_Invitation_to_Visit || {};
 
-    // Create CSV headers
     const headers = [
       'Call_ID', 'Store_Name', 'City', 'State', 'Region', 'Date', 'Duration_Seconds',
       'Customer_Name', 'Agent_Name', 'Is_Converted',
@@ -56,7 +144,6 @@ const CallReportDetail = () => {
       'Call_Synopsis', 'Agent_Performance', 'Next_Action'
     ];
 
-    // Create CSV row
     const row = [
       report.call_id,
       report.store_name,
@@ -93,7 +180,6 @@ const CallReportDetail = () => {
       summary.Next_Action || ''
     ];
 
-    // Escape fields that contain commas or quotes
     const escapeCSVField = (field) => {
       const str = String(field);
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -107,7 +193,6 @@ const CallReportDetail = () => {
       row.map(escapeCSVField).join(',')
     ].join('\n');
 
-    // Create blob and download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -128,7 +213,6 @@ const CallReportDetail = () => {
       return;
     }
 
-    // Create transcript text content
     let textContent = `CALL TRANSCRIPT\n`;
     textContent += `${'='.repeat(80)}\n\n`;
     textContent += `Call ID: ${report.call_id}\n`;
@@ -140,12 +224,10 @@ const CallReportDetail = () => {
     textContent += `Location: ${report.city}, ${report.state}\n\n`;
     textContent += `${'='.repeat(80)}\n\n`;
 
-    // Add transcript entries
     transcript.forEach((entry, index) => {
       const timestamp = entry.Timestamp || `${index + 1}`;
       const speaker = entry.Speaker || 'Unknown';
       const text = entry.Text || '';
-
       textContent += `[${timestamp}] ${speaker}:\n`;
       textContent += `${text}\n\n`;
     });
@@ -153,7 +235,6 @@ const CallReportDetail = () => {
     textContent += `${'='.repeat(80)}\n`;
     textContent += `End of Transcript\n`;
 
-    // Create blob and download
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -162,20 +243,72 @@ const CallReportDetail = () => {
     URL.revokeObjectURL(link.href);
   };
 
+  // Helper functions
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+  };
+
+  const getRatingText = (rating) => {
+    if (!rating) return 'N/A';
+    if (typeof rating === 'number') {
+      if (rating >= 4) return 'HIGH';
+      if (rating >= 3) return 'MEDIUM';
+      return 'LOW';
+    }
+    return rating.toString().toUpperCase();
+  };
+
+  const getScoreDotClass = (rating) => {
+    const upper = getRatingText(rating);
+    if (upper.includes('HIGH')) return 'bg-green-500';
+    if (upper.includes('MEDIUM')) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getRelaxOverallRating = (relax) => {
+    const ratingToScore = (rating) => {
+      const r = getRatingText(rating).toUpperCase();
+      if (r === 'HIGH') return 3;
+      if (r === 'MEDIUM') return 2;
+      if (r === 'LOW') return 1;
+      return 0;
+    };
+
+    const scores = [
+      ratingToScore(relax.R_Reach_Out?.Rating),
+      ratingToScore(relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating),
+      ratingToScore(relax.L_Link_Experience?.Rating),
+      ratingToScore(relax.A_Add_Value?.Rating),
+      ratingToScore(relax.X_Express_Closing?.Rating)
+    ].filter(s => s > 0);
+    
+    if (scores.length === 0) return 'N/A';
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    return avg.toFixed(2);
+  };
+
+  const getFunnelStageIndex = (stage) => {
+    const stages = ['Awareness', 'Interest', 'Desire', 'Action'];
+    const idx = stages.findIndex(s => s.toLowerCase() === (stage || '').toLowerCase());
+    return idx >= 0 ? idx : 0;
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-gray-300">Loading call report...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600 text-lg">Loading call report...</div>
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error || 'Report not found'}</p>
-          <Link to="/GmbCalls" className="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-2">
+          <p className="text-red-600 mb-4 text-lg">{error || 'Report not found'}</p>
+          <Link to="/GmbCalls" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Reports
           </Link>
         </div>
@@ -188,14 +321,14 @@ const CallReportDetail = () => {
 
   if (hasError) {
     return (
-      <div className="min-h-screen bg-[#08080c] p-8">
-        <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 mb-6">
+      <div className="min-h-screen bg-gray-50 p-8">
+        <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6">
           <ArrowLeft className="w-4 h-4" /> Back to Reports
         </Link>
-        <div className="max-w-4xl mx-auto bg-gray-900 border border-gray-800 rounded-xl p-8">
-          <h1 className="text-2xl font-bold text-gray-100 mb-4">{report.store_name}</h1>
-          <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-6">
-            <p className="text-red-300">⚠️ Analysis Error: {analysis.error}</p>
+        <div className="max-w-4xl mx-auto bg-white border-2 border-gray-200 rounded-xl p-8 shadow-lg">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{report.store_name}</h1>
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6">
+            <p className="text-red-700">⚠️ Analysis Error: {analysis.error}</p>
           </div>
         </div>
       </div>
@@ -212,453 +345,696 @@ const CallReportDetail = () => {
   const knowledge = agent.Verbal_Product_Knowledge || {};
   const invitation = agent.The_Invitation_to_Visit || {};
 
-  const getIntentBadgeColor = (intent) => {
-    if (!intent) return 'bg-gray-800 text-gray-400';
-    const upper = intent.toUpperCase();
-    if (upper.includes('HIGH')) return 'bg-emerald-900/30 text-emerald-300 border border-emerald-600/40';
-    if (upper.includes('MEDIUM')) return 'bg-amber-900/30 text-amber-300 border border-amber-600/40';
-    return 'bg-red-900/30 text-red-300 border border-red-600/40';
-  };
+  const funnelStages = ['Awareness', 'Consideration', 'Action'];
+  const currentStageIndex = getFunnelStageIndex(customer.Customer_Stage_AIDA);
 
-  const getScoreColor = (score) => {
-    if (score >= 4) return { bg: 'bg-emerald-900/30', text: 'text-emerald-300', border: 'border-emerald-600' };
-    if (score >= 3) return { bg: 'bg-amber-900/30', text: 'text-amber-300', border: 'border-amber-600' };
-    return { bg: 'bg-red-900/30', text: 'text-red-300', border: 'border-red-600' };
+  // Map AIDA stage to funnel index
+  const mapAidaToFunnel = () => {
+    const stage = (customer.Customer_Stage_AIDA || '').toLowerCase();
+    if (stage === 'action') return 2;
+    if (stage === 'desire' || stage === 'interest') return 1;
+    return 0;
   };
-
-  const getRelaxBarClass = (score) => {
-    if (score >= 4) return 'bg-gradient-to-t from-emerald-600 to-emerald-500';
-    if (score >= 3) return 'bg-gradient-to-t from-amber-600 to-amber-500';
-    if (score >= 2) return 'bg-gradient-to-t from-orange-600 to-orange-500';
-    return 'bg-gradient-to-t from-red-600 to-red-500';
-  };
-
-  const renderStars = (count) => {
-    return (
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <span key={i} className={i <= count ? 'text-amber-400' : 'text-gray-700'}>★</span>
-        ))}
-      </div>
-    );
-  };
-
-  const aideStages = ['A', 'I', 'D', 'A'];
-  const currentStage = customer.Customer_Stage_AIDA || 'Awareness';
-  const currentStageIndex = currentStage === 'Awareness' ? 0 : currentStage === 'Interest' ? 1 : currentStage === 'Desire' ? 2 : 3;
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
-        {/* Back Button and Download Buttons */}
-        <div className="flex items-center justify-between mb-6">
-          <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
-            <ArrowLeft className="w-4 h-4" /> Back to All Reports
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1600px] mx-auto px-8 py-10 relative z-10">
+        
+        {/* Navigation */}
+        <div className="flex items-center justify-between mb-10">
+          <Link 
+            to="/GmbCalls" 
+            className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide"
+          >
+            ← BACK TO STORE CALLS
           </Link>
-          
-          <div className="flex gap-3">
-            {report.driveLink && (
+          <div className="flex gap-4">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+              ID: {report.call_id}
+            </span>
+            {(report.driveLink || report.recording_url) && (
               <a
-                href={report.driveLink}
+                href={report.driveLink || report.recording_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-                title="View recording on Google Drive"
+                className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 5.23 11.08 5 12 5c3.04 0 5.5 2.46 5.5 5.5v.5H19c2.21 0 4 1.79 4 4 0 2.05-1.53 3.76-3.56 3.97l1.07-1.07c.21-.2.33-.48.33-.79V10.04zM3 5.5h3v3H3V5.5zm6 0h3v3H9V5.5zM3 11.5h3v3H3v-3zm6 0h3v3H9v-3z"/>
-                </svg>
-                Access Recording
+                📞 LISTEN TO CALL
               </a>
             )}
-            <button
-              onClick={downloadCSV}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-              title="Download Call Report"
-            >
-              <Download className="w-4 h-4" />
-              Download Report
-            </button>
-            <button
-              onClick={downloadTranscript}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-              title="Download Call Transcript as TXT"
-            >
-              <FileDown className="w-4 h-4" />
-              Download Transcript
-            </button>
           </div>
         </div>
 
-        {/* HEADER */}
-        <header className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border border-white/6 rounded-3xl p-8 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent"></div>
-          
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-xs text-gray-500 tracking-wider">CALL ID: {report.call_id}</span>
-              <h1 className="text-3xl font-semibold text-gray-100" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-                {report.store_name}
-              </h1>
-              {functional.Call_Objective_Theme && (
-                <span className="inline-flex items-center gap-2 bg-amber-900/20 border border-amber-600/25 px-4 py-2 rounded-full text-sm font-medium text-amber-400 w-fit">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  {functional.Call_Objective_Theme}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex flex-col items-end gap-2">
-              <span className="text-xs uppercase tracking-wider text-gray-500">Audio Quality</span>
-              <div className="flex gap-1 items-end h-6">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div 
-                    key={i} 
-                    className={`w-1.5 rounded-sm ${i <= (functional.Agent_Audio_Quality_Rating || 3) ? 'bg-emerald-500' : 'bg-gray-700'}`} 
-                    style={{ height: `${8 + i * 4}px` }}
-                  ></div>
-                ))}
-              </div>
-            </div>
+        {/* HEADER: Metadata & Summary */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-10 mb-10 shadow-lg">
+          <div className="border-l-4 border-blue-500 pl-5 mb-8">
+            <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Store Call Analysis
+            </h1>
+            <p className="text-base text-gray-500 mt-2">
+              GMB Inbound • {functional.Agent_Name || 'Unknown Agent'} ({functional.Store_Location || report.store_name})
+            </p>
           </div>
-
-          <div className="grid grid-cols-5 gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call Date</p>
-              <p className="text-sm font-medium text-gray-200">{report.call_date}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</p>
-              <p className="text-sm font-medium text-gray-200">{Math.floor(report.duration_seconds / 60)}:{(report.duration_seconds % 60).toString().padStart(2, '0')}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Customer</p>
-              <p className="text-sm font-medium text-gray-200">{functional.Customer_Name || 'Unknown'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Agent</p>
-              <p className="text-sm font-medium text-gray-200">{functional.Agent_Name || 'Unknown'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Location</p>
-              <p className="text-sm font-medium text-gray-200">{report.city}, {report.state}</p>
-            </div>
-          </div>
-        </header>
-
-        {/* MAIN GRID */}
-        <div className="grid grid-cols-2 gap-6">
           
-          {/* CUSTOMER INSIGHTS */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>Customer Insights</h2>
-              <span className="text-xs text-gray-500">Intent & Satisfaction Analysis</span>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Intent to Visit</p>
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${getIntentBadgeColor(customer.Intent_to_Visit_Rating)}`}>
-                  <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-                  {customer.Intent_to_Visit_Rating || 'Unknown'}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Intent to Purchase</p>
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${getIntentBadgeColor(customer.Intent_to_Purchase_Rating)}`}>
-                  <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-                  {customer.Intent_to_Purchase_Rating || 'Unknown'}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Customer Journey (AIDA)</p>
-                <div className="flex items-center gap-1">
-                  {aideStages.map((stage, i) => (
-                    <React.Fragment key={i}>
-                      <button className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider ${i === currentStageIndex ? 'bg-amber-500 text-gray-900' : 'bg-gray-800 text-gray-500'}`}>
-                        {stage}
-                      </button>
-                      {i < aideStages.length - 1 && <div className="w-4 h-0.5 bg-gray-800"></div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-
-              {customer.Barriers_to_Conversion && customer.Barriers_to_Conversion !== 'N/A' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* Col 1: Identity & Metadata */}
+            <div className="lg:col-span-4 border-r border-gray-200 pr-8">
+              <div className="flex items-start justify-between mb-6">
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Barrier to Conversion</p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-full text-sm text-gray-300">
-                    <span>🔍</span>
-                    {customer.Barriers_to_Conversion}
+                  <span className="font-mono text-sm text-gray-500 tracking-widest uppercase">Customer</span>
+                  <h2 className="text-3xl font-semibold text-gray-900 mt-1" style={{ fontFamily: "'Fraunces', serif" }}>
+                    {functional.Customer_Name || 'Unknown'}
+                  </h2>
+                </div>
+                <span className="bg-green-100 text-green-700 text-sm font-bold px-4 py-1.5 rounded-full border border-green-200 uppercase">
+                  Connected
+                </span>
+              </div>
+              
+              <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
+                  <span className="text-gray-900 font-medium text-lg">
+                    {report.city}, {report.state} • {functional.Customer_Language || 'English'}
+                  </span>
+                </div>
+                
+                <div>
+                  <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Interest Category</span>
+                  <span className="text-blue-600 text-3xl font-bold">{customer.Interest_Category || 'General'}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
+                    <span className="font-mono text-lg text-gray-900">{formatDuration(report.duration_seconds)}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Timeline</span>
+                    <span className="text-lg font-bold text-green-600">{customer.Timeline_to_Purchase || 'Unknown'}</span>
                   </div>
                 </div>
-              )}
 
-              <div className="pt-4 border-t border-gray-800">
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-3">Satisfaction Score</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full border-2 border-amber-600 flex items-center justify-center relative">
-                    <span className="text-2xl font-bold text-amber-400">{customer.Customer_Satisfaction_Score || 3}</span>
-                    <div className="absolute inset-0 -m-1 rounded-full border-2 border-amber-600 opacity-30"></div>
+                <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Quality</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${getScoreDotClass(functional.Agent_Audio_Quality_Rating)}`}></span>
+                    <span className="text-base font-bold text-gray-700">{getRatingText(functional.Agent_Audio_Quality_Rating)}</span>
                   </div>
-                  <span className="text-sm text-gray-400">of 5</span>
                 </div>
-                {customer.Customer_Satisfaction_Score_Reasons && customer.Customer_Satisfaction_Score_Reasons.length > 0 && (
-                  <ul className="mt-4 space-y-2">
-                    {customer.Customer_Satisfaction_Score_Reasons.map((reason, i) => (
-                      <li key={i} className="text-sm text-gray-400 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-2 before:w-1 before:h-1 before:rounded-full before:bg-gray-600">
-                        {reason}
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </div>
-          </div>
 
-          {/* QUESTIONS ASKED */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>Primary Questions Asked</h2>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              {customer.Primary_Questions_Asked && customer.Primary_Questions_Asked.map((q, i) => (
-                <div key={i} className="flex gap-3 p-4 bg-[#16161d] rounded-lg border-l-2 border-amber-500">
-                  <span className="font-mono text-xs text-amber-400/70">{String(i + 1).padStart(2, '0')}</span>
-                  <span className="text-sm text-gray-300 italic">{q}</span>
-                </div>
-              ))}
-            </div>
-
-            {invitation && (
-              <div className="pt-4 border-t border-gray-800">
-                <div className="bg-[#16161d] rounded-lg p-5">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-xs uppercase tracking-wider text-gray-500">Invitation to Visit</p>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${invitation.Attempted ? 'bg-emerald-900/30 text-emerald-300' : 'bg-red-900/30 text-red-300'}`}>
-                        {invitation.Attempted ? '✓ Attempted' : '✗ Not Attempted'}
-                      </span>
-                      {invitation.Attempted && invitation.Quality_Rating && (
-                        <span className="text-xs text-gray-400">Quality: {invitation.Quality_Rating}/5</span>
-                      )}
-                    </div>
-                  </div>
-                  {invitation.Reasons && invitation.Reasons.length > 0 && (
-                    <ul className="space-y-1 text-xs text-gray-400">
-                      {invitation.Reasons.map((reason, i) => (
-                        <li key={i} className="pl-4 relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:w-1 before:h-1 before:rounded-full before:bg-gray-600">
-                          {reason}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+            {/* Col 2: Call Summary */}
+            <div className="lg:col-span-8 pl-4 flex flex-col justify-center">
+              <div className="mb-5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Call Objective</span>
+                <h3 className="text-2xl text-gray-900 font-semibold" style={{ fontFamily: "'Fraunces', serif" }}>
+                  {functional.Call_Objective_Theme || 'General Inquiry'} • {customer.Specific_Product_Inquiry || 'Product Inquiry'}
+                </h3>
               </div>
-            )}
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-8">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-widest block mb-3">Executive Summary</span>
+                <p className="text-lg text-gray-700 leading-relaxed font-medium">
+                  {summary.Call_Synopsis || 'No summary available for this call.'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* RELAX FRAMEWORK */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mt-6">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>RELAX Framework Performance</h2>
-            <span className="text-xs text-gray-500">Sales Methodology Assessment</span>
+        {/* SECTION 1: Critical Sales Metrics */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Critical Sales Intelligence
+            </h2>
           </div>
 
-          {/* Visual Bars */}
-          <div className="flex justify-between items-end h-48 gap-4 mb-12 px-4">
-            {[
-              { letter: 'R', name: 'Reach Out', score: relax.R_Reach_Out?.Rating || 3 },
-              { letter: 'E', name: 'Explore', score: relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating || 3 },
-              { letter: 'L', name: 'Link', score: relax.L_Link_Experience?.Rating || 3 },
-              { letter: 'A', name: 'Add Value', score: relax.A_Add_Value?.Rating || 3 },
-              { letter: 'X', name: 'Express', score: relax.X_Express_Closing?.Rating || 3 },
-            ].map((item) => (
-              <div key={item.letter} className="flex flex-col items-center gap-3 flex-1">
-                <div className="relative w-full flex justify-center">
-                  <div className={`w-12 rounded-t-lg ${getRelaxBarClass(item.score)} flex items-end justify-center pb-2 relative`} style={{ height: `${item.score * 30}px` }}>
-                    <span className="text-lg font-bold text-white">{item.score}</span>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-semibold text-gray-100">{item.letter}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.name}</p>
-                </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+            <InfoCard 
+              label="Intent to Purchase" 
+              value={
+                customer.Barriers_to_Conversion?.toLowerCase().includes('already purchased') ||
+                customer.Barriers_to_Conversion?.toLowerCase().includes('issue resolved over the phone') ||
+                customer.Barriers_to_Conversion?.toLowerCase().includes('delivery delay') ||
+                customer.Barriers_to_Conversion?.toLowerCase().includes('already placed') ||
+                customer.Intent_to_Purchase_Rating_Reasons?.[0]?.toLowerCase().includes('already placed') ||
+                customer.Intent_to_Purchase_Rating_Reasons?.[0]?.toLowerCase().includes('awaiting delivery')
+                  ? 'Already Purchased'
+                  : (customer.Intent_to_Purchase_Rating || 'Unknown')
+              }
+              tooltip={customer.Intent_to_Purchase_Rating_Reasons?.[0] || 'No details available'}
+            />
+            <InfoCard 
+              label="Customer Experience" 
+              value={getRatingText(customer.Customer_Satisfaction_Score)}
+              tooltip={customer.Customer_Satisfaction_Score_Reasons?.[0] || 'No details available'}
+            />
+            <InfoCard 
+              label="Purchase Timeline" 
+              value={customer.Timeline_to_Purchase || 'Unknown'}
+              valueColor="text-blue-600"
+              tooltip="Customer's expected purchase timeframe"
+            />
+            <InfoCard 
+              label="Funnel Stage" 
+              value={customer.Customer_Stage_AIDA || 'Awareness'}
+              valueColor="text-blue-600"
+              tooltip="Customer's position in the AIDA sales funnel"
+            />
+          </div>
+
+          {/* Funnel Visual */}
+          <div className="flex items-center gap-1 mb-8">
+            {funnelStages.map((stage, i) => (
+              <div 
+                key={stage}
+                className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border
+                  ${i === 0 ? 'rounded-l-lg' : ''} 
+                  ${i === funnelStages.length - 1 ? 'rounded-r-lg' : ''}
+                  ${i <= mapAidaToFunnel() 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-600 shadow-md' 
+                    : 'bg-gray-100 text-gray-500 border-gray-200'
+                  }`}
+                style={{
+                  clipPath: i === 0 
+                    ? 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)'
+                    : i === funnelStages.length - 1
+                    ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 10% 50%)'
+                    : 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)'
+                }}
+              >
+                {stage}
               </div>
             ))}
           </div>
 
-          {/* Detail Cards */}
-          <div className="grid grid-cols-5 gap-4">
-            {[
-              { title: 'R — Reach Out', score: relax.R_Reach_Out?.Rating || 3, reasons: relax.R_Reach_Out?.Reasons || [] },
-              { title: 'E — Explore', score: relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating || 3, reasons: relax.E_Explore_Needs?.Reasons || relax.E_Explore?.Reasons || [] },
-              { title: 'L — Link', score: relax.L_Link_Experience?.Rating || 3, reasons: relax.L_Link_Experience?.Reasons || [] },
-              { title: 'A — Add Value', score: relax.A_Add_Value?.Rating || 3, reasons: relax.A_Add_Value?.Reasons || [] },
-              { title: 'X — Express', score: relax.X_Express_Closing?.Rating || 3, reasons: relax.X_Express_Closing?.Reasons || [] },
-            ].map((item) => {
-              const color = getScoreColor(item.score);
-              return (
-                <div key={item.title} className={`bg-[#16161d] rounded-lg p-4 border-l-2 ${color.border}`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-semibold text-gray-300">{item.title}</span>
-                    <span className={`text-xs font-mono px-2 py-1 rounded ${color.bg} ${color.text}`}>{item.score}/5</span>
-                  </div>
-                  <p className="text-xs text-gray-400 line-clamp-3">{item.reasons[0] || 'No details'}</p>
+          {/* Barrier Analysis */}
+          {customer.Barriers_to_Conversion && customer.Barriers_to_Conversion !== 'N/A' && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <span className="text-3xl">🛡️</span>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-red-600 uppercase tracking-wider mb-2">
+                    Primary Barrier: {customer.Barriers_to_Conversion}
+                  </p>
+                  <p className="text-lg text-gray-700 leading-relaxed">
+                    {customer.Intent_to_Purchase_Rating_Reasons?.join(' ') || 'Customer faced barriers during the call that may affect conversion.'}
+                  </p>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 2: Store Visit & Invitations */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Invitations & Channel Strategy
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ExpandableCard
+              title="Store Visit Pitch"
+              rating={invitation.Attempted ? getRatingText(invitation.Quality_Rating) : 'LOW'}
+            >
+              <strong className={`text-sm uppercase block mb-2 ${invitation.Attempted ? 'text-green-700' : 'text-red-700'}`}>
+                Assessment:
+              </strong>
+              {invitation.Reasons?.join(' ') || (invitation.Attempted 
+                ? 'Agent attempted to invite the customer to visit the store.'
+                : 'Agent did not attempt to invite the customer to visit the store.'
+              )}
+            </ExpandableCard>
+
+            <ExpandableCard
+              title="Intent to Visit"
+              rating={customer.Intent_to_Visit_Rating || 'LOW'}
+            >
+              <strong className="text-gray-600 text-sm uppercase block mb-2">Assessment:</strong>
+              {customer.Intent_to_Visit_Rating_Reasons?.join(' ') || 'No assessment available for store visit intent.'}
+            </ExpandableCard>
           </div>
         </div>
 
-        {/* PRODUCT KNOWLEDGE & SOFT SKILLS */}
-        <div className="grid grid-cols-2 gap-6 mt-6">
-          {/* Product Knowledge */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <h2 className="text-lg font-medium text-gray-100 mb-6" style={{ fontFamily: "'Fraunces', serif" }}>Product Knowledge</h2>
-            
-            <div className="space-y-4">
-              <div className="bg-[#16161d] rounded-lg p-5">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="text-sm font-medium text-gray-300">Description Quality</p>
-                  <div className="flex gap-0.5">
-                    {renderStars(knowledge.Description_Quality_Rating || 3)}
+        {/* Conversion Hooks Utilized Section */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Conversion Hooks Utilized
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {(() => {
+              // Define conversion hooks - check if they exist in analysis or use defaults
+              const hooks = [
+                { 
+                  key: 'Warranty', 
+                  label: 'WARRANTY',
+                  icon: '✓',
+                  // Check various possible locations for warranty mention
+                  used: summary.Call_Synopsis?.toLowerCase().includes('warranty') ||
+                        agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('warranty')) ||
+                        false,
+                  assessment: summary.Call_Synopsis?.toLowerCase().includes('warranty') || agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('warranty'))
+                    ? 'Agent mentioned warranty during the call.'
+                    : 'Agent did not mention warranty during the call.'
+                },
+                { 
+                  key: 'Brochure', 
+                  label: 'BROCHURE',
+                  icon: '✓',
+                  used: summary.Call_Synopsis?.toLowerCase().includes('brochure') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('details') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('catalog') ||
+                        false,
+                  assessment: summary.Call_Synopsis?.toLowerCase().includes('brochure') || summary.Call_Synopsis?.toLowerCase().includes('details') || summary.Call_Synopsis?.toLowerCase().includes('catalog')
+                    ? 'Agent offered brochure or catalog during the call.'
+                    : 'Agent did not mention brochure during the call.'
+                },
+                { 
+                  key: 'Measurement', 
+                  label: 'MEASUREMENT',
+                  icon: '✗',
+                  used: summary.Call_Synopsis?.toLowerCase().includes('measurement') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('measure') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('size') ||
+                        false,
+                  assessment: summary.Call_Synopsis?.toLowerCase().includes('measurement') || summary.Call_Synopsis?.toLowerCase().includes('measure') || summary.Call_Synopsis?.toLowerCase().includes('size')
+                    ? 'Agent discussed measurement services during the call.'
+                    : 'Agent did not mention measurement services during the call.'
+                },
+                { 
+                  key: 'Sleep_Trial', 
+                  label: 'SLEEP TRIAL',
+                  icon: '✗',
+                  used: summary.Call_Synopsis?.toLowerCase().includes('trial') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('sleep trial') ||
+                        false,
+                  assessment: summary.Call_Synopsis?.toLowerCase().includes('trial') || summary.Call_Synopsis?.toLowerCase().includes('sleep trial')
+                    ? 'Agent mentioned sleep trial during the call.'
+                    : 'Agent did not mention sleep trial during the call.'
+                },
+                { 
+                  key: 'Offers', 
+                  label: 'OFFERS',
+                  icon: '✓',
+                  used: summary.Call_Synopsis?.toLowerCase().includes('offer') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('discount') ||
+                        summary.Call_Synopsis?.toLowerCase().includes('promotion') ||
+                        agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('offer')) ||
+                        false,
+                  assessment: summary.Call_Synopsis?.toLowerCase().includes('offer') || summary.Call_Synopsis?.toLowerCase().includes('discount') || summary.Call_Synopsis?.toLowerCase().includes('promotion') || agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('offer'))
+                    ? 'Agent mentioned offers or discounts during the call.'
+                    : 'Agent did not mention offers during the call.'
+                }
+              ];
+
+              return hooks.map((hook) => (
+                <div key={hook.key} className="bg-gray-50 border-2 border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`${hook.used ? 'text-green-600' : 'text-red-600'} font-bold text-xl`}>
+                          {hook.used ? '✓' : '✗'}
+                        </span>
+                        <span className="text-sm text-gray-600 font-bold uppercase tracking-wider">{hook.label}</span>
+                      </div>
+                      <button 
+                        className="text-gray-400 hover:text-gray-600 text-xl font-bold transition"
+                        onClick={() => setExpandedHooks(prev => ({
+                          ...prev,
+                          [hook.key]: !prev[hook.key]
+                        }))}
+                      >
+                        {expandedHooks[hook.key] ? '−' : '+'}
+                      </button>
+                    </div>
+                    <p className={`text-lg font-semibold ${hook.used ? 'text-green-600' : 'text-red-600'}`}>
+                      {hook.used ? 'YES' : 'NO'}
+                    </p>
                   </div>
+                  {expandedHooks[hook.key] && (
+                    <div className="px-6 pb-6 pt-2 border-t-2 border-gray-200 bg-white">
+                      <p className="text-sm text-gray-700">
+                        {hook.assessment}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-gray-400">{knowledge.Description_Quality_Reason || 'Not assessed'}</p>
+              ));
+            })()}
+          </div>
+        </div>
+
+        {/* SECTION 3: Product Intelligence & Customer Needs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          {/* Product Intelligence */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Product Intelligence
+              </h2>
+            </div>
+
+            <div className="space-y-6">
+              {/* Narrow Down Stage */}
+              <div>
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Narrow Down Stage</p>
+                <div className="flex items-center gap-1">
+                  {(() => {
+                    // Determine which stage to highlight based on specificity
+                    let currentStage = 0; // Default: Category
+                    const specificProduct = customer.Specific_Product_Inquiry || 'General';
+                    
+                    if (specificProduct !== 'General' && specificProduct.toLowerCase().includes('specific')) {
+                      currentStage = 2; // Specific SKU
+                    } else if (specificProduct !== 'General') {
+                      currentStage = 1; // Range
+                    }
+                    
+                    return (
+                      <>
+                        <div 
+                          className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border ${
+                            currentStage >= 0
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                              : 'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}
+                          style={{ clipPath: 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)' }}
+                        >
+                          Category
+                        </div>
+                        <div 
+                          className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border ${
+                            currentStage >= 1
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                              : 'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}
+                          style={{ clipPath: 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)' }}
+                        >
+                          Range
+                        </div>
+                        <div 
+                          className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border ${
+                            currentStage >= 2
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                              : 'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}
+                          style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 15% 50%)' }}
+                        >
+                          Specific SKU
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
 
-              <div className="bg-[#16161d] rounded-lg p-5">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="text-sm font-medium text-gray-300">Stock Availability</p>
-                  <div className="flex gap-0.5">
-                    {renderStars(knowledge.Stock_Availability_Check_Rating || 2)}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400">{knowledge.Stock_Availability_Check_Reason || 'Not checked'}</p>
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Product of Interest</p>
+                <span className="text-lg font-semibold text-gray-900">
+                  {customer.Interest_Category || 'General'} / {customer.Specific_Product_Inquiry || 'Not specified'}
+                </span>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Decision Maker</p>
+                <span className="text-lg font-semibold text-gray-900">
+                  {functional.Customer_Name && functional.Customer_Name !== 'Unknown' && functional.Customer_Name !== 'Not mentioned'
+                    ? `${functional.Customer_Name} (Caller)`
+                    : 'Sole Decision Maker (Caller)'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Soft Skills */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <h2 className="text-lg font-medium text-gray-100 mb-6" style={{ fontFamily: "'Fraunces', serif" }}>Soft Skills & Etiquette</h2>
-            
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-[#16161d] rounded-lg p-5 text-center">
-                <p className="text-3xl font-bold text-emerald-400">{softSkills.Tone_and_Patience_Rating || 4}</p>
-                <p className="text-xs text-gray-400 mt-2">Tone & Patience</p>
-              </div>
-              <div className="bg-[#16161d] rounded-lg p-5 text-center">
-                <p className="text-3xl font-bold text-emerald-400">{softSkills.Hold_Management_Rating || 5}</p>
-                <p className="text-xs text-gray-400 mt-2">Hold Mgmt</p>
-              </div>
-              <div className="bg-[#16161d] rounded-lg p-5 text-center">
-                <p className="text-3xl font-bold text-emerald-400">{softSkills.Agent_Language_Fluency_Score || 5}</p>
-                <p className="text-xs text-gray-400 mt-2">Fluency</p>
-              </div>
+          {/* Customer Needs Profile - Replaced Questions */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Customer Needs Profile
+              </h2>
             </div>
 
-            <div className="bg-[#16161d] rounded-lg p-5">
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-3">Observations</p>
-              <ul className="space-y-1 text-xs text-gray-400">
-                {softSkills.Soft_Skills_Reasons && softSkills.Soft_Skills_Reasons.slice(0, 3).map((r, i) => (
-                  <li key={i} className="pl-4 relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:w-1 before:h-1 before:rounded-full before:bg-gray-600">
-                    {r}
-                  </li>
-                ))}
-              </ul>
+            <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 space-y-5">
+              {/* For Whom */}
+              {customer.Primary_Questions_Asked && customer.Primary_Questions_Asked.length > 0 && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">For Whom:</span>
+                  <span className="text-gray-800 text-base ml-2">
+                    {functional.Customer_Name && functional.Customer_Name !== 'Unknown' && functional.Customer_Name !== 'Not mentioned'
+                      ? functional.Customer_Name
+                      : 'Self'}
+                  </span>
+                </div>
+              )}
+
+              {/* Medical Condition / Context (from barriers or questions) */}
+              {customer.Barriers_to_Conversion && customer.Barriers_to_Conversion !== 'N/A' && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">Primary Concern:</span>
+                  <span className="text-gray-800 text-base ml-2">{customer.Barriers_to_Conversion}</span>
+                </div>
+              )}
+
+              {/* Requirement (from questions) */}
+              {customer.Primary_Questions_Asked && customer.Primary_Questions_Asked.length > 0 && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">Requirement:</span>
+                  <span className="text-gray-800 text-base ml-2">
+                    {customer.Primary_Questions_Asked.join('. ')}
+                  </span>
+                </div>
+              )}
+
+              {/* Timeline */}
+              {customer.Timeline_to_Purchase && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">Purchase Timeline:</span>
+                  <span className="text-gray-800 text-base ml-2">{customer.Timeline_to_Purchase}</span>
+                </div>
+              )}
+
+              {/* Key Constraint */}
+              {(customer.Intent_to_Purchase_Rating_Reasons || customer.Intent_to_Visit_Rating_Reasons) && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">Key Constraint:</span>
+                  <span className="text-gray-800 text-base ml-2">
+                    {customer.Intent_to_Purchase_Rating_Reasons?.[0] || 
+                     customer.Intent_to_Visit_Rating_Reasons?.[0] || 
+                     'None specified'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* TOP IMPROVEMENT AREAS */}
-        {agent.Top_3_Improvement_Areas && agent.Top_3_Improvement_Areas.length > 0 && (
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mt-6">
-            <h2 className="text-lg font-medium text-gray-100 mb-6" style={{ fontFamily: "'Fraunces', serif" }}>Top 3 Improvement Areas</h2>
-            
+        {/* SECTION 4: RELAX Framework & Agent Performance */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
+          
+          {/* RELAX Framework */}
+          <div className="lg:col-span-7 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                RELAX Framework
+              </h2>
+              <span className={`text-4xl font-bold ${
+                parseFloat(getRelaxOverallRating(relax)) >= 0.75 ? 'text-green-600' : 
+                parseFloat(getRelaxOverallRating(relax)) >= 0.50 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {getRelaxOverallRating(relax) !== 'N/A' ? `${getRelaxOverallRating(relax)}/3` : 'N/A'}
+              </span>
+            </div>
+
             <div className="space-y-4">
-              {agent.Top_3_Improvement_Areas.map((area, i) => (
-                <div key={i} className="flex gap-4 p-5 bg-[#16161d] rounded-lg border border-white/6 hover:border-amber-600/50 transition">
-                  <div className="w-8 h-8 rounded-full bg-amber-900/20 border border-amber-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-amber-400">{i + 1}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-200 mb-1">{area.split(':')[0] || area}</p>
-                    {area.includes(':') && <p className="text-xs text-gray-400">{area.split(':')[1]?.trim()}</p>}
-                  </div>
-                </div>
+              {[
+                { key: 'R', title: 'R — Reach Out', subtitle: 'Greeting & Brand', data: relax.R_Reach_Out },
+                { key: 'E', title: 'E — Explore Needs', subtitle: 'Discovery', data: relax.E_Explore_Needs || relax.E_Explore },
+                { key: 'L', title: 'L — Link Product', subtitle: 'Link to Needs', data: relax.L_Link_Experience },
+                { key: 'A', title: 'A — Add Value', subtitle: 'Offers/Accessories', data: relax.A_Add_Value },
+                { key: 'X', title: 'X — Express Closing', subtitle: 'Next Steps', data: relax.X_Express_Closing },
+              ].map((item) => (
+                <ExpandableCard
+                  key={item.key}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  rating={getRatingText(item.data?.Rating)}
+                >
+                  <strong className={`text-sm uppercase block mb-1 ${
+                    (item.data?.Rating || 0) >= 4 ? 'text-green-700' :
+                    (item.data?.Rating || 0) >= 3 ? 'text-yellow-700' : 'text-red-700'
+                  }`}>Reason:</strong>
+                  {item.data?.Reasons?.join(' ') || 'No details available.'}
+                </ExpandableCard>
               ))}
             </div>
           </div>
-        )}
 
-        {/* SUMMARY */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mt-6">
-          <h2 className="text-lg font-medium text-gray-100 mb-6" style={{ fontFamily: "'Fraunces', serif" }}>Call Summary</h2>
-          
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-[#16161d] rounded-lg p-6">
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-                <span>📋</span> Synopsis
-              </p>
-              <p className="text-sm text-gray-300 leading-relaxed">{summary.Call_Synopsis || 'No synopsis available'}</p>
+          {/* Agent Scorecard */}
+          <div className="lg:col-span-5 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Agent Scorecard
+              </h2>
             </div>
-            <div className="bg-[#16161d] rounded-lg p-6">
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-                <span>👤</span> Agent Performance
-              </p>
-              <p className="text-sm text-gray-300 leading-relaxed">{summary.Agent_Performance_Summary || 'No performance summary available'}</p>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Product Knowledge</h3>
+            <div className="space-y-4 mb-8">
+              <ExpandableCard
+                title="Description Quality"
+                rating={getRatingText(knowledge.Description_Quality_Rating)}
+              >
+                {knowledge.Description_Quality_Reason || 'No assessment available.'}
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Stock Availability Check"
+                rating={getRatingText(knowledge.Stock_Availability_Check_Rating)}
+              >
+                {knowledge.Stock_Availability_Check_Reason || 'No assessment available.'}
+              </ExpandableCard>
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pt-4 border-t border-gray-200">
+              Soft Skills & Etiquette
+            </h3>
+            <div className="space-y-4">
+              <ExpandableCard
+                title="Tone & Patience"
+                rating={getRatingText(softSkills.Tone_and_Patience_Rating)}
+              >
+                {softSkills.Soft_Skills_Reasons?.[0] || 'No details available.'}
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Hold Management"
+                rating={getRatingText(softSkills.Hold_Management_Rating)}
+              >
+                {softSkills.Soft_Skills_Reasons?.[1] || 'No details available.'}
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Language Fluency"
+                rating={getRatingText(softSkills.Agent_Language_Fluency_Score)}
+              >
+                {softSkills.Soft_Skills_Reasons?.[2] || 'No details available.'}
+              </ExpandableCard>
             </div>
           </div>
+        </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2">
-              <span>➡️</span> Next Action
-            </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-900/20 border border-orange-600/30 rounded-full text-sm font-medium text-orange-300">
-              <span>⚠️</span>
-              {summary.Next_Action || 'Pending'}
+        {/* SECTION 5: Learnings & Next Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          
+          {/* Agent Learnings / Improvement Areas */}
+          {agent.Top_3_Improvement_Areas && agent.Top_3_Improvement_Areas.length > 0 && (
+            <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+              <div className="mb-8 border-b-2 border-gray-200 pb-4">
+                <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                  Agent Learnings
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+                {agent.Top_3_Improvement_Areas.map((area, i) => (
+                  <ExpandableCard
+                    key={i}
+                    title={`${i + 1}. ${area.split(':')[0] || area.substring(0, 40)}`}
+                    rating={i === 0 ? 'PRIORITY' : undefined}
+                  >
+                    <strong className="text-yellow-700 block mb-1 text-sm uppercase tracking-wide">Feedback:</strong>
+                    {area}
+                  </ExpandableCard>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Next Actions & NPS */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Closing Intelligence
+              </h2>
+            </div>
+
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6 mb-8">
+              <p className="text-sm text-blue-700 font-bold uppercase tracking-wider mb-4">Next Actions</p>
+              <p className="text-lg text-gray-700 leading-relaxed font-semibold">
+                {summary.Next_Action || 'No specific next action defined.'}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-400 rounded-xl p-8 text-center">
+              <p className="text-sm text-green-700 font-bold uppercase tracking-wider mb-4">NPS Estimation</p>
+              <div className="text-6xl font-bold text-green-700 mb-4">
+                {(() => {
+                  const score = customer.Customer_Satisfaction_Score || 3;
+                  // Convert 1-5 scale to NPS scale (0-10): multiply by 2
+                  const nps = Math.min(10, Math.round(score * 2));
+                  return nps;
+                })()}
+              </div>
+              <p className="text-base font-bold text-green-700 uppercase tracking-wide mb-4">
+                {(() => {
+                  const score = customer.Customer_Satisfaction_Score || 3;
+                  const nps = Math.min(10, Math.round(score * 2));
+                  if (nps >= 9) return 'PROMOTER';
+                  if (nps >= 7) return 'PASSIVE / PROMOTER';
+                  return 'PASSIVE / DETRACTOR';
+                })()}
+              </p>
+              <p className="text-base text-gray-700 italic leading-relaxed">
+                "{summary.Agent_Performance_Summary || 'No performance summary available.'}"
+              </p>
             </div>
           </div>
         </div>
 
         {/* TRANSCRIPT */}
         {transcript && transcript.length > 0 && (
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden mt-6">
-            <div className="flex justify-between items-center p-7 border-b border-white/6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>Call Transcript</h2>
-              <button
-                onClick={() => setExpandTranscript(!expandTranscript)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#16161d] rounded-lg text-sm text-amber-400 hover:bg-[#1c1c25] transition"
-              >
-                {expandTranscript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                <span>{expandTranscript ? 'Collapse' : 'Expand'}</span>
-              </button>
+          <div className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden mb-10 shadow-lg">
+            <div className="flex justify-between items-center p-8 border-b-2 border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Call Transcript
+              </h2>
+              <div className="flex gap-3">
+                <button
+                  onClick={downloadTranscript}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition border border-gray-300"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Download
+                </button>
+                <button
+                  onClick={() => setExpandTranscript(!expandTranscript)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition"
+                >
+                  {expandTranscript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {expandTranscript ? 'Collapse' : 'Expand'}
+                </button>
+              </div>
             </div>
 
             {expandTranscript && (
-              <div className="max-h-[500px] overflow-y-auto p-7 space-y-6">
+              <div className="max-h-[600px] overflow-y-auto p-8 space-y-6 bg-gray-50">
                 {transcript.map((msg, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-800 last:border-0">
-                    <span className="font-mono text-xs text-gray-500 min-w-12 pt-1">{msg.Timestamp || '00:00'}</span>
+                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
+                    <span className="font-mono text-sm text-gray-500 min-w-16 pt-1">{msg.Timestamp || `${i + 1}`}</span>
                     <div className="flex-1">
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${msg.Speaker === 'Agent' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      <p className={`text-sm font-bold uppercase tracking-wider mb-2 ${
+                        msg.Speaker === 'Agent' ? 'text-blue-600' : 'text-green-600'
+                      }`}>
                         {msg.Speaker}
                       </p>
-                      <p className="text-sm text-gray-300 leading-relaxed">{msg.Text}</p>
+                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
                     </div>
                   </div>
                 ))}
@@ -666,6 +1042,30 @@ const CallReportDetail = () => {
             )}
           </div>
         )}
+
+        {/* Download Actions */}
+        <div className="flex justify-center gap-4 mb-10">
+          <button
+            onClick={downloadCSV}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <Download className="w-5 h-5" />
+            Download Full Report (CSV)
+          </button>
+          <button
+            onClick={downloadTranscript}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <FileDown className="w-5 h-5" />
+            Download Transcript (TXT)
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center pt-8 border-t-2 border-gray-200">
+          <p className="text-base text-gray-500">Duroflex Store Call Intelligence • Powered by AI Analysis</p>
+        </div>
+
       </div>
     </div>
   );

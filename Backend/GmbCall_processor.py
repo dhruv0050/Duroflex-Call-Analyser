@@ -24,6 +24,139 @@ def sanitize_nan(obj):
     return obj
 
 
+def _gmb_hml_to_1_5(value: Any, default: int = 3) -> int:
+    """Convert High/Medium/Low or H/M/L to a 1-5 score."""
+    if value is None:
+        return default
+    text = str(value).strip().upper()
+    if text in {"H", "HIGH"}:
+        return 5
+    if text in {"M", "MED", "MEDIUM"}:
+        return 3
+    if text in {"L", "LOW"}:
+        return 1
+    return default
+
+
+def _gmb_rating_to_upper_hml(value: Any, default: str = "MEDIUM") -> str:
+    """Convert High/Medium/Low (any case) to HIGH/MEDIUM/LOW."""
+    if value is None:
+        return default
+    text = str(value).strip().upper()
+    if "HIGH" in text or text == "H":
+        return "HIGH"
+    if "LOW" in text or text == "L":
+        return "LOW"
+    if "MED" in text or text == "M":
+        return "MEDIUM"
+    return default
+
+
+def normalize_gmb_analysis_v2_to_legacy(analysis_v2: Dict[str, Any], row_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Map the new GMB prompt schema into the legacy analysis keys used by the UI."""
+    meta = analysis_v2.get("MetaData", {}) if isinstance(analysis_v2, dict) else {}
+    call_obj = analysis_v2.get("1_Call_Objective", {}) if isinstance(analysis_v2, dict) else {}
+    intent_purchase = analysis_v2.get("2_Intent_to_Purchase", {}) if isinstance(analysis_v2, dict) else {}
+    cust_exp = analysis_v2.get("3_Customer_Experience", {}) if isinstance(analysis_v2, dict) else {}
+    funnel = analysis_v2.get("4_Funnel_Analysis", {}) if isinstance(analysis_v2, dict) else {}
+    product = analysis_v2.get("5_Product_Intelligence", {}) if isinstance(analysis_v2, dict) else {}
+    needs = analysis_v2.get("6_Customer_Needs", {}) if isinstance(analysis_v2, dict) else {}
+    invites = analysis_v2.get("9_Invitations", {}) if isinstance(analysis_v2, dict) else {}
+    relax = analysis_v2.get("11_RELAX_Framework", {}) if isinstance(analysis_v2, dict) else {}
+    agent_eval = analysis_v2.get("12_Agent_Evaluation", {}) if isinstance(analysis_v2, dict) else {}
+    learnings = analysis_v2.get("13_Agent_Learnings", []) if isinstance(analysis_v2, dict) else []
+
+    # Basic legacy mapping
+    legacy: Dict[str, Any] = {
+        "Functional": {
+            "Call_ID": "",
+            "Call_Time": "Not mentioned",
+            "Customer_Name": meta.get("Customer_Name", ""),
+            "Agent_Name": "",
+            "Store_Location": f"{row_data.get('Locality', 'Unknown')}, {row_data.get('City', 'Unknown')}",
+            "Customer_Language": meta.get("Customer_Language", ""),
+            "Agent_Audio_Quality_Rating": _gmb_hml_to_1_5(meta.get("Call_Quality_Overall"), default=3),
+            "Call_Objective_Theme": call_obj.get("Objective_Phrase", ""),
+        },
+        "Customer_Information": {
+            "Interest_Category": product.get("Product_of_Interest", "") or "",
+            "Specific_Product_Inquiry": product.get("Product_of_Interest", "") or "General",
+            "Primary_Questions_Asked": [],
+            "Timeline_to_Purchase": funnel.get("Timeline_to_Purchase", "Unknown"),
+            "Customer_Stage_AIDA": funnel.get("Stage", "Awareness"),
+            "Intent_to_Visit_Rating": _gmb_rating_to_upper_hml(invites.get("Store_Visit", {}).get("Rating")),
+            "Intent_to_Visit_Rating_Reasons": [invites.get("Store_Visit", {}).get("Reason", "") or ""],
+            "Intent_to_Purchase_Rating": _gmb_rating_to_upper_hml(intent_purchase.get("Rating")),
+            "Intent_to_Purchase_Rating_Reasons": [intent_purchase.get("Reason", "") or ""],
+            "Barriers_to_Conversion": analysis_v2.get("7_Purchase_Barrier", "") if isinstance(analysis_v2, dict) else "",
+            "Customer_Satisfaction_Score": _gmb_hml_to_1_5(cust_exp.get("Rating"), default=3),
+            "Customer_Satisfaction_Score_Reasons": [cust_exp.get("Reason", "") or ""],
+        },
+        "Agent_Areas": {
+            "Verbal_Product_Knowledge": {
+                "Description_Quality_Rating": 0,
+                "Description_Quality_Reason": "",
+                "Stock_Availability_Check_Rating": 0,
+                "Stock_Availability_Check_Reason": "",
+            },
+            "The_Invitation_to_Visit": {
+                "Attempted": bool(invites.get("Store_Visit", {}).get("Reason") or invites.get("Store_Visit", {}).get("Rating")),
+                "Quality_Rating": _gmb_hml_to_1_5(invites.get("Store_Visit", {}).get("Rating"), default=3),
+                "Reasons": [invites.get("Store_Visit", {}).get("Reason", "") or ""],
+            },
+            "RELAX_Framework": {
+                "R_Reach_Out": {"Rating": _gmb_hml_to_1_5(relax.get("R_Reach_Out", {}).get("Score"), default=3), "Reasons": [relax.get("R_Reach_Out", {}).get("Reason", "") or ""]},
+                "E_Explore_Needs": {"Rating": _gmb_hml_to_1_5(relax.get("E_Explore_Needs", {}).get("Score"), default=3), "Reasons": [relax.get("E_Explore_Needs", {}).get("Reason", "") or ""]},
+                "L_Link_Experience": {"Rating": _gmb_hml_to_1_5(relax.get("L_Link_Product", {}).get("Score"), default=3), "Reasons": [relax.get("L_Link_Product", {}).get("Reason", "") or ""]},
+                "A_Add_Value": {"Rating": _gmb_hml_to_1_5(relax.get("A_Add_Value", {}).get("Score"), default=3), "Reasons": [relax.get("A_Add_Value", {}).get("Reason", "") or ""]},
+                "X_Express_Closing": {"Rating": _gmb_hml_to_1_5(relax.get("X_Express_Closing", {}).get("Score"), default=3), "Reasons": [relax.get("X_Express_Closing", {}).get("Reason", "") or ""]},
+            },
+            "SoftSkills_Etiquette": {
+                "Tone_and_Patience_Rating": _gmb_hml_to_1_5(cust_exp.get("Rating"), default=3),
+                "Hold_Management_Rating": 0,
+                "Agent_Language_Fluency_Score": 0,
+                "Soft_Skills_Reasons": [cust_exp.get("Reason", "") or ""],
+            },
+            "Top_3_Improvement_Areas": [x for x in learnings if isinstance(x, str) and x.strip()][:3],
+        },
+        "Overall_Summary": {
+            "Call_Synopsis": analysis_v2.get("Call_Summary", "") if isinstance(analysis_v2, dict) else "",
+            "Agent_Performance_Summary": "",
+            "Next_Action": analysis_v2.get("14_Next_Actions", "") if isinstance(analysis_v2, dict) else "",
+        },
+        # Legacy UI expects list; keep transcript accessible without breaking.
+        "Transcript_Log": [
+            {
+                "Speaker": "",
+                "Text": analysis_v2.get("Transcript_Log", "") if isinstance(analysis_v2, dict) else "",
+                "Timestamp": "",
+            }
+        ],
+    }
+
+    # Normalize funnel stage to AIDA-ish labels used elsewhere
+    stage = str(legacy["Customer_Information"].get("Customer_Stage_AIDA", "Awareness") or "Awareness").strip().lower()
+    if stage == "consideration":
+        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Interest"
+    elif stage == "action":
+        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Action"
+    else:
+        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Awareness"
+
+    # Normalize timeline strings to legacy buckets
+    timeline = str(legacy["Customer_Information"].get("Timeline_to_Purchase", "Unknown") or "Unknown").strip().lower()
+    if timeline == "immediate":
+        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Short"
+    elif timeline == "short term":
+        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Medium"
+    elif timeline == "long term":
+        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Long"
+    else:
+        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Unknown"
+
+    return legacy
+
+
 class CSVValidator:
     """Validates CSV structure for audio call uploads"""
 
@@ -233,6 +366,12 @@ class CallUploadProcessor:
                 job.add_error(row_num, store_name, f"Analysis: {gemini_error}")
                 return None, gemini_error
 
+            analysis_v2 = None
+            # If the new schema is returned, store it separately and keep a legacy-compatible view.
+            if isinstance(analysis, dict) and ("MetaData" in analysis or "2_Intent_to_Purchase" in analysis):
+                analysis_v2 = analysis
+                analysis = normalize_gmb_analysis_v2_to_legacy(analysis_v2, row_data=row_data)
+
             # 3. Create call record with metadata
             call_id = self.create_call_id(store_name, row_data.get('Date', ''), url)
 
@@ -247,6 +386,7 @@ class CallUploadProcessor:
                 "duration_seconds": int(row_data.get('Duration', 0)),
                 "recording_url": url,
                 "analysis": analysis,
+                **({"analysis_v2": analysis_v2} if analysis_v2 else {}),
                 "flattened_data": CallDataFlattener.flatten_call_analysis(analysis),
                 "upload_timestamp": datetime.now().isoformat(),
             }

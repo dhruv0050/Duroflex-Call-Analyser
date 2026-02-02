@@ -120,16 +120,29 @@ class GeminiAudioAnalyzer:
             if uploaded_file.state.name == "FAILED":
                 return None, "Gemini file processing failed"
 
-            # 3. Format prompt with row data
-            prompt = prompt_template.format(
-                store_name=row_data.get('Store Name', 'Unknown'),
-                locality=row_data.get('Locality', 'Unknown'),
-                city=row_data.get('City', 'Unknown'),
-                state=row_data.get('State', 'Unknown'),
-                region=row_data.get('Region', 'Unknown'),
-                call_date=row_data.get('Date', 'Unknown'),
-                duration=row_data.get('Duration', 'Unknown')
+            # 3. Format prompt with row data ONLY if the template expects it.
+            # The newer prompt includes braces like {INPUT_AUDIO_FILE}; avoid .format() on that.
+            format_tokens = (
+                "{store_name}",
+                "{locality}",
+                "{city}",
+                "{state}",
+                "{region}",
+                "{call_date}",
+                "{duration}",
             )
+            if any(token in prompt_template for token in format_tokens):
+                prompt = prompt_template.format(
+                    store_name=row_data.get('Store Name', 'Unknown'),
+                    locality=row_data.get('Locality', 'Unknown'),
+                    city=row_data.get('City', 'Unknown'),
+                    state=row_data.get('State', 'Unknown'),
+                    region=row_data.get('Region', 'Unknown'),
+                    call_date=row_data.get('Date', 'Unknown'),
+                    duration=row_data.get('Duration', 'Unknown')
+                )
+            else:
+                prompt = prompt_template
 
             print(f"[GEMINI] Analyzing audio...")
 
@@ -292,152 +305,124 @@ class PromptTemplate:
         This matches the Jupyter notebook prompt exactly.
         """
         return '''
-You are an expert Retail Operations & Sales Analyst for Duroflex, a premium mattress and sleep solutions brand.
+Role: You are an Expert Retail Sales Auditor for Duroflex.
+Task: Analyze the provided Audio Recording of an Inbound Call from a customer who found the store via Google (GMB).
+Goal: Extract high-fidelity sales intelligence by listening to the dialogue, tone, and vocal sentiment to evaluate how effectively the agent converts the inquiry into a confirmed Store Visit.
 
-## CONTEXT
-You are analyzing a Google My Business (GMB) audio voice call between a potential customer and a Duroflex Store Manager. Unlike video calls, these interactions are purely auditory and often serve as a bridge to a physical store visit. Your analysis will be used to improve 'Call-to-Visit' conversion rates.
+INPUT DATA
+Audio Source: {INPUT_AUDIO_FILE} (Note: Analyze the raw audio for tone, pace, and background environment)
 
-## OBJECTIVE
-To evaluate the Store Manager's ability to handle inquiries professionally, identify strengths/weaknesses in sales technique, and determine if the agent effectively converts the phone inquiry into a Physical Store Visit.
-Note: Some calls may be Service/Post-Sales related.
+INSTRUCTIONS
+Aural Observation: Do not rely on text alone. Listen for the "GMB Intent"—is the caller in a hurry or driving? Listen for the agent's tone; is it welcoming and professional, or dismissive?
+Sentiment & Tone Inference: Use vocal pitch and response latency to determine Customer_Enthusiasm and Customer_Age_Group. Detect if the customer sounds frustrated by specific friction points (e.g., location clarity).
+Environmental Context: Note any background noise (store music, other customers, traffic) that might impact the Audio_Quality or the agent's focus.
+Conversion Audit: Pay close attention to the "Closing" phase. Did the agent's voice sound confident when giving directions or offering the Sleep Trial?
+Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler.
 
-## STORE CONTEXT
-- Store Name: {store_name}
-- Location: {locality}, {city}, {state}
-- Region: {region}
-- Call Date: {call_date}
-- Call Duration: {duration} seconds
-
-## RATING SCALE (Use for all scores)
-- 1: Poor / Not Attempted
-- 2: Below Average
-- 3: Average / Met Minimum Standard
-- 4: Good / Effective
-- 5: Excellent / Exemplary
-
-## ANALYSIS REQUIREMENTS
-
-### Functional Information
-- Call_ID: Create using format "CALL_{{store}}_{{date}}_{{hash}}" where hash is first 6 chars of recording URL hash
-- Call_Time: Extract from audio if mentioned, otherwise use "Not mentioned"
-- Customer_Name: Name of the customer if mentioned
-- Agent_Name: Name of the Store Manager/Staff if mentioned
-- Store_Location: {locality}, {city}
-- Customer_Language: Primary language spoken (English, Hindi, Kannada, Telugu, Tamil, Mix, etc.)
-- Agent_Audio_Quality_Rating: 1-5 based on clarity
-- Call_Objective_Theme: Main purpose (Stock Check, Price Inquiry, Location/Hours, Complaint/Service, General Product Info, Exchange/Return, Delivery Inquiry)
-
-### Customer Information
-- Interest_Category: Mattress, Sofa, Bed, Pillows, Accessories, Multiple, or Service
-- Specific_Product_Inquiry: Specific model name or "General"
-- Primary_Questions_Asked: List top 3-4 specific questions
-- Timeline_to_Purchase: Short (Today/This Week), Medium (2-4 Weeks), Long (>1 Month)
-- Customer_Stage_AIDA: Awareness/Interest/Desire/Action
-- Intent_to_Visit_Rating: HIGH/MEDIUM/LOW with reasons
-- Intent_to_Purchase_Rating: HIGH/MEDIUM/LOW with reasons
-- Barriers_to_Conversion: Primary barrier if intent is Low/Medium
-- Customer_Satisfaction_Score: 1-5 based on closing sentiment
-
-### Agent Performance Areas
-Evaluate these with scores (1-5) and 2-3 bullet point reasons:
-
-**Verbal Product Knowledge:**
-- Description_Quality: Did they use descriptive vocabulary to explain the 'feel'?
-- Stock_Availability_Check: Did they check system/physical stock confidently?
-
-**The Invitation to Visit:**
-- Attempted: Yes/No
-- Quality_Rating: Did they explicitly invite to store or share location?
-
-**RELAX Framework:**
-- R_Reach_Out: Greeting & Brand Name usage
-- E_Explore_Needs: Discovery of user needs/pain points
-- L_Link_Experience: Linking need to physical store trial
-- A_Add_Value: Mentioning offers/financing/accessories
-- X_Express_Closing: Next steps/Logistics
-
-**Soft Skills & Etiquette:**
-- Tone_and_Patience: Patience and welcoming tone
-- Hold_Management: Professional handling of hold times
-- Agent_Language_Fluency_Score: Clear communication in customer's preferred language
-
-### Overall Summary
-- Call_Synopsis: 2-3 sentence summary
-- Agent_Performance_Summary: Overall assessment
-- Next_Action: Specific next step defined
-- Top_3_Improvement_Areas: Actionable improvement suggestions
-
-## OUTPUT FORMAT
-Return ONLY a valid JSON object matching this exact schema. Do not include any text before or after the JSON:
-
-{{
-  "Functional": {{
-    "Call_ID": "",
-    "Call_Time": "",
-    "Customer_Name": "",
-    "Agent_Name": "",
-    "Store_Location": "",
-    "Customer_Language": "",
-    "Agent_Audio_Quality_Rating": 0,
-    "Call_Objective_Theme": ""
-  }},
-  "Customer_Information": {{
-    "Interest_Category": "",
-    "Specific_Product_Inquiry": "",
-    "Primary_Questions_Asked": [],
-    "Timeline_to_Purchase": "",
-    "Customer_Stage_AIDA": "",
-    "Intent_to_Visit_Rating": "",
-    "Intent_to_Visit_Rating_Reasons": [],
-    "Intent_to_Purchase_Rating": "",
-    "Intent_to_Purchase_Rating_Reasons": [],
-    "Barriers_to_Conversion": "",
-    "Customer_Satisfaction_Score": 0,
-    "Customer_Satisfaction_Score_Reasons": []
-  }},
-  "Agent_Areas": {{
-    "Verbal_Product_Knowledge": {{
-      "Description_Quality_Rating": 0,
-      "Description_Quality_Reason": "",
-      "Stock_Availability_Check_Rating": 0,
-      "Stock_Availability_Check_Reason": ""
-    }},
-    "The_Invitation_to_Visit": {{
-      "Attempted": false,
-      "Quality_Rating": 0,
-      "Reasons": []
-    }},
-    "RELAX_Framework": {{
-      "R_Reach_Out": {{"Rating": 0, "Reasons": []}},
-      "E_Explore_Needs": {{"Rating": 0, "Reasons": []}},
-      "L_Link_Experience": {{"Rating": 0, "Reasons": []}},
-      "A_Add_Value": {{"Rating": 0, "Reasons": []}},
-      "X_Express_Closing": {{"Rating": 0, "Reasons": []}}
-    }},
-    "SoftSkills_Etiquette": {{
-      "Tone_and_Patience_Rating": 0,
-      "Hold_Management_Rating": 0,
-      "Agent_Language_Fluency_Score": 0,
-      "Soft_Skills_Reasons": []
-    }},
-    "Top_3_Improvement_Areas": []
-  }},
-  "Overall_Summary": {{
-    "Call_Synopsis": "",
-    "Agent_Performance_Summary": "",
-    "Next_Action": ""
-  }},
-  "Transcript_Log": [
-    {{"Speaker": "", "Text": "", "Timestamp": ""}}
-  ]
-}}
-
-IMPORTANT:
-1. Return ONLY the JSON object, no markdown formatting, no code blocks
-2. All scores must be integers 1-5
-3. All arrays must have at least one element
-4. "Attempted" must be boolean true/false
-5. Transcribe the conversation as best as possible in Transcript_Log
+OUTPUT SCHEMA (JSON)
+{
+    "MetaData": {
+        "Customer_Name": "String",
+        "Customer_Location": "String",
+        "Customer_Language": "String",
+        "Customer_Gender": "Male | Female | Unknown",
+        "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
+        "Consideration_Value": "String (e.g. 'Budget Range' or 'Premium')",
+        "Call_Quality_Overall": "High | Medium | Low",
+        "Call_Duration": "String",
+        "Connected_to_Customer": true,
+        "Customer_Enthusiasm": "High | Medium | Low"
+    },
+    "Call_Summary": "String (Max 100 words - Crisp synopsis)",
+    "1_Call_Objective": {
+        "Type": "Sales Call | Service Call",
+        "Objective_Phrase": "String (e.g. 'Checking opening hours', 'Stock inquiry')"
+    },
+    "2_Intent_to_Purchase": {
+        "Rating": "High | Medium | Low",
+        "Reason": "String (Evidence based)"
+    },
+    "3_Customer_Experience": {
+        "Rating": "High | Medium | Low",
+        "Reason": "String"
+    },
+    "4_Funnel_Analysis": {
+        "Stage": "Awareness | Consideration | Action",
+        "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown"
+    },
+    "5_Product_Intelligence": {
+        "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",
+        "Product_of_Interest": "String",
+        "Approx_Order_Value": "String (or NA)"
+    },
+    "6_Customer_Needs": {
+        "Description": "String (Who is it for? Key pain points? Constraints?)"
+    },
+    "7_Purchase_Barrier": "String (e.g. Distance, Price, Availability)",
+    "8_Decision_Maker": "Caller | Spouse | Joint | Unknown",
+    "9_Invitations": {
+        "Store_Visit": {
+            "Rating": "High | Medium | Low",
+            "Reason": "String (Did agent give a compelling reason to visit?)"
+        },
+        "Video_Demo": {
+            "Rating": "High | Medium | Low",
+            "Reason": "String"
+        }
+    },
+    "10_Conversion_Hooks": {
+        "Offers_Discounts_EMI": {"Status": "Yes | No", "Comment": "String"},
+        "Product_Brochure": {"Status": "Yes | No", "Comment": "String"},
+        "Mattress_Measurement": {"Status": "Yes | No", "Comment": "String"},
+        "Brand_Legacy_Warranty": {"Status": "Yes | No", "Comment": "String"},
+        "Sleep_Trial": {"Status": "Yes | No", "Comment": "String"}
+    },
+    "11_RELAX_Framework": {
+        "R_Reach_Out": {
+            "Score": "H/M/L",
+            "Reason": "Greeting & Brand Name usage"
+        },
+        "E_Explore_Needs": {
+            "Score": "H/M/L",
+            "Reason": "Discovery of user needs"
+        },
+        "L_Link_Product": {
+            "Score": "H/M/L",
+            "Reason": "Linking need to Product/Store Trial"
+        },
+        "A_Add_Value": {
+            "Score": "H/M/L",
+            "Reason": "Mentioning offers/financing/accessories"
+        },
+        "X_Express_Closing": {
+            "Score": "H/M/L",
+            "Reason": "Next steps/Location Sharing"
+        }
+    },
+    "12_Agent_Evaluation": {
+        "Main_Skills": {
+            "Product_Knowledge": "High | Medium | Low",
+            "Sales_Skills": "High | Medium | Low",
+            "Upsell_Revenue_Skills": "High | Medium | Low"
+        },
+        "Secondary_Traits": {
+            "Need_Discovery": "High | Medium | Low",
+            "Objection_Handling": "High | Medium | Low",
+            "Agent_Nature": "Proactive | Responsive | Passive"
+        }
+    },
+    "13_Agent_Learnings": [
+        "String (Feedback 1)",
+        "String (Feedback 2)",
+        "String (Feedback 3)"
+    ],
+    "14_Next_Actions": "String (e.g. Send WhatsApp Location, Save Number)",
+    "15_End_to_End_NPS": {
+        "Score": "Integer (0-10)",
+        "Comment": "String (Inferred sentiment)"
+    },
+    "Transcript_Log": "String (Full Transcript)"
+}
 '''
 
 

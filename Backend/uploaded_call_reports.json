@@ -1,168 +1,684 @@
 [
   {
-    "call_id": "CALL_COCO_COIMBATORE_01012026_5EECD7",
-    "store_name": "COCO COIMBATORE Dummy",
-    "locality": "Gandhipuram Dummy",
-    "city": "Coimbatore",
-    "state": "TAMIL NADU",
-    "region": "South",
-    "call_date": "01-01-2026",
-    "duration_seconds": 124,
-    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/916769680217672428916955fc8b4f671.wav",
+    "call_id": "CALL_COCO_ASHIYANA_20012026_05E5C8",
+    "store_name": "COCO ASHIYANA",
+    "locality": "Ashiyana",
+    "city": "Lucknow",
+    "state": "UTTAR PRADESH",
+    "region": null,
+    "call_date": "20-01-2026",
+    "duration_seconds": 87,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/97927851111768913294696f798eea968.wav",
     "analysis": {
       "Functional": {
-        "Call_ID": "CALL_COCO COIMBATORE Dummy_01-01-2026_69914d",
+        "Call_ID": "CALL_COCO ASHIYANA_20-01-2026_7a94a9",
         "Call_Time": "Not mentioned",
         "Customer_Name": "Not mentioned",
-        "Agent_Name": "Bala Sundaram",
-        "Store_Location": "Gandhipuram Dummy, Coimbatore",
-        "Customer_Language": "Mix",
+        "Agent_Name": "Not mentioned",
+        "Store_Location": "Ashiyana, Lucknow",
+        "Customer_Language": "Hindi",
         "Agent_Audio_Quality_Rating": 4,
-        "Call_Objective_Theme": "Exchange/Return"
+        "Call_Objective_Theme": "Price Inquiry"
       },
       "Customer_Information": {
-        "Interest_Category": "Mattress",
+        "Interest_Category": "Sofa",
         "Specific_Product_Inquiry": "General",
         "Primary_Questions_Asked": [
-          "Do you take old mattresses?",
-          "Where can I dispose of old mattresses in Coimbatore?",
-          "Do you know any recycling centers?"
+          "Availability of recliners",
+          "Price of 3-seater recliner",
+          "Price of motorized vs manual recliner"
         ],
-        "Timeline_to_Purchase": "Not Applicable",
-        "Customer_Stage_AIDA": "Awareness",
+        "Timeline_to_Purchase": "Medium (2-4 Weeks)",
+        "Customer_Stage_AIDA": "Interest",
         "Intent_to_Visit_Rating": "LOW",
         "Intent_to_Visit_Rating_Reasons": [
-          "Customer was calling to dispose of old mattresses, not to purchase new ones.",
-          "The store does not offer disposal services in Coimbatore."
+          "Customer is only inquiring about prices.",
+          "No strong indication of immediate need or urgency."
         ],
-        "Intent_to_Purchase_Rating": "LOW",
+        "Intent_to_Purchase_Rating": "MEDIUM",
         "Intent_to_Purchase_Rating_Reasons": [
-          "Customer was not looking to purchase a new mattress.",
-          "The call was solely regarding disposal of old mattresses."
+          "Customer is gathering information about different recliner options and prices.",
+          "Likely comparing with other brands/stores."
         ],
-        "Barriers_to_Conversion": "Service not available",
+        "Barriers_to_Conversion": "Price",
         "Customer_Satisfaction_Score": 3,
         "Customer_Satisfaction_Score_Reasons": [
-          "Agent provided some information, but couldn't fully resolve the customer's request.",
-          "Agent provided alternative suggestion."
+          "Agent provided the requested information.",
+          "No outstanding positive or negative sentiment detected."
         ]
       },
       "Agent_Areas": {
         "Verbal_Product_Knowledge": {
-          "Description_Quality_Rating": 1,
-          "Description_Quality_Reason": "Agent did not describe any products as the customer was asking about disposal.",
-          "Stock_Availability_Check_Rating": 1,
-          "Stock_Availability_Check_Reason": "Agent did not check stock as the customer was asking about disposal."
+          "Description_Quality_Rating": 3,
+          "Description_Quality_Reason": "Agent mentioned motorized and manual options but didn't elaborate on the 'feel' or benefits of each.",
+          "Stock_Availability_Check_Rating": 4,
+          "Stock_Availability_Check_Reason": "Agent checked the price and availability of the manual recliner while on the call."
         },
         "The_Invitation_to_Visit": {
           "Attempted": false,
           "Quality_Rating": 1,
           "Reasons": [
-            "Agent did not invite the customer to visit the store.",
-            "The call was about disposal, not purchase."
+            "Agent did not invite the customer to visit the store."
           ]
         },
         "RELAX_Framework": {
           "R_Reach_Out": {
             "Rating": 4,
             "Reasons": [
-              "Greeted the customer politely.",
-              "Used the brand name."
+              "Used a greeting and acknowledged the brand.",
+              "Good evening greeting"
             ]
           },
           "E_Explore_Needs": {
             "Rating": 3,
             "Reasons": [
-              "Asked clarifying questions about the customer's needs.",
-              "Identified the customer's need to dispose of old mattresses."
+              "Asked clarifying questions about the type of recliner (3-seater).",
+              "Limited probing beyond initial inquiry."
             ]
           },
           "L_Link_Experience": {
             "Rating": 1,
             "Reasons": [
-              "Did not link the need to a physical store trial.",
-              "The call was about disposal, not purchase."
+              "No attempt to link the customer's needs to a physical store experience."
             ]
           },
           "A_Add_Value": {
             "Rating": 2,
             "Reasons": [
-              "Mentioned the exchange program is available only in metro cities.",
-              "Suggested contacting corporation team."
+              "Mentioned the difference between motorized and manual options.",
+              "No mention of offers, financing, or accessories."
             ]
           },
           "X_Express_Closing": {
-            "Rating": 3,
+            "Rating": 2,
             "Reasons": [
-              "Thanked the customer for calling.",
-              "Ended the call politely."
+              "No clear next steps were defined.",
+              "The call ended abruptly after providing the price."
             ]
           }
         },
         "SoftSkills_Etiquette": {
           "Tone_and_Patience_Rating": 4,
-          "Hold_Management_Rating": 5,
-          "Agent_Language_Fluency_Score": 3,
+          "Hold_Management_Rating": 3,
+          "Agent_Language_Fluency_Score": 5,
           "Soft_Skills_Reasons": [
-            "Maintained a patient and polite tone throughout the call.",
-            "There was no hold time."
+            "The agent maintained a polite and patient tone.",
+            "The agent spoke fluently in Hindi."
           ]
         },
         "Top_3_Improvement_Areas": [
-          "Improve product knowledge regarding disposal options in the local area.",
-          "Actively listen to customer needs and offer relevant solutions.",
-          "Explore potential partnerships with local recycling centers."
+          "Invite customers to visit the store to experience the products firsthand.",
+          "Actively explore customer needs and preferences to recommend suitable options.",
+          "Clearly define next steps and provide a strong closing statement."
         ]
       },
       "Overall_Summary": {
-        "Call_Synopsis": "Customer called to inquire about disposing of old mattresses. The agent informed the customer that the exchange program is not available in Coimbatore and suggested contacting the corporation team for disposal options.",
-        "Agent_Performance_Summary": "The agent handled the call politely but was unable to fully assist the customer due to the lack of disposal services in Coimbatore. The agent could have explored local recycling options more thoroughly.",
-        "Next_Action": "Research and document local mattress disposal/recycling options in Coimbatore to better assist future customers."
+        "Call_Synopsis": "The customer inquired about the price and availability of recliners, specifically a 3-seater. The agent provided information on motorized and manual options and quoted prices.",
+        "Agent_Performance_Summary": "The agent provided basic information but missed opportunities to explore customer needs, invite them to the store, and add value through offers or financing options. The call lacked a strong closing.",
+        "Next_Action": "Train the agent on the RELAX framework, emphasizing the importance of inviting customers to visit the store and exploring their needs."
+      },
+      "Transcript_Log": [
+        {
+          "Speaker": "Customer",
+          "Text": "Hello",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Good evening, Duroflex",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Good evening, do you have recliners available?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, we have recliners.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "What is the price of a three-seater recliner?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "You need a three-seater recliner?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yes",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "We have two-seater available. What is the price?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "What is the price?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "It will be 67000. If you take motorized, the price will be different. If you take manual, the price will be different. We have display, motorized is there.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "How much is the motorized one?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Motorized is 67000.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "And manual?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Manual will be less.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "How much approximately?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Let me check.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "This will cost you 45199.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, thank you.",
+          "Timestamp": ""
+        }
+      ]
+    },
+    "flattened_data": {
+      "Functional_Call_ID": "CALL_COCO ASHIYANA_20-01-2026_7a94a9",
+      "Functional_Call_Time": "Not mentioned",
+      "Functional_Customer_Name": "Not mentioned",
+      "Functional_Agent_Name": "Not mentioned",
+      "Functional_Store_Location": "Ashiyana, Lucknow",
+      "Functional_Customer_Language": "Hindi",
+      "Functional_Agent_Audio_Quality_Rating": 4,
+      "Functional_Call_Objective_Theme": "Price Inquiry",
+      "Customer_Information_Interest_Category": "Sofa",
+      "Customer_Information_Specific_Product_Inquiry": "General",
+      "Customer_Information_Primary_Questions_Asked_1": "Availability of recliners",
+      "Customer_Information_Primary_Questions_Asked_2": "Price of 3-seater recliner",
+      "Customer_Information_Primary_Questions_Asked_3": "Price of motorized vs manual recliner",
+      "Customer_Information_Primary_Questions_Asked_count": 3,
+      "Customer_Information_Timeline_to_Purchase": "Medium (2-4 Weeks)",
+      "Customer_Information_Customer_Stage_AIDA": "Interest",
+      "Customer_Information_Intent_to_Visit_Rating": "LOW",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer is only inquiring about prices.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "No strong indication of immediate need or urgency.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
+      "Customer_Information_Intent_to_Purchase_Rating": "MEDIUM",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer is gathering information about different recliner options and prices.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "Likely comparing with other brands/stores.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
+      "Customer_Information_Barriers_to_Conversion": "Price",
+      "Customer_Information_Customer_Satisfaction_Score": 3,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Agent provided the requested information.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "No outstanding positive or negative sentiment detected.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 3,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Agent mentioned motorized and manual options but didn't elaborate on the 'feel' or benefits of each.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 4,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Agent checked the price and availability of the manual recliner while on the call.",
+      "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
+      "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "Agent did not invite the customer to visit the store.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 4,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Used a greeting and acknowledged the brand.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Good evening greeting",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 3,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Asked clarifying questions about the type of recliner (3-seater).",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Limited probing beyond initial inquiry.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "No attempt to link the customer's needs to a physical store experience.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 2,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "Mentioned the difference between motorized and manual options.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "No mention of offers, financing, or accessories.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "No clear next steps were defined.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "The call ended abruptly after providing the price.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 3,
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "The agent maintained a polite and patient tone.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "The agent spoke fluently in Hindi.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Invite customers to visit the store to experience the products firsthand.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Actively explore customer needs and preferences to recommend suitable options.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Clearly define next steps and provide a strong closing statement.",
+      "Agent_Areas_Top_3_Improvement_Areas_count": 3,
+      "Overall_Summary_Call_Synopsis": "The customer inquired about the price and availability of recliners, specifically a 3-seater. The agent provided information on motorized and manual options and quoted prices.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent provided basic information but missed opportunities to explore customer needs, invite them to the store, and add value through offers or financing options. The call lacked a strong closing.",
+      "Overall_Summary_Next_Action": "Train the agent on the RELAX framework, emphasizing the importance of inviting customers to visit the store and exploring their needs.",
+      "Transcript_Log_count": 18
+    },
+    "upload_timestamp": "2026-02-02T10:59:15.794414"
+  },
+  {
+    "call_id": "CALL_COCO_THRISSUR_23012026_9ED978",
+    "store_name": "COCO THRISSUR",
+    "locality": "MG Road",
+    "city": "Thrissur",
+    "state": "KERALA",
+    "region": "South",
+    "call_date": "23-01-2026",
+    "duration_seconds": 26,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/92890831561769178342697384e627c08.wav",
+    "analysis": {
+      "Functional": {
+        "Call_ID": "CALL_COCOTHRISSUR_23-01-2026_91a74a",
+        "Call_Time": "Not mentioned",
+        "Customer_Name": "Not mentioned",
+        "Agent_Name": "Krishnan",
+        "Store_Location": "MG Road, Thrissur",
+        "Customer_Language": "Malayalam",
+        "Agent_Audio_Quality_Rating": 5,
+        "Call_Objective_Theme": "Exchange/Return"
+      },
+      "Customer_Information": {
+        "Interest_Category": "Mattress",
+        "Specific_Product_Inquiry": "General",
+        "Primary_Questions_Asked": [
+          "Do you have exchange offers for old mattresses with new ones?"
+        ],
+        "Timeline_to_Purchase": "Short (Today/This Week)",
+        "Customer_Stage_AIDA": "Awareness",
+        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating_Reasons": [
+          "Customer's primary interest was exchange offer.",
+          "Since the store doesn't offer exchange, the customer's interest in visiting is low."
+        ],
+        "Intent_to_Purchase_Rating": "LOW",
+        "Intent_to_Purchase_Rating_Reasons": [
+          "Customer was specifically looking for an exchange offer.",
+          "The store does not provide exchange offers."
+        ],
+        "Barriers_to_Conversion": "Lack of Exchange Offer",
+        "Customer_Satisfaction_Score": 3,
+        "Customer_Satisfaction_Score_Reasons": [
+          "The agent answered the question directly and politely.",
+          "The customer's need was not met, but the interaction was professional."
+        ]
+      },
+      "Agent_Areas": {
+        "Verbal_Product_Knowledge": {
+          "Description_Quality_Rating": 1,
+          "Description_Quality_Reason": "The agent did not describe any products.",
+          "Stock_Availability_Check_Rating": 1,
+          "Stock_Availability_Check_Reason": "The agent did not check stock availability."
+        },
+        "The_Invitation_to_Visit": {
+          "Attempted": false,
+          "Quality_Rating": 1,
+          "Reasons": [
+            "The agent did not invite the customer to visit the store.",
+            "The call ended quickly after the exchange offer inquiry."
+          ]
+        },
+        "RELAX_Framework": {
+          "R_Reach_Out": {
+            "Rating": 4,
+            "Reasons": [
+              "The agent greeted the customer politely.",
+              "The agent mentioned the brand name and location."
+            ]
+          },
+          "E_Explore_Needs": {
+            "Rating": 3,
+            "Reasons": [
+              "The agent understood the customer's need for an exchange offer.",
+              "The agent directly addressed the question."
+            ]
+          },
+          "L_Link_Experience": {
+            "Rating": 1,
+            "Reasons": [
+              "The agent did not link the customer's needs to a physical store trial.",
+              "There was no attempt to suggest alternatives or benefits of visiting the store."
+            ]
+          },
+          "A_Add_Value": {
+            "Rating": 1,
+            "Reasons": [
+              "The agent did not mention any offers, financing options, or accessories.",
+              "The call was too short to add any value beyond answering the initial question."
+            ]
+          },
+          "X_Express_Closing": {
+            "Rating": 3,
+            "Reasons": [
+              "The agent thanked the customer for calling.",
+              "The closing was polite but lacked any attempt to further engage the customer."
+            ]
+          }
+        },
+        "SoftSkills_Etiquette": {
+          "Tone_and_Patience_Rating": 5,
+          "Hold_Management_Rating": 5,
+          "Agent_Language_Fluency_Score": 5,
+          "Soft_Skills_Reasons": [
+            "The agent was polite and patient.",
+            "There was no hold time.",
+            "The agent communicated clearly in Malayalam."
+          ]
+        },
+        "Top_3_Improvement_Areas": [
+          "Invite the customer to visit the store even if the specific request cannot be met.",
+          "Suggest alternatives or benefits of visiting the store to explore other options.",
+          "Add value by mentioning current offers or promotions."
+        ]
+      },
+      "Overall_Summary": {
+        "Call_Synopsis": "The customer called to inquire about exchange offers for old mattresses. The agent informed the customer that there are no exchange offers available. The call ended shortly after.",
+        "Agent_Performance_Summary": "The agent was polite and answered the customer's question directly. However, the agent missed the opportunity to invite the customer to visit the store or suggest alternatives.",
+        "Next_Action": "Train agents to proactively invite customers to the store and highlight the benefits of visiting, even if the initial inquiry cannot be fulfilled."
       },
       "Transcript_Log": [
         {
           "Speaker": "Agent",
-          "Text": "Good morning Duroflex, Bala Sundaram speaking. Sir?",
+          "Text": "Namaskaram, Duroflex experience center aanu Thrissur ullathu. Krishnan aanu samsarikkunnathu.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "Sir actually I'm calling from Peelamedu and we have two mattresses. So we have to just dispose it. So actually I saw website net of your store and so there can we you can take old mattresses also?",
+          "Text": "Okay okay okay. Ningal exchange offer cheyyunnundo? Pazhaya bed with new bed exchange kodukkunnundo?",
           "Timestamp": ""
         },
         {
           "Speaker": "Agent",
-          "Text": "No ma'am no ma'am we can't dispose of old mattresses.",
+          "Text": "Illa, namukku exchange offer illa.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "So can we give old mattresses to your center?",
-          "Timestamp": ""
-        },
-        {
-          "Speaker": "Agent",
-          "Text": "No no no no we can't access to old mattress. We can't able to access to old mattress.",
+          "Text": "Okay okay okay okay okay.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "But you have given ad that you will take old mattresses.",
+          "Text": "Sheri sheri, kuppamilla. Okay, thank you.",
           "Timestamp": ""
         },
         {
           "Speaker": "Agent",
-          "Text": "For metro metro cities only for non for non metro not available.",
+          "Text": "Thank you.",
+          "Timestamp": ""
+        }
+      ]
+    },
+    "flattened_data": {
+      "Functional_Call_ID": "CALL_COCOTHRISSUR_23-01-2026_91a74a",
+      "Functional_Call_Time": "Not mentioned",
+      "Functional_Customer_Name": "Not mentioned",
+      "Functional_Agent_Name": "Krishnan",
+      "Functional_Store_Location": "MG Road, Thrissur",
+      "Functional_Customer_Language": "Malayalam",
+      "Functional_Agent_Audio_Quality_Rating": 5,
+      "Functional_Call_Objective_Theme": "Exchange/Return",
+      "Customer_Information_Interest_Category": "Mattress",
+      "Customer_Information_Specific_Product_Inquiry": "General",
+      "Customer_Information_Primary_Questions_Asked_1": "Do you have exchange offers for old mattresses with new ones?",
+      "Customer_Information_Primary_Questions_Asked_count": 1,
+      "Customer_Information_Timeline_to_Purchase": "Short (Today/This Week)",
+      "Customer_Information_Customer_Stage_AIDA": "Awareness",
+      "Customer_Information_Intent_to_Visit_Rating": "LOW",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer's primary interest was exchange offer.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "Since the store doesn't offer exchange, the customer's interest in visiting is low.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
+      "Customer_Information_Intent_to_Purchase_Rating": "LOW",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer was specifically looking for an exchange offer.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "The store does not provide exchange offers.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
+      "Customer_Information_Barriers_to_Conversion": "Lack of Exchange Offer",
+      "Customer_Information_Customer_Satisfaction_Score": 3,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "The agent answered the question directly and politely.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "The customer's need was not met, but the interaction was professional.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "The agent did not describe any products.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 1,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "The agent did not check stock availability.",
+      "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
+      "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "The agent did not invite the customer to visit the store.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "The call ended quickly after the exchange offer inquiry.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 4,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "The agent greeted the customer politely.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "The agent mentioned the brand name and location.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 3,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "The agent understood the customer's need for an exchange offer.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "The agent directly addressed the question.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "The agent did not link the customer's needs to a physical store trial.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_2": "There was no attempt to suggest alternatives or benefits of visiting the store.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 1,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "The agent did not mention any offers, financing options, or accessories.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "The call was too short to add any value beyond answering the initial question.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 3,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "The agent thanked the customer for calling.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "The closing was polite but lacked any attempt to further engage the customer.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "The agent was polite and patient.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "There was no hold time.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_3": "The agent communicated clearly in Malayalam.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 3,
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Invite the customer to visit the store even if the specific request cannot be met.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Suggest alternatives or benefits of visiting the store to explore other options.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Add value by mentioning current offers or promotions.",
+      "Agent_Areas_Top_3_Improvement_Areas_count": 3,
+      "Overall_Summary_Call_Synopsis": "The customer called to inquire about exchange offers for old mattresses. The agent informed the customer that there are no exchange offers available. The call ended shortly after.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent was polite and answered the customer's question directly. However, the agent missed the opportunity to invite the customer to visit the store or suggest alternatives.",
+      "Overall_Summary_Next_Action": "Train agents to proactively invite customers to the store and highlight the benefits of visiting, even if the initial inquiry cannot be fulfilled.",
+      "Transcript_Log_count": 6
+    },
+    "upload_timestamp": "2026-02-02T10:59:33.779135"
+  },
+  {
+    "call_id": "CALL_COCO_AIRPORT_RO_12012026_2D5D70",
+    "store_name": "COCO AIRPORT ROAD BLR",
+    "locality": "Airport Road, Yelahanka",
+    "city": "Bengaluru",
+    "state": "KARNATAKA",
+    "region": "South",
+    "call_date": "12-01-2026",
+    "duration_seconds": 53,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/829643921217682172306964da8e13ef7.wav",
+    "analysis": {
+      "Functional": {
+        "Call_ID": "CALL_COCOAIRPORTROADBLR_12-01-2026_4a207c",
+        "Call_Time": "Not mentioned",
+        "Customer_Name": "Not mentioned",
+        "Agent_Name": "Not mentioned",
+        "Store_Location": "Airport Road, Yelahanka, Bengaluru",
+        "Customer_Language": "Kannada",
+        "Agent_Audio_Quality_Rating": 4,
+        "Call_Objective_Theme": "General Product Info"
+      },
+      "Customer_Information": {
+        "Interest_Category": "Pillows",
+        "Specific_Product_Inquiry": "General",
+        "Primary_Questions_Asked": [
+          "Why is the pillow flat?",
+          "Is there air in the pillow?"
+        ],
+        "Timeline_to_Purchase": "Short (Today/This Week)",
+        "Customer_Stage_AIDA": "Awareness",
+        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating_Reasons": [
+          "Customer's issue was resolved over the phone.",
+          "No need for a store visit to resolve the query."
+        ],
+        "Intent_to_Purchase_Rating": "MEDIUM",
+        "Intent_to_Purchase_Rating_Reasons": [
+          "Customer already purchased the pillow.",
+          "Calling for support/information."
+        ],
+        "Barriers_to_Conversion": "Issue resolved over the phone",
+        "Customer_Satisfaction_Score": 4,
+        "Customer_Satisfaction_Score_Reasons": [
+          "Agent explained the vacuum pack process clearly.",
+          "Customer seemed satisfied with the explanation."
+        ]
+      },
+      "Agent_Areas": {
+        "Verbal_Product_Knowledge": {
+          "Description_Quality_Rating": 4,
+          "Description_Quality_Reason": "Explained the vacuum pack process and how the pillow will inflate after opening.",
+          "Stock_Availability_Check_Rating": 5,
+          "Stock_Availability_Check_Reason": "Implied knowledge of the pillow packaging process."
+        },
+        "The_Invitation_to_Visit": {
+          "Attempted": false,
+          "Quality_Rating": 1,
+          "Reasons": [
+            "No attempt to invite the customer to the store.",
+            "Not relevant in this case as it was a service call."
+          ]
+        },
+        "RELAX_Framework": {
+          "R_Reach_Out": {
+            "Rating": 3,
+            "Reasons": [
+              "Greeted the customer and mentioned the brand name.",
+              "Standard greeting"
+            ]
+          },
+          "E_Explore_Needs": {
+            "Rating": 3,
+            "Reasons": [
+              "Identified the customer's concern about the flat pillow.",
+              "Addressed the immediate issue."
+            ]
+          },
+          "L_Link_Experience": {
+            "Rating": 1,
+            "Reasons": [
+              "No attempt to link the experience to a store visit.",
+              "Not relevant in this case."
+            ]
+          },
+          "A_Add_Value": {
+            "Rating": 1,
+            "Reasons": [
+              "No additional value was added.",
+              "Focused solely on resolving the immediate issue."
+            ]
+          },
+          "X_Express_Closing": {
+            "Rating": 3,
+            "Reasons": [
+              "Standard closing.",
+              "Thanked the customer."
+            ]
+          }
+        },
+        "SoftSkills_Etiquette": {
+          "Tone_and_Patience_Rating": 5,
+          "Hold_Management_Rating": 5,
+          "Agent_Language_Fluency_Score": 5,
+          "Soft_Skills_Reasons": [
+            "Maintained a patient and helpful tone throughout the call.",
+            "Spoke fluently in Kannada."
+          ]
+        },
+        "Top_3_Improvement_Areas": [
+          "Invite customers to visit the store even on service calls, if relevant.",
+          "Proactively offer additional information about related products.",
+          "Focus on upselling or cross-selling opportunities."
+        ]
+      },
+      "Overall_Summary": {
+        "Call_Synopsis": "Customer called regarding a flat pillow. The agent explained that the pillow is vacuum-packed and will inflate after opening.",
+        "Agent_Performance_Summary": "The agent handled the customer's query effectively and professionally. The agent could have tried to invite the customer to the store or offer additional information about related products, but it was not necessary.",
+        "Next_Action": "Train agents to identify opportunities for upselling or cross-selling, even during service calls."
+      },
+      "Transcript_Log": [
+        {
+          "Speaker": "Agent",
+          "Text": "Thank you for calling Duroflex Sleep it Yelahanka store.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "Oh in Coimbatore you don't have that. Okay.",
+          "Text": "Hello sir. Pillow sir. Adu belagge eega yeshtu ondu idu bantu nandu eradu kile eradu nalku kilo bantu eega ondu idige. Eradu avattu mandittu sir.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "So pillow one pillowdalli idu illa air illa ansutte idu full inga idu aagide.",
           "Timestamp": ""
         },
         {
           "Speaker": "Agent",
-          "Text": "Coimbatore don't have. Only Chennai, Mumbai, Bangalore. That only metro cities only available for exchange.",
+          "Text": "Flat bandide sir?",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Haudu.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Andre adu vacuumdu adu.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Neevu adu open maadidaga adu blow aagutte.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Sir full.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Hauda try maadi.",
+          "Timestamp": ""
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Adu hange sir barodu vacuum pack alli barodu adu pillowsdu.",
           "Timestamp": ""
         },
         {
@@ -171,328 +687,1090 @@
           "Timestamp": ""
         },
         {
-          "Speaker": "Customer",
-          "Text": "Sir so can you please tell me that in Coimbatore where we can give old mattresses?",
-          "Timestamp": ""
-        },
-        {
           "Speaker": "Agent",
-          "Text": "No ma'am from where nowhere no one person can get the old mattress ma'am. Uh few uh get to the local manufacturer ask to the global manufacturer.",
+          "Text": "Neevu adu open maadid mele adu blow aagutte.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "No we no need we don't want to exchange also we just want to give it. That's it. So do you know any any?",
-          "Timestamp": ""
-        },
-        {
-          "Speaker": "Agent",
-          "Text": "You have you have to dispose the mattress.",
+          "Text": "Sari sari arthaytu. Okay.",
           "Timestamp": ""
         },
         {
           "Speaker": "Customer",
-          "Text": "Yeah dispose or recycle anything. Yeah.",
+          "Text": "Pillow bandide sir. Thank you sir.",
           "Timestamp": ""
         },
         {
           "Speaker": "Agent",
-          "Text": "Okay ma'am or else if it's a corporation corporation team will be arrived in the area that person you tell to that person he'll pick up the old mattress. But he needed some cash he'll get it he'll get he will pick up the old mattress.",
-          "Timestamp": ""
-        },
-        {
-          "Speaker": "Customer",
-          "Text": "Okay. Okay sir okay. Thank you.",
-          "Timestamp": ""
-        },
-        {
-          "Speaker": "Agent",
-          "Text": "Okay thank you thank you for calling to Flex.",
+          "Text": "Okay sir thank you.",
           "Timestamp": ""
         }
       ]
     },
     "flattened_data": {
-      "Functional_Call_ID": "CALL_COCO COIMBATORE Dummy_01-01-2026_69914d",
+      "Functional_Call_ID": "CALL_COCOAIRPORTROADBLR_12-01-2026_4a207c",
       "Functional_Call_Time": "Not mentioned",
       "Functional_Customer_Name": "Not mentioned",
-      "Functional_Agent_Name": "Bala Sundaram",
-      "Functional_Store_Location": "Gandhipuram Dummy, Coimbatore",
-      "Functional_Customer_Language": "Mix",
+      "Functional_Agent_Name": "Not mentioned",
+      "Functional_Store_Location": "Airport Road, Yelahanka, Bengaluru",
+      "Functional_Customer_Language": "Kannada",
       "Functional_Agent_Audio_Quality_Rating": 4,
-      "Functional_Call_Objective_Theme": "Exchange/Return",
-      "Customer_Information_Interest_Category": "Mattress",
+      "Functional_Call_Objective_Theme": "General Product Info",
+      "Customer_Information_Interest_Category": "Pillows",
       "Customer_Information_Specific_Product_Inquiry": "General",
-      "Customer_Information_Primary_Questions_Asked_1": "Do you take old mattresses?",
-      "Customer_Information_Primary_Questions_Asked_2": "Where can I dispose of old mattresses in Coimbatore?",
-      "Customer_Information_Primary_Questions_Asked_3": "Do you know any recycling centers?",
-      "Customer_Information_Primary_Questions_Asked_count": 3,
-      "Customer_Information_Timeline_to_Purchase": "Not Applicable",
+      "Customer_Information_Primary_Questions_Asked_1": "Why is the pillow flat?",
+      "Customer_Information_Primary_Questions_Asked_2": "Is there air in the pillow?",
+      "Customer_Information_Primary_Questions_Asked_count": 2,
+      "Customer_Information_Timeline_to_Purchase": "Short (Today/This Week)",
       "Customer_Information_Customer_Stage_AIDA": "Awareness",
       "Customer_Information_Intent_to_Visit_Rating": "LOW",
-      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer was calling to dispose of old mattresses, not to purchase new ones.",
-      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "The store does not offer disposal services in Coimbatore.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer's issue was resolved over the phone.",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "No need for a store visit to resolve the query.",
       "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
-      "Customer_Information_Intent_to_Purchase_Rating": "LOW",
-      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer was not looking to purchase a new mattress.",
-      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "The call was solely regarding disposal of old mattresses.",
+      "Customer_Information_Intent_to_Purchase_Rating": "MEDIUM",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer already purchased the pillow.",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "Calling for support/information.",
       "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
-      "Customer_Information_Barriers_to_Conversion": "Service not available",
-      "Customer_Information_Customer_Satisfaction_Score": 3,
-      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Agent provided some information, but couldn't fully resolve the customer's request.",
-      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "Agent provided alternative suggestion.",
+      "Customer_Information_Barriers_to_Conversion": "Issue resolved over the phone",
+      "Customer_Information_Customer_Satisfaction_Score": 4,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Agent explained the vacuum pack process clearly.",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "Customer seemed satisfied with the explanation.",
       "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
-      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 1,
-      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Agent did not describe any products as the customer was asking about disposal.",
-      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 1,
-      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Agent did not check stock as the customer was asking about disposal.",
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 4,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Explained the vacuum pack process and how the pillow will inflate after opening.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 5,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Implied knowledge of the pillow packaging process.",
       "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
       "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
-      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "Agent did not invite the customer to visit the store.",
-      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "The call was about disposal, not purchase.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "No attempt to invite the customer to the store.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "Not relevant in this case as it was a service call.",
       "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 2,
-      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 4,
-      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Greeted the customer politely.",
-      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Used the brand name.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 3,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Greeted the customer and mentioned the brand name.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Standard greeting",
       "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
       "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 3,
-      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Asked clarifying questions about the customer's needs.",
-      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Identified the customer's need to dispose of old mattresses.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Identified the customer's concern about the flat pillow.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Addressed the immediate issue.",
       "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
       "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
-      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "Did not link the need to a physical store trial.",
-      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_2": "The call was about disposal, not purchase.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "No attempt to link the experience to a store visit.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_2": "Not relevant in this case.",
       "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 2,
-      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 2,
-      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "Mentioned the exchange program is available only in metro cities.",
-      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "Suggested contacting corporation team.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 1,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "No additional value was added.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "Focused solely on resolving the immediate issue.",
       "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 2,
       "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 3,
-      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "Thanked the customer for calling.",
-      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "Ended the call politely.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "Standard closing.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "Thanked the customer.",
       "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
-      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 5,
       "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 5,
-      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 3,
-      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Maintained a patient and polite tone throughout the call.",
-      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "There was no hold time.",
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Maintained a patient and helpful tone throughout the call.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "Spoke fluently in Kannada.",
       "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
-      "Agent_Areas_Top_3_Improvement_Areas_1": "Improve product knowledge regarding disposal options in the local area.",
-      "Agent_Areas_Top_3_Improvement_Areas_2": "Actively listen to customer needs and offer relevant solutions.",
-      "Agent_Areas_Top_3_Improvement_Areas_3": "Explore potential partnerships with local recycling centers.",
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Invite customers to visit the store even on service calls, if relevant.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Proactively offer additional information about related products.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Focus on upselling or cross-selling opportunities.",
       "Agent_Areas_Top_3_Improvement_Areas_count": 3,
-      "Overall_Summary_Call_Synopsis": "Customer called to inquire about disposing of old mattresses. The agent informed the customer that the exchange program is not available in Coimbatore and suggested contacting the corporation team for disposal options.",
-      "Overall_Summary_Agent_Performance_Summary": "The agent handled the call politely but was unable to fully assist the customer due to the lack of disposal services in Coimbatore. The agent could have explored local recycling options more thoroughly.",
-      "Overall_Summary_Next_Action": "Research and document local mattress disposal/recycling options in Coimbatore to better assist future customers.",
-      "Transcript_Log_count": 18
+      "Overall_Summary_Call_Synopsis": "Customer called regarding a flat pillow. The agent explained that the pillow is vacuum-packed and will inflate after opening.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent handled the customer's query effectively and professionally. The agent could have tried to invite the customer to the store or offer additional information about related products, but it was not necessary.",
+      "Overall_Summary_Next_Action": "Train agents to identify opportunities for upselling or cross-selling, even during service calls.",
+      "Transcript_Log_count": 15
     },
-    "upload_timestamp": "2026-01-08T13:36:29.254243"
+    "upload_timestamp": "2026-02-02T10:59:53.267955"
   },
   {
-    "call_id": "CALL_COCO_BANJARA_HI_01012026_4A4AE7",
-    "store_name": "COCO BANJARA HILLS Dummy",
-    "locality": "Banjara Hills Dummy",
-    "city": "Hyderabad",
-    "state": "TELANGANA",
-    "region": "South",
+    "call_id": "CALL_COCO_PUNE_KHARA_01012026_ECF2DC",
+    "store_name": "COCO PUNE KHARADI",
+    "locality": "Kharadi",
+    "city": "Pune",
+    "state": "MAHARASHTRA",
+    "region": "West",
     "call_date": "01-01-2026",
-    "duration_seconds": 22,
-    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/798176616217672429646955fcd4aeb32.wav",
+    "duration_seconds": 382,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/80879903541767262412695648cc05262.wav",
     "analysis": {
       "Functional": {
-        "Call_ID": "CALL_COCO BANJARA HILLS Dummy_01-01-2026_a9a9a8",
+        "Call_ID": "CALL_COCO PUNE KHARADI_01-01-2026_HASH",
         "Call_Time": "Not mentioned",
         "Customer_Name": "Not mentioned",
-        "Agent_Name": "Not mentioned",
-        "Store_Location": "Banjara Hills Dummy, Hyderabad",
-        "Customer_Language": "Telugu",
-        "Agent_Audio_Quality_Rating": 3,
+        "Agent_Name": "Amol",
+        "Store_Location": "Kharadi, Pune",
+        "Customer_Language": "Mix",
+        "Agent_Audio_Quality_Rating": 4,
         "Call_Objective_Theme": "General Product Info"
       },
       "Customer_Information": {
         "Interest_Category": "Mattress",
         "Specific_Product_Inquiry": "General",
-        "Primary_Questions_Asked": [],
-        "Timeline_to_Purchase": "Medium (2-4 Weeks)",
+        "Primary_Questions_Asked": [
+          "Orthopedic mattress options",
+          "Firmness of mattresses",
+          "Delivery time",
+          "Promotions/Offers"
+        ],
+        "Timeline_to_Purchase": "Short (Today/This Week)",
         "Customer_Stage_AIDA": "Interest",
-        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating": "HIGH",
         "Intent_to_Visit_Rating_Reasons": [
-          "No specific product mentioned",
-          "Call ended abruptly"
+          "Customer wants to experience the mattresses before buying",
+          "Agent suggested visiting the store to experience the mattresses"
         ],
-        "Intent_to_Purchase_Rating": "LOW",
+        "Intent_to_Purchase_Rating": "MEDIUM",
         "Intent_to_Purchase_Rating_Reasons": [
-          "Very short call",
-          "No needs explored"
+          "Customer needs the mattress urgently",
+          "Customer is looking for a specific type of mattress (orthopedic)",
+          "Customer wants to visit the store before making a decision"
         ],
-        "Barriers_to_Conversion": "Lack of engagement",
-        "Customer_Satisfaction_Score": 2,
+        "Barriers_to_Conversion": "Urgency of need",
+        "Customer_Satisfaction_Score": 4,
         "Customer_Satisfaction_Score_Reasons": [
-          "Call was too short to gauge satisfaction",
-          "No information provided"
+          "Agent provided helpful information about different mattress options",
+          "Agent explained the benefits of visiting the store",
+          "Agent offered to check for faster delivery options"
         ]
       },
       "Agent_Areas": {
         "Verbal_Product_Knowledge": {
-          "Description_Quality_Rating": 1,
-          "Description_Quality_Reason": "No product description given",
-          "Stock_Availability_Check_Rating": 1,
-          "Stock_Availability_Check_Reason": "No stock check performed"
+          "Description_Quality_Rating": 4,
+          "Description_Quality_Reason": "Agent described the firmness and materials of different mattresses.",
+          "Stock_Availability_Check_Rating": 3,
+          "Stock_Availability_Check_Reason": "Agent explained that mattresses are not stocked in the store for direct sale but are dispatched from the DC."
+        },
+        "The_Invitation_to_Visit": {
+          "Attempted": true,
+          "Quality_Rating": 4,
+          "Reasons": [
+            "Agent explicitly invited the customer to visit the store to experience the mattresses.",
+            "Agent mentioned the store's closing time."
+          ]
+        },
+        "RELAX_Framework": {
+          "R_Reach_Out": {
+            "Rating": 4,
+            "Reasons": [
+              "Used a greeting and mentioned the brand name.",
+              "Identified the store location."
+            ]
+          },
+          "E_Explore_Needs": {
+            "Rating": 4,
+            "Reasons": [
+              "Asked about the type of mattress the customer was looking for.",
+              "Inquired about the customer's preference for firmness."
+            ]
+          },
+          "L_Link_Experience": {
+            "Rating": 4,
+            "Reasons": [
+              "Linked the need to physical store trial by suggesting a visit to experience the mattresses.",
+              "Explained the benefits of buying from the store versus online."
+            ]
+          },
+          "A_Add_Value": {
+            "Rating": 3,
+            "Reasons": [
+              "Mentioned a bank offer.",
+              "Explained the benefits of buying from the store (mattress protector, pillows, discount)."
+            ]
+          },
+          "X_Express_Closing": {
+            "Rating": 3,
+            "Reasons": [
+              "Mentioned the store's closing time.",
+              "Encouraged the customer to visit the store."
+            ]
+          }
+        },
+        "SoftSkills_Etiquette": {
+          "Tone_and_Patience_Rating": 4,
+          "Hold_Management_Rating": 5,
+          "Agent_Language_Fluency_Score": 4,
+          "Soft_Skills_Reasons": [
+            "Agent maintained a patient and welcoming tone throughout the call.",
+            "Agent spoke clearly and understandably."
+          ]
+        },
+        "Top_3_Improvement_Areas": [
+          "Proactively offer specific appointment times to encourage store visits.",
+          "Follow up with the customer after the call to confirm their visit.",
+          "Offer a small incentive for visiting the store (e.g., a discount coupon)."
+        ]
+      },
+      "Overall_Summary": {
+        "Call_Synopsis": "The customer called to inquire about orthopedic mattress options. The agent provided information about different models, their firmness, and delivery times. The agent invited the customer to visit the store to experience the mattresses and mentioned available offers.",
+        "Agent_Performance_Summary": "The agent demonstrated good product knowledge and effectively invited the customer to visit the store. The agent could improve by proactively offering specific appointment times and following up after the call.",
+        "Next_Action": "Follow up with the customer to confirm their visit to the store."
+      },
+      "Transcript_Log": [
+        {
+          "Speaker": "Agent",
+          "Text": "Good afternoon, Amol speaking from Duroflex Kharadi.",
+          "Timestamp": "0:01"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yeah, good morning. Actually, I'm looking for a good orthopedic mattress.",
+          "Timestamp": "0:04"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay.",
+          "Timestamp": "0:08"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Hello?",
+          "Timestamp": "0:09"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am.",
+          "Timestamp": "0:10"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Can you tell me what models you have?",
+          "Timestamp": "0:11"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "We have Back Magic Pro, Balance, Balance Plus, Posh Perfect.",
+          "Timestamp": "0:14"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. And these are like firm kind of mattresses or semi-soft or what?",
+          "Timestamp": "0:20"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am, some are firm and some are medium firm.",
+          "Timestamp": "0:27"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay, okay. And how many days will it take for the delivery?",
+          "Timestamp": "0:32"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Four days, ma'am.",
+          "Timestamp": "0:36"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Four days?",
+          "Timestamp": "0:38"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am, four days for delivery.",
+          "Timestamp": "0:40"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Is it not available in stock usually?",
+          "Timestamp": "0:43"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No, no, no, ma'am. This is the experience center. You come here and experience and then you can place the order and from DC it gets dispatched to your address.",
+          "Timestamp": "0:47"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, yeah, I got that, but because I need it a bit urgently, so what is the option?",
+          "Timestamp": "0:55"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "It's not possible.",
+          "Timestamp": "1:01"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Or it depends on your stock?",
+          "Timestamp": "1:03"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, maximum time is for four days. Within four days, we can deliver, ma'am. We don't keep stocks in the store for directly selling.",
+          "Timestamp": "1:05"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay, got it. So how many, like, you said four days minimum, okay, no problem. Okay, and any promotions are there, any offers, promotions right now?",
+          "Timestamp": "1:14"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Right now, ma'am, there is no promotions going on, but if you can select, then I will talk to the seniors, so can I will be able to give some kind of discount.",
+          "Timestamp": "1:24"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, any bank offers?",
+          "Timestamp": "1:30"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, HDFC bank offer is there, up to 2000 rupees off on no cost EMI.",
+          "Timestamp": "1:33"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "2000 rupees off, okay, fine. So whatever prices on your website, the same prices are available?",
+          "Timestamp": "1:41"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, yes, same, same.",
+          "Timestamp": "1:47"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. So like what is the difference if I order through you and online?",
+          "Timestamp": "1:51"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "If you order in the store, you will get some mattress protector and pillows from the store. And if you don't need that, you will get extra 5% discount from the store. And after sales and service, all the things are taken care by the store only. And if you purchase online, then it's the customer's, what to say, the customer will have to deal with all those things.",
+          "Timestamp": "1:58"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Correct, correct, okay, okay. So you can give a better price?",
+          "Timestamp": "2:18"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, surely.",
+          "Timestamp": "2:21"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, no problem. What is the timing?",
+          "Timestamp": "2:23"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Until 9:00, we are open, ma'am.",
+          "Timestamp": "2:26"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Tomorrow also you are open, right? And weekends also?",
+          "Timestamp": "2:28"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am, yes, ma'am.",
+          "Timestamp": "2:31"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay. And your warehouse is based in Pune?",
+          "Timestamp": "2:34"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No, ma'am, it's in Bhiwandi.",
+          "Timestamp": "2:37"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay, so from there the mattress will come.",
+          "Timestamp": "2:41"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am.",
+          "Timestamp": "2:43"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Oh, got it, got it, no problem. And you also have this return, 30 days return trial, something like that?",
+          "Timestamp": "2:45"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No, no, no, we don't have that.",
+          "Timestamp": "2:51"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. So can you tell me this back, you said back support, which mattress you said, back?",
+          "Timestamp": "2:54"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Back Magic Pro, Balance, and Balance Plus, Posh Perfect.",
+          "Timestamp": "3:00"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay. So in Back Magic Pro and Back Magic, which one is better?",
+          "Timestamp": "3:04"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Back Magic Pro and in Balance, Balance one is better.",
+          "Timestamp": "3:09"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "It comes in 7 inches and it has better orthopedic support. It comes in memory foam. And while talking about the Back Magic Pro, it's coming in 6 inches and it has PU foam on it.",
+          "Timestamp": "3:12"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay, got it. So PU foam and memory foam.",
+          "Timestamp": "3:25"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, ma'am.",
+          "Timestamp": "3:29"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay. And approximately Back Magic, if we go for Back Magic, for a king size mattress, it will be across approximately how much?",
+          "Timestamp": "3:31"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "For king size, ma'am, it will be around 24 to 25k.",
+          "Timestamp": "3:39"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "For king size, like 78 by 72?",
+          "Timestamp": "3:43"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes.",
+          "Timestamp": "3:45"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. Okay, okay. And the other one you said?",
+          "Timestamp": "3:47"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Balance will come around 44,000.",
+          "Timestamp": "3:52"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay. So there is a difference, much price, right?",
+          "Timestamp": "3:55"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, yes.",
+          "Timestamp": "3:58"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, fine. And there is five years warranty, right?",
+          "Timestamp": "3:59"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, yes.",
+          "Timestamp": "4:02"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "And you don't recommend the spring mattress for the back support, right?",
+          "Timestamp": "4:04"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Sorry?",
+          "Timestamp": "4:08"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "You don't recommend the spring mattress to the back support, right?",
+          "Timestamp": "4:10"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No, no, no, because the spring mattress is softer and body pain will continue on the softer side. You need some medium firm or firm category mattress for back support.",
+          "Timestamp": "4:13"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Correct, correct, correct. Correct. So in the, in the other one, which is 44,000, only the memory foam is the difference, right?",
+          "Timestamp": "4:22"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yes, memory foam and PU foam is there. Two foams are available on the upper side of foam, which on which we are going to sleep.",
+          "Timestamp": "4:29"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, okay, okay. No problem. So I think it's better I visit and then we can, it would be better you experience the both the mattress and then come for me.",
+          "Timestamp": "4:37"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Exactly. So if I order tomorrow, if I visit tomorrow and order, what is earliest I can get?",
+          "Timestamp": "4:46"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Then, ma'am, I have to check, I have to check first which menu you are select and is the stock available in the DC, then I can force DC members to deliver you as soon as possible.",
+          "Timestamp": "4:52"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay. No, see, I can, I can choose something like medium to lower range. Because first time I'll be buying the Duroflex, so I don't want to invest directly into the expensive mattress.",
+          "Timestamp": "5:02"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "I will try, I will try to deliver within two days.",
+          "Timestamp": "5:10"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yeah, because, yeah, yeah, because we'll be shifting and then I won't have any mattress. So I don't want to be high end, I want low end only, but it should support back, you know, like that.",
+          "Timestamp": "5:13"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Just come to the store and once experience it.",
+          "Timestamp": "5:22"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "No problem, I'll do that and then immediately we can proceed with the order and all.",
+          "Timestamp": "5:26"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay, okay. Thank you so much. So I'll try to visit tomorrow before 9:00.",
+          "Timestamp": "5:31"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, thank you.",
+          "Timestamp": "5:35"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Thank you, thank you so much.",
+          "Timestamp": "5:37"
+        }
+      ]
+    },
+    "flattened_data": {
+      "Functional_Call_ID": "CALL_COCO PUNE KHARADI_01-01-2026_HASH",
+      "Functional_Call_Time": "Not mentioned",
+      "Functional_Customer_Name": "Not mentioned",
+      "Functional_Agent_Name": "Amol",
+      "Functional_Store_Location": "Kharadi, Pune",
+      "Functional_Customer_Language": "Mix",
+      "Functional_Agent_Audio_Quality_Rating": 4,
+      "Functional_Call_Objective_Theme": "General Product Info",
+      "Customer_Information_Interest_Category": "Mattress",
+      "Customer_Information_Specific_Product_Inquiry": "General",
+      "Customer_Information_Primary_Questions_Asked_1": "Orthopedic mattress options",
+      "Customer_Information_Primary_Questions_Asked_2": "Firmness of mattresses",
+      "Customer_Information_Primary_Questions_Asked_3": "Delivery time",
+      "Customer_Information_Primary_Questions_Asked_4": "Promotions/Offers",
+      "Customer_Information_Primary_Questions_Asked_count": 4,
+      "Customer_Information_Timeline_to_Purchase": "Short (Today/This Week)",
+      "Customer_Information_Customer_Stage_AIDA": "Interest",
+      "Customer_Information_Intent_to_Visit_Rating": "HIGH",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer wants to experience the mattresses before buying",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "Agent suggested visiting the store to experience the mattresses",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
+      "Customer_Information_Intent_to_Purchase_Rating": "MEDIUM",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer needs the mattress urgently",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "Customer is looking for a specific type of mattress (orthopedic)",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_3": "Customer wants to visit the store before making a decision",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 3,
+      "Customer_Information_Barriers_to_Conversion": "Urgency of need",
+      "Customer_Information_Customer_Satisfaction_Score": 4,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Agent provided helpful information about different mattress options",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "Agent explained the benefits of visiting the store",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_3": "Agent offered to check for faster delivery options",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 3,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 4,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Agent described the firmness and materials of different mattresses.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 3,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Agent explained that mattresses are not stocked in the store for direct sale but are dispatched from the DC.",
+      "Agent_Areas_The_Invitation_to_Visit_Attempted": true,
+      "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 4,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "Agent explicitly invited the customer to visit the store to experience the mattresses.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "Agent mentioned the store's closing time.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 4,
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Used a greeting and mentioned the brand name.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Identified the store location.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 4,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Asked about the type of mattress the customer was looking for.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Inquired about the customer's preference for firmness.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 4,
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "Linked the need to physical store trial by suggesting a visit to experience the mattresses.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_2": "Explained the benefits of buying from the store versus online.",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 3,
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "Mentioned a bank offer.",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_2": "Explained the benefits of buying from the store (mattress protector, pillows, discount).",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 3,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "Mentioned the store's closing time.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "Encouraged the customer to visit the store.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
+      "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 5,
+      "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 4,
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Agent maintained a patient and welcoming tone throughout the call.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "Agent spoke clearly and understandably.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Proactively offer specific appointment times to encourage store visits.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Follow up with the customer after the call to confirm their visit.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Offer a small incentive for visiting the store (e.g., a discount coupon).",
+      "Agent_Areas_Top_3_Improvement_Areas_count": 3,
+      "Overall_Summary_Call_Synopsis": "The customer called to inquire about orthopedic mattress options. The agent provided information about different models, their firmness, and delivery times. The agent invited the customer to visit the store to experience the mattresses and mentioned available offers.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent demonstrated good product knowledge and effectively invited the customer to visit the store. The agent could improve by proactively offering specific appointment times and following up after the call.",
+      "Overall_Summary_Next_Action": "Follow up with the customer to confirm their visit to the store.",
+      "Transcript_Log_count": 73
+    },
+    "upload_timestamp": "2026-02-02T11:00:29.432986"
+  },
+  {
+    "call_id": "CALL_COCO_WHITEFIELD_17012026_DEB941",
+    "store_name": "COCO WHITEFIELD",
+    "locality": "Varthur Road Whitefield",
+    "city": "Bengaluru",
+    "state": "KARNATAKA",
+    "region": "South",
+    "call_date": "17-01-2026",
+    "duration_seconds": 165,
+    "recording_url": "https://recordings.dashloc.com/2026/01/4208/inbound/89437802451768643922696b5d52e2ddf.wav",
+    "analysis": {
+      "Functional": {
+        "Call_ID": "CALL_COCOWHITEFIELD_17-01-2026_123abc",
+        "Call_Time": "Not mentioned",
+        "Customer_Name": "Not mentioned",
+        "Agent_Name": "Not mentioned",
+        "Store_Location": "Varthur Road Whitefield, Bengaluru",
+        "Customer_Language": "Mix",
+        "Agent_Audio_Quality_Rating": 4,
+        "Call_Objective_Theme": "Delivery Inquiry"
+      },
+      "Customer_Information": {
+        "Interest_Category": "Mattress",
+        "Specific_Product_Inquiry": "Living Memory Foam mattress",
+        "Primary_Questions_Asked": [
+          "Delivery status of order",
+          "Why is delivery delayed?",
+          "When will the order be delivered?"
+        ],
+        "Timeline_to_Purchase": "Short (Today/This Week)",
+        "Customer_Stage_AIDA": "Action",
+        "Intent_to_Visit_Rating": "LOW",
+        "Intent_to_Visit_Rating_Reasons": [
+          "Customer is focused on delivery, not product exploration",
+          "No indication of interest in visiting the store"
+        ],
+        "Intent_to_Purchase_Rating": "HIGH",
+        "Intent_to_Purchase_Rating_Reasons": [
+          "Customer has already placed the order",
+          "Customer is awaiting delivery"
+        ],
+        "Barriers_to_Conversion": "Delivery Delay",
+        "Customer_Satisfaction_Score": 1,
+        "Customer_Satisfaction_Score_Reasons": [
+          "Customer is highly dissatisfied with the delayed delivery",
+          "Customer is frustrated and expresses urgency due to an upcoming function"
+        ]
+      },
+      "Agent_Areas": {
+        "Verbal_Product_Knowledge": {
+          "Description_Quality_Rating": 2,
+          "Description_Quality_Reason": "Agent only repeats the product name, doesn't describe features or benefits.",
+          "Stock_Availability_Check_Rating": 3,
+          "Stock_Availability_Check_Reason": "Agent checks the delivery status in the system."
         },
         "The_Invitation_to_Visit": {
           "Attempted": false,
           "Quality_Rating": 1,
           "Reasons": [
-            "No invitation to visit given"
+            "No attempt to invite the customer to the store.",
+            "Focus is solely on resolving the delivery issue."
           ]
         },
         "RELAX_Framework": {
           "R_Reach_Out": {
             "Rating": 3,
             "Reasons": [
-              "Greeting used",
-              "Brand name used"
+              "Basic greeting used.",
+              "Brand name not mentioned."
             ]
           },
           "E_Explore_Needs": {
-            "Rating": 1,
+            "Rating": 2,
             "Reasons": [
-              "No needs explored"
+              "Limited exploration of needs.",
+              "Focus is on addressing the immediate delivery concern."
             ]
           },
           "L_Link_Experience": {
             "Rating": 1,
             "Reasons": [
-              "No link to physical store trial"
+              "No attempt to link the customer's needs to a store visit or product trial."
             ]
           },
           "A_Add_Value": {
             "Rating": 1,
             "Reasons": [
-              "No offers mentioned"
+              "No mention of offers, financing, or accessories."
             ]
           },
           "X_Express_Closing": {
-            "Rating": 1,
+            "Rating": 2,
             "Reasons": [
-              "No next steps mentioned"
+              "Closing is weak and doesn't offer a clear resolution.",
+              "Agent promises to check and follow up."
             ]
           }
         },
         "SoftSkills_Etiquette": {
           "Tone_and_Patience_Rating": 3,
-          "Hold_Management_Rating": 1,
+          "Hold_Management_Rating": 3,
           "Agent_Language_Fluency_Score": 4,
           "Soft_Skills_Reasons": [
-            "Tone was neutral",
-            "No hold management needed"
+            "Maintained a relatively calm tone despite customer's frustration.",
+            "Used a mix of English and Hindi."
           ]
         },
         "Top_3_Improvement_Areas": [
-          "Explore customer needs",
-          "Invite customer to visit the store",
-          "Provide product information"
+          "Proactive Communication: Keep customers informed about delivery delays.",
+          "Empathy and Reassurance: Acknowledge customer frustration and offer solutions.",
+          "Service Recovery: Offer a discount or free accessory to compensate for the inconvenience."
         ]
       },
       "Overall_Summary": {
-        "Call_Synopsis": "Very short call with a potential customer. The agent answered the call but did not engage in any meaningful conversation or attempt to understand the customer's needs.",
-        "Agent_Performance_Summary": "The agent's performance was poor due to the lack of engagement and failure to provide any information or invite the customer to the store.",
-        "Next_Action": "Training on customer engagement and sales techniques."
+        "Call_Synopsis": "Customer calls to inquire about the delayed delivery of a mattress and pillows, expressing urgency due to an upcoming function. The agent checks the delivery status and informs the customer that it might arrive today or tomorrow.",
+        "Agent_Performance_Summary": "The agent addresses the customer's immediate concern but misses opportunities to provide reassurance, offer solutions, or invite the customer to the store. The agent needs to improve communication and empathy skills.",
+        "Next_Action": "Escalate the delivery issue to the logistics team and ensure the customer receives the order as soon as possible. Follow up with the customer to confirm delivery and offer compensation for the delay."
       },
       "Transcript_Log": [
         {
           "Speaker": "Agent",
-          "Text": "Hello, Duroflex.",
-          "Timestamp": "0"
+          "Text": "Duroflex",
+          "Timestamp": "0:01"
         },
         {
           "Speaker": "Customer",
           "Text": "Hello?",
-          "Timestamp": "5"
+          "Timestamp": "0:03"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Hello, yes sir, kemna?",
+          "Timestamp": "0:04"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Have you checked?",
+          "Timestamp": "0:06"
         },
         {
           "Speaker": "Agent",
           "Text": "Hello?",
-          "Timestamp": "10"
+          "Timestamp": "0:08"
         },
         {
           "Speaker": "Customer",
-          "Text": "...",
-          "Timestamp": "15"
+          "Text": "Hello, can you hear me?",
+          "Timestamp": "0:09"
         },
         {
           "Speaker": "Agent",
-          "Text": "...",
-          "Timestamp": "20"
+          "Text": "Yeah, yeah, yeah, your voice is breaking ma'am.",
+          "Timestamp": "0:11"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Hello?",
+          "Timestamp": "0:13"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yeah, I called you just before, have you checked?",
+          "Timestamp": "0:14"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay, tell me your mobile number ma'am.",
+          "Timestamp": "0:17"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "8943",
+          "Timestamp": "0:18"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Okay one moment",
+          "Timestamp": "0:20"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "8943",
+          "Timestamp": "0:26"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "78",
+          "Timestamp": "0:29"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "78",
+          "Timestamp": "0:30"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "0245",
+          "Timestamp": "0:32"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "0245",
+          "Timestamp": "0:33"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Please check, okay?",
+          "Timestamp": "0:35"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "I will check in one second",
+          "Timestamp": "0:36"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Please say because tomorrow is our function, it is not delivered yet.",
+          "Timestamp": "0:38"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "That's a living memory foam mattress ma'am?",
+          "Timestamp": "0:42"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Sorry?",
+          "Timestamp": "0:43"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Living memory foam?",
+          "Timestamp": "0:45"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yes, correct.",
+          "Timestamp": "0:47"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "And two pillows.",
+          "Timestamp": "0:49"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Correct.",
+          "Timestamp": "0:52"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Ma'am backend team person any kind of delivery person will call you?",
+          "Timestamp": "0:56"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "No, no, no, any message will you will get ma'am?",
+          "Timestamp": "1:00"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yes, I got one message in WhatsApp when I tracking that it is out of out for delivery but the like the driver number is not there.",
+          "Timestamp": "1:04"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "No, when you came that message ma'am?",
+          "Timestamp": "1:12"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yesterday.",
+          "Timestamp": "1:14"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Yesterday?",
+          "Timestamp": "1:16"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yes.",
+          "Timestamp": "1:17"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Sure, one second ma'am.",
+          "Timestamp": "1:18"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "That the dispatch message will come right?",
+          "Timestamp": "1:25"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Yes.",
+          "Timestamp": "1:26"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Ma'am that's a dispatch message I think it's coming for tomorrow otherwise today otherwise tomorrow will come ma'am.",
+          "Timestamp": "1:28"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "No, no, what tomorrow, what tomorrow? See, what tomorrow? See, I'm waiting for that tomorrow is our function. How can you say that it is delivering tomorrow?",
+          "Timestamp": "1:35"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Ma'am that's location that's showing only showing for today I think for dispatch actually yesterday will came for tomorrow yesterday for it's showing for today otherwise tomorrow will come ma'am.",
+          "Timestamp": "1:44"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Not possible tomorrow, okay? See, not possible tomorrow.",
+          "Timestamp": "1:51"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "Today also we but I put there for mail once again for backend team for customer today.",
+          "Timestamp": "1:54"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "I need it today, okay? I need it today for emergency. Whatever you do, you do. I want it today, okay?",
+          "Timestamp": "2:00"
+        },
+        {
+          "Speaker": "Agent",
+          "Text": "I'll put because we ordered last week, okay? I was",
+          "Timestamp": "2:04"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "following a few few few times and I will put very negative review. Please do whatever you want but I need it today, okay? That's what I will say ma'am, okay ma'am?",
+          "Timestamp": "2:07"
+        },
+        {
+          "Speaker": "Customer",
+          "Text": "Okay, today I need it. That's all. No more nothing, okay? Okay. I will call after 15 minutes.",
+          "Timestamp": "2:14"
         }
       ]
     },
     "flattened_data": {
-      "Functional_Call_ID": "CALL_COCO BANJARA HILLS Dummy_01-01-2026_a9a9a8",
+      "Functional_Call_ID": "CALL_COCOWHITEFIELD_17-01-2026_123abc",
       "Functional_Call_Time": "Not mentioned",
       "Functional_Customer_Name": "Not mentioned",
       "Functional_Agent_Name": "Not mentioned",
-      "Functional_Store_Location": "Banjara Hills Dummy, Hyderabad",
-      "Functional_Customer_Language": "Telugu",
-      "Functional_Agent_Audio_Quality_Rating": 3,
-      "Functional_Call_Objective_Theme": "General Product Info",
+      "Functional_Store_Location": "Varthur Road Whitefield, Bengaluru",
+      "Functional_Customer_Language": "Mix",
+      "Functional_Agent_Audio_Quality_Rating": 4,
+      "Functional_Call_Objective_Theme": "Delivery Inquiry",
       "Customer_Information_Interest_Category": "Mattress",
-      "Customer_Information_Specific_Product_Inquiry": "General",
-      "Customer_Information_Primary_Questions_Asked": null,
-      "Customer_Information_Timeline_to_Purchase": "Medium (2-4 Weeks)",
-      "Customer_Information_Customer_Stage_AIDA": "Interest",
+      "Customer_Information_Specific_Product_Inquiry": "Living Memory Foam mattress",
+      "Customer_Information_Primary_Questions_Asked_1": "Delivery status of order",
+      "Customer_Information_Primary_Questions_Asked_2": "Why is delivery delayed?",
+      "Customer_Information_Primary_Questions_Asked_3": "When will the order be delivered?",
+      "Customer_Information_Primary_Questions_Asked_count": 3,
+      "Customer_Information_Timeline_to_Purchase": "Short (Today/This Week)",
+      "Customer_Information_Customer_Stage_AIDA": "Action",
       "Customer_Information_Intent_to_Visit_Rating": "LOW",
-      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "No specific product mentioned",
-      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "Call ended abruptly",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_1": "Customer is focused on delivery, not product exploration",
+      "Customer_Information_Intent_to_Visit_Rating_Reasons_2": "No indication of interest in visiting the store",
       "Customer_Information_Intent_to_Visit_Rating_Reasons_count": 2,
-      "Customer_Information_Intent_to_Purchase_Rating": "LOW",
-      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Very short call",
-      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "No needs explored",
+      "Customer_Information_Intent_to_Purchase_Rating": "HIGH",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_1": "Customer has already placed the order",
+      "Customer_Information_Intent_to_Purchase_Rating_Reasons_2": "Customer is awaiting delivery",
       "Customer_Information_Intent_to_Purchase_Rating_Reasons_count": 2,
-      "Customer_Information_Barriers_to_Conversion": "Lack of engagement",
-      "Customer_Information_Customer_Satisfaction_Score": 2,
-      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Call was too short to gauge satisfaction",
-      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "No information provided",
+      "Customer_Information_Barriers_to_Conversion": "Delivery Delay",
+      "Customer_Information_Customer_Satisfaction_Score": 1,
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_1": "Customer is highly dissatisfied with the delayed delivery",
+      "Customer_Information_Customer_Satisfaction_Score_Reasons_2": "Customer is frustrated and expresses urgency due to an upcoming function",
       "Customer_Information_Customer_Satisfaction_Score_Reasons_count": 2,
-      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 1,
-      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "No product description given",
-      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 1,
-      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "No stock check performed",
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Rating": 2,
+      "Agent_Areas_Verbal_Product_Knowledge_Description_Quality_Reason": "Agent only repeats the product name, doesn't describe features or benefits.",
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Rating": 3,
+      "Agent_Areas_Verbal_Product_Knowledge_Stock_Availability_Check_Reason": "Agent checks the delivery status in the system.",
       "Agent_Areas_The_Invitation_to_Visit_Attempted": false,
       "Agent_Areas_The_Invitation_to_Visit_Quality_Rating": 1,
-      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "No invitation to visit given",
-      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 1,
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_1": "No attempt to invite the customer to the store.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_2": "Focus is solely on resolving the delivery issue.",
+      "Agent_Areas_The_Invitation_to_Visit_Reasons_count": 2,
       "Agent_Areas_RELAX_Framework_R_Reach_Out_Rating": 3,
-      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Greeting used",
-      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Brand name used",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_1": "Basic greeting used.",
+      "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_2": "Brand name not mentioned.",
       "Agent_Areas_RELAX_Framework_R_Reach_Out_Reasons_count": 2,
-      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 1,
-      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "No needs explored",
-      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Rating": 2,
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_1": "Limited exploration of needs.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_2": "Focus is on addressing the immediate delivery concern.",
+      "Agent_Areas_RELAX_Framework_E_Explore_Needs_Reasons_count": 2,
       "Agent_Areas_RELAX_Framework_L_Link_Experience_Rating": 1,
-      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "No link to physical store trial",
+      "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_1": "No attempt to link the customer's needs to a store visit or product trial.",
       "Agent_Areas_RELAX_Framework_L_Link_Experience_Reasons_count": 1,
       "Agent_Areas_RELAX_Framework_A_Add_Value_Rating": 1,
-      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "No offers mentioned",
+      "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_1": "No mention of offers, financing, or accessories.",
       "Agent_Areas_RELAX_Framework_A_Add_Value_Reasons_count": 1,
-      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 1,
-      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "No next steps mentioned",
-      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 1,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Rating": 2,
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_1": "Closing is weak and doesn't offer a clear resolution.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_2": "Agent promises to check and follow up.",
+      "Agent_Areas_RELAX_Framework_X_Express_Closing_Reasons_count": 2,
       "Agent_Areas_SoftSkills_Etiquette_Tone_and_Patience_Rating": 3,
-      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 1,
+      "Agent_Areas_SoftSkills_Etiquette_Hold_Management_Rating": 3,
       "Agent_Areas_SoftSkills_Etiquette_Agent_Language_Fluency_Score": 4,
-      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Tone was neutral",
-      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "No hold management needed",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_1": "Maintained a relatively calm tone despite customer's frustration.",
+      "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_2": "Used a mix of English and Hindi.",
       "Agent_Areas_SoftSkills_Etiquette_Soft_Skills_Reasons_count": 2,
-      "Agent_Areas_Top_3_Improvement_Areas_1": "Explore customer needs",
-      "Agent_Areas_Top_3_Improvement_Areas_2": "Invite customer to visit the store",
-      "Agent_Areas_Top_3_Improvement_Areas_3": "Provide product information",
+      "Agent_Areas_Top_3_Improvement_Areas_1": "Proactive Communication: Keep customers informed about delivery delays.",
+      "Agent_Areas_Top_3_Improvement_Areas_2": "Empathy and Reassurance: Acknowledge customer frustration and offer solutions.",
+      "Agent_Areas_Top_3_Improvement_Areas_3": "Service Recovery: Offer a discount or free accessory to compensate for the inconvenience.",
       "Agent_Areas_Top_3_Improvement_Areas_count": 3,
-      "Overall_Summary_Call_Synopsis": "Very short call with a potential customer. The agent answered the call but did not engage in any meaningful conversation or attempt to understand the customer's needs.",
-      "Overall_Summary_Agent_Performance_Summary": "The agent's performance was poor due to the lack of engagement and failure to provide any information or invite the customer to the store.",
-      "Overall_Summary_Next_Action": "Training on customer engagement and sales techniques.",
-      "Transcript_Log_count": 5
+      "Overall_Summary_Call_Synopsis": "Customer calls to inquire about the delayed delivery of a mattress and pillows, expressing urgency due to an upcoming function. The agent checks the delivery status and informs the customer that it might arrive today or tomorrow.",
+      "Overall_Summary_Agent_Performance_Summary": "The agent addresses the customer's immediate concern but misses opportunities to provide reassurance, offer solutions, or invite the customer to the store. The agent needs to improve communication and empathy skills.",
+      "Overall_Summary_Next_Action": "Escalate the delivery issue to the logistics team and ensure the customer receives the order as soon as possible. Follow up with the customer to confirm delivery and offer compensation for the delay.",
+      "Transcript_Log_count": 45
     },
-    "upload_timestamp": "2026-01-08T13:36:47.618431"
+    "upload_timestamp": "2026-02-02T11:00:55.703287"
   }
 ]
