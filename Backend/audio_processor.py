@@ -324,7 +324,7 @@ OUTPUT SCHEMA (JSON)
 {
     "MetaData": {
         "Customer_Name": "String",
-        "Customer_Location": "String",
+        "Customer_Location": "String(in case of mixed language give top2 used mostly)",
         "Customer_Language": "String",
         "Customer_Gender": "Male | Female | Unknown",
         "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",

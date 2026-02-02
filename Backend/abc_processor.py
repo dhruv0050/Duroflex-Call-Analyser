@@ -271,17 +271,102 @@ class AbcCallProcessor:
         locality = row.get('Locality', 'Unknown')
         zip_code = row.get('Billing Zip', 'Unknown')
         store_name = row.get('Store_Name', 'Central CX Team')
+
+        # Keep the output schema in a non-f-string so curly braces don't get interpreted
+        # by Python's f-string formatter.
+        output_schema = """{
+  \"MetaData\": {
+    \"Customer_Name\": \"String\",
+    \"Customer_Location\": \"String\",
+    \"Customer_Language\": \"String\",
+    \"Customer_Gender\": \"Male | Female | Unknown\",
+    \"Customer_Age_Group\": \"Young Adult | Middle Aged | Senior | Unknown\",
+    \"Consideration_Value\": \"String (e.g. 'Premium Range' or 'Budget')\",
+    \"Call_Quality_Overall\": \"High | Medium | Low\",
+    \"Call_Duration\": \"String\",
+    \"Connected_to_Customer\": true,
+    \"Customer_Enthusiasm\": \"High | Medium | Low\"
+  },
+  \"Call_Summary\": \"String (Max 150 words - Focus on the store feedback and call outcome)\",
+  \"1_Call_Objective\": {
+    \"Type\": \"Store Walk-in Recovery | Post-Purchase Check\",
+    \"Objective_Phrase\": \"String\"
+  },
+  \"2_Intent_to_Purchase\": {
+    \"Rating\": \"High | Medium | Low\",
+    \"Reason\": \"String (Evidence based)\"
+  },
+  \"3_Store_Experience\": {
+    \"Rating\": \"High | Medium | Low\",
+    \"Reason\": \"String (Why did they leave without buying? Staff/Stock/Price?)\"
+  },
+  \"4_Call_Experience\": {
+    \"Rating\": \"High | Medium | Low\",
+    \"Reason\": \"String (How well did the agent handle the feedback?)\"
+  },
+  \"5_Funnel_Analysis\": {
+    \"Stage\": \"Awareness | Consideration | Action\",
+    \"Timeline_to_Purchase\": \"Immediate | Short Term | Long Term | Unknown\"
+  },
+  \"6_Product_Intelligence\": {
+    \"Narrow_Down_Stage\": \"Category | Range | Specific SKU | NA\",
+    \"Product_of_Interest\": \"String\",
+    \"Approx_Order_Value\": \"String (or NA)\"
+  },
+  \"7_Customer_Needs\": {
+    \"Description\": \"String (Who is it for? Key pain points? Constraints?)\"
+  },
+  \"8_Purchase_Barriers\": {
+    \"At_Store\": \"String (Why they walked out?)\",
+    \"On_Call\": \"String (Why they aren't buying now?)\"
+  },
+  \"9_Decision_Maker\": \"Caller | Spouse | Joint | Unknown\",
+  \"10_Invitations\": {
+    \"Home_Measurement\": {
+      \"Rating\": \"High | Medium | Low\",
+      \"Reason\": \"String (Did agent suggest sending a technician?)\"
+    }
+  },
+  \"11_Conversion_Hooks\": {
+    \"Offers_Discounts_EMI\": {\"Status\": \"Yes | No\", \"Comment\": \"String (Did they offer a 'Manager's Discount'?)\"},
+    \"Product_Brochure\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
+    \"Mattress_Measurement\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
+    \"Brand_Legacy_Warranty\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
+    \"Sleep_Trial\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"}
+  },
+  \"12_RELAX_Framework\": {
+    \"R_Reach_Out\": {\"Score\": \"H/M/L\", \"Reason\": \"Context setting (Mentioning the store visit)\"},
+    \"E_Explore_Needs\": {\"Score\": \"H/M/L\", \"Reason\": \"Probing for walk-out reason\"},
+    \"L_Link_Product\": {\"Score\": \"H/M/L\", \"Reason\": \"Re-affirming store demo experience\"},
+    \"A_Add_Value\": {\"Score\": \"H/M/L\", \"Reason\": \"Offering Home Measure/Discount\"},
+    \"X_Express_Closing\": {\"Score\": \"H/M/L\", \"Reason\": \"Next steps/Appointment Setting\"}
+  },
+  \"13_Agent_Evaluation\": {
+    \"Main_Skills\": {
+      \"Product_Knowledge\": \"High | Medium | Low\",
+      \"Sales_Skills\": \"High | Medium | Low\",
+      \"Upsell_Revenue_Skills\": \"High | Medium | Low\"
+    },
+    \"Secondary_Traits\": {
+      \"Need_Discovery\": \"High | Medium | Low\",
+      \"Objection_Handling\": \"High | Medium | Low\",
+      \"Agent_Nature\": \"Proactive | Responsive | Passive\"
+    }
+  },
+  \"14_Agent_Learnings\": [\"String (Feedback 1)\", \"String (Feedback 2)\", \"String (Feedback 3)\"],
+  \"15_Next_Actions\": \"String (e.g. Schedule Technician Visit, Send Brochure)\",
+  \"16_End_to_End_NPS\": {\"Score\": \"Integer (0-10)\", \"Comment\": \"String (For the Call Experience)\"},
+  \"Transcript_Log\": \"String (Full Transcript)\"
+}"""
         
-        full_prompt = f"""You are an expert Retail Operations & Sales Analyst for Duroflex.
+        full_prompt = f"""Role: You are an Expert Cart Recovery Specialist & Auditor for Duroflex.
+Task: Analyze the provided Audio Recording of an Outbound Call made to a customer who abandoned their online checkout.
+Goal: Extract high-fidelity sales intelligence by listening for "micro-hesitations," tonal shifts, and verbal cues to identify the true Reason for Abandonment and evaluate the agent's recovery tactics.
 
-## CONTEXT
-You are analyzing an Abandoned Checkout (ABC) Recovery Call. 
-Your analysis will populate a visual dashboard for the Head of Sales. The dashboard prioritizes:
-1. **The Verdict:** Is this lead saved/hot, or lost?
-2. **The Barrier:** Why did they drop off? (Price, Product, Tech)
-3. **The Effort:** Did the agent try to get them into a Store or Video Call?
+INPUT DATA
+Audio Source: {{INPUT_AUDIO_FILE}} (Note: Process the raw audio to capture sentiment, interruptions, and emotional valence)
 
-## CALL METADATA
+Call Metadata:
 - Customer_Name: {customer_name}
 - Cart_Value: ₹{cart_value}
 - Abandonment_Date: {abandonment_date}
@@ -289,116 +374,15 @@ Your analysis will populate a visual dashboard for the Head of Sales. The dashbo
 - Location: {locality}, {city}
 - Call_Date: {call_date}
 
-## RATING SCALE
-- 1 (Poor/Not Attempted) to 5 (Excellent)
+INSTRUCTIONS
+Acoustic Abandonment Analysis: Listen for "The Pause." When the agent mentions the cart items or price, does the customer hesitate? Use this to differentiate between "Price Sensitivity" (vocal dip/sigh) and "Technical Issue" (frustrated/flat tone).
+Objection Detection: Evaluate how the agent handles the specific barrier. Listen for the "pivot"—does the agent's tone remain helpful or become pushy when the customer offers an excuse?
+Vocal Metadata: Infer Customer_Gender, Customer_Age_Group, and Customer_Enthusiasm from pitch, cadence, and response speed.
+Audio Quality Audit: Identify if background noise or poor connection (clipping/static) contributed to the customer's desire to end the call quickly.
+Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler or introductory text.
 
----
-
-## PILLAR 1: LEAD STATUS & BARRIERS (The "Verdict")
-**Purpose:** Determine if the sale is recoverable and what stopped it.
-
-1. **Recovery_Outcome_Headline**: A short, punchy title summarizing the result (e.g., "Visit Scheduled for Jan 6th" or "Lost - Price too high").
-2. **Lead_Status_Label**:
-   - **HOT LEAD**: Visit scheduled or Purchase promised.
-   - **NURTURING**: Interested but needs time/follow-up.
-   - **COLD/LOST**: Not interested or bought elsewhere.
-3. **Primary_Barrier**: The ONE main reason they didn't buy online (Price / Trust / Delivery / Tech Issue).
-4. **Funnel_Stage_AIDA**: Where did the call end? (Awareness / Interest / Desire / Action).
-5. **Intent_Gauge**: LOW / MEDIUM / HIGH.
-
----
-
-## PILLAR 2: CONVERSION ATTEMPTS (The "Effort")
-**Purpose:** Check if the agent pushed for specific conversion channels.
-
-1. **Store_Visit_Invitation**:
-   - Status: Invited & Accepted / Invited & Declined / Not Invited
-   - Note: Did they emphasize "Touch & Feel"?
-2. **Video_Call_Invitation**:
-   - Status: Offered & Accepted / Offered & Declined / Not Offered
-   - Note: Was it used as a fallback for customers who can't visit?
-3. **Discount_Negotiation**:
-   - Status: Offered / Discussed / Not Mentioned
-   - Note: Did they use offers (bank offers, coupons) to close?
-
----
-
-## PILLAR 3: RELAX FRAMEWORK (Methodology)
-**Purpose:** Score the standard Duroflex methodology.
-- **R (Reach Out)**: Professional greeting, identified brand?
-- **E (Explore)**: Did they find the *real* reason for abandonment?
-- **L (Link)**: Did they link the mattress benefits to that specific barrier?
-- **A (Add Value)**: Did they calculate cost-per-night or offer EMI/Accessories?
-- **X (Express)**: Clear next steps/closing?
-
----
-
-## PILLAR 4: EXPERIENCE & SKILLS
-**Purpose:** Soft skills assessment.
-- **Customer_Sentiment**: Positive / Neutral / Negative.
-- **Empathy_Score**: (1-5) Understanding the customer's hesitation.
-- **Active_Listening_Score**: (1-5) Not interrupting, acknowledging concerns.
-- **Objection_Handling_Score**: (1-5) Turning "It's too expensive" into value.
-- **CSAT_Score**: (1-5) Overall customer satisfaction.
-
----
-
-## OUTPUT FORMAT
-Return ONLY a valid JSON object matching this exact schema:
-
-{{
-  "Header_Data": {{
-    "Call_ID": "ABC_{store_name}_{call_date}_{{hash}}",
-    "Audio_Quality_Rating": 0,
-    "Lead_Status_Label": "HOT LEAD | NURTURING | COLD/LOST"
-  }},
-  "The_Verdict": {{
-    "Recovery_Outcome_Headline": "String (Max 40 chars)",
-    "Recovery_Outcome_Description": "String (1-2 sentences explaining the outcome)",
-    "Primary_Barrier": "String",
-    "Purchase_Intent": "LOW | MEDIUM | HIGH",
-    "Funnel_Stage_AIDA": "Awareness | Interest | Desire | Action"
-  }},
-  "Conversion_Attempts": {{
-    "Store_Visit": {{
-      "Status": "Invited & Accepted | Invited & Declined | Not Invited",
-      "Details": "String (Short note on how they asked)"
-    }},
-    "Video_Call": {{
-      "Status": "Offered & Accepted | Offered & Declined | Not Offered",
-      "Details": "String"
-    }},
-    "Discount_Offer": {{
-      "Status": "Discussed | Not Discussed",
-      "Details": "String"
-    }}
-  }},
-  "RELAX_Framework": {{
-    "R_Reach_Out": {{"Score": 0, "Reason": "String"}},
-    "E_Explore": {{"Score": 0, "Reason": "String"}},
-    "L_Link": {{"Score": 0, "Reason": "String"}},
-    "A_Add_Value": {{"Score": 0, "Reason": "String"}},
-    "X_Express": {{"Score": 0, "Reason": "String"}}
-  }},
-  "Experience_and_Skills": {{
-    "CSAT_Score": 0,
-    "Customer_Sentiment": "Positive | Neutral | Negative",
-    "Sentiment_Reason": "String",
-    "Soft_Skills": {{
-      "Empathy_Score": 0,
-      "Active_Listening_Score": 0,
-      "Objection_Handling_Score": 0
-    }}
-  }},
-  "Next_Actions": [
-    "String (Action 1)",
-    "String (Action 2)"
-  ],
-  "Summary_Narrative": "String (2-3 sentences summarizing the call logic)",
-  "Transcript_Log": [
-    {{"Speaker": "Agent/Customer", "Text": "...", "Timestamp": "00:00"}}
-  ]
-}}
+Output Schema (JSON)
+{output_schema}
 """
         return full_prompt
 

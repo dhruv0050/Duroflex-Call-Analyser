@@ -1,8 +1,93 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Play, Home, Video, Percent, CalendarCheck, Download } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
+
+// Expandable Card Component
+const ExpandableCard = ({ title, subtitle, rating, ratingColor, children, defaultOpen = false }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  const getRatingStyles = () => {
+    const r = (rating || '').toString().toUpperCase();
+    if (r === 'HIGH' || r === 'H' || parseInt(r) >= 4) return 'bg-green-100 text-green-700 border-green-300';
+    if (r === 'MEDIUM' || r === 'M' || parseInt(r) >= 3) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+    if (r === 'LOW' || r === 'L' || r === 'N/A') return 'bg-red-100 text-red-600 border-red-300';
+    return 'bg-gray-100 text-gray-600 border-gray-300';
+  };
+
+  return (
+    <div className="bg-gray-50 border-2 border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full p-6 text-left transition ${isOpen ? 'bg-gray-100' : 'hover:bg-gray-100'}`}
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-lg font-bold text-gray-900">{title}</p>
+            {subtitle && <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>}
+          </div>
+          <div className="flex items-center gap-3">
+            {rating && (
+              <span className={`text-base font-bold px-4 py-1.5 rounded-full border-2 ${getRatingStyles()}`}>
+                {rating}
+              </span>
+            )}
+            <span className="text-gray-400 text-xl font-bold">{isOpen ? '−' : '+'}</span>
+          </div>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-6 pb-6 text-base text-gray-700 border-t-2 border-gray-200 pt-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Info Card with Tooltip
+const InfoCard = ({ label, value, valueColor, tooltip, children }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  const getValueColor = () => {
+    const v = (value || '').toString().toUpperCase();
+    if (v === 'HIGH' || v === 'IMMEDIATE' || v === 'RECOVERED' || v === 'ACTION') return 'text-green-600';
+    if (v === 'MEDIUM' || v === 'SHORT TERM' || v === 'DESIRE' || v === 'CONSIDERATION') return 'text-yellow-600';
+    if (v === 'LOW' || v === 'AWARENESS') return 'text-red-600';
+    return valueColor || 'text-blue-600';
+  };
+
+  const getScoreDot = () => {
+    const v = (value || '').toString().toUpperCase();
+    if (v === 'HIGH' || v === 'IMMEDIATE' || v === 'RECOVERED') return 'bg-green-500';
+    if (v === 'MEDIUM' || v === 'SHORT TERM') return 'bg-yellow-500';
+    if (v === 'LOW') return 'bg-red-500';
+    return 'bg-blue-500';
+  };
+
+  return (
+    <div 
+      className="relative bg-gray-50 border-2 border-gray-200 rounded-xl p-6 hover:border-blue-400 transition cursor-pointer"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {tooltip && showTooltip && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-3 bg-gray-800 border border-gray-700 px-4 py-3 rounded-lg text-sm text-gray-100 whitespace-normal w-max max-w-xs z-50 shadow-xl">
+          {tooltip}
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-800"></div>
+        </div>
+      )}
+      <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">{label}</p>
+      {children || (
+        <div className="flex items-center">
+          <span className={`inline-block w-2.5 h-2.5 rounded-full ${getScoreDot()} mr-2`}></span>
+          <span className={`text-2xl font-bold ${getValueColor()}`}>{value}</span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AbcReportDetail = () => {
   const { callId } = useParams();
@@ -10,6 +95,7 @@ const AbcReportDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandTranscript, setExpandTranscript] = useState(false);
+  const [expandedHooks, setExpandedHooks] = useState({});
 
   useEffect(() => {
     fetchReport();
@@ -29,7 +115,6 @@ const AbcReportDetail = () => {
   };
 
   const playAudio = () => {
-    // Prioritize Drive link if available, fallback to S3 audio URL
     const recordingUrl = report?.driveLink || report?.audio_url;
     if (recordingUrl) {
       window.open(recordingUrl, '_blank');
@@ -46,9 +131,13 @@ const AbcReportDetail = () => {
     textContent += `Call ID: ${report.call_id}\n`;
     textContent += `Date: ${report.processed_at}\n\n`;
     
-    transcript.forEach((entry, index) => {
-      textContent += `[${entry.Timestamp || index}] ${entry.Speaker || 'Unknown'}: ${entry.Text}\n\n`;
-    });
+    if (typeof transcript === 'string') {
+      textContent += transcript;
+    } else if (Array.isArray(transcript)) {
+      transcript.forEach((entry, index) => {
+        textContent += `[${entry.Timestamp || index}] ${entry.Speaker || 'Unknown'}: ${entry.Text}\n\n`;
+      });
+    }
 
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
     const link = document.createElement('a');
@@ -57,149 +146,104 @@ const AbcReportDetail = () => {
     link.click();
   };
 
-  const downloadReport = () => {
+  // Download CSV function
+  const downloadCSV = () => {
     if (!report) return;
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const analysis = report.analysis || {};
+    const theVerdict = analysis.The_Verdict || {};
+    const relaxFw = analysis.RELAX_Framework || {};
+    const expSkills = analysis.Experience_and_Skills || {};
+    
+    const headers = [
+      'Call ID', 'Agent Name', 'Phone', 'City', 'Cart Value', 'Processed At',
+      'Lead Status', 'Recovery Outcome', 'Primary Barrier', 'Purchase Intent', 'Funnel Stage',
+      'RELAX R Score', 'RELAX E Score', 'RELAX L Score', 'RELAX A Score', 'RELAX X Score',
+      'CSAT Score', 'Customer Sentiment'
+    ];
+    
+    const row = [
+      report.call_id || '',
+      report.agent_name || '',
+      report.phone || '',
+      report.city || '',
+      report.raw_data?.['Lineitem price'] || '',
+      report.processed_at || '',
+      analysis.Header_Data?.Lead_Status_Label || '',
+      theVerdict.Recovery_Outcome_Headline || '',
+      theVerdict.Primary_Barrier || '',
+      theVerdict.Purchase_Intent || '',
+      theVerdict.Funnel_Stage_AIDA || '',
+      relaxFw.R_Reach_Out?.Score || '',
+      relaxFw.E_Explore?.Score || '',
+      relaxFw.L_Link?.Score || '',
+      relaxFw.A_Add_Value?.Score || '',
+      relaxFw.X_Express?.Score || '',
+      expSkills.CSAT_Score || '',
+      expSkills.Customer_Sentiment || ''
+    ];
+    
+    const escapeCSV = (val) => {
+      const str = String(val ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    
+    const csvContent = [headers.map(escapeCSV).join(','), row.map(escapeCSV).join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `abc_report_${report.call_id}.json`;
+    link.download = `abc_report_${report.call_id}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#08080c] flex items-center justify-center text-gray-300">Loading...</div>;
-  if (error || !report) return <div className="min-h-screen bg-[#08080c] flex items-center justify-center text-red-400">{error || 'Report not found'}</div>;
-
-  // Extract data from analysis (new schema)
-  const analysis = report.analysis || {};
-  const headerData = analysis.Header_Data || {};
-  const theVerdict = analysis.The_Verdict || {};
-  const conversionAttempts = analysis.Conversion_Attempts || {};
-  const relaxFramework = analysis.RELAX_Framework || {};
-  const experienceSkills = analysis.Experience_and_Skills || {};
-  const nextActions = analysis.Next_Actions || [];
-  const summaryNarrative = analysis.Summary_Narrative || '';
-  const transcript = analysis.Transcript_Log || [];
-  const softSkills = experienceSkills.Soft_Skills || {};
-
-  // Fallback to old schema if new doesn't exist
-  const functional = analysis.Functional || {};
-  const p1 = analysis.Pillar_1_Customer_Intent_and_Barriers || {};
-  const p2 = analysis.Pillar_2_Experience_Delivered || {};
-  const p3 = analysis.Pillar_3_RELAX_Framework || {};
-  const p4 = analysis.Pillar_4_Invitation_to_Convert || {};
-  const p5 = analysis.Pillar_5_Agent_Competency || {};
-  const oldSummary = analysis.Overall_Summary || {};
-
-  // Get agent name (priority: CSV data > analysis)
-  const agentName = report.agent_name || 
-    report.raw_data?.AgentName || 
-    report.raw_data?.Agent_Name || 
-    headerData.Agent_Name ||
-    functional.Agent_Name || 
-    'Unknown Agent';
-
-  // Get cart value
-  const cartValue = report.raw_data?.['Lineitem price'] || 'N/A';
-
-  // Get lead status
-  const leadStatusLabel = headerData.Lead_Status_Label || 
-    (p1.Intent_to_Purchase_Rating === 'HIGH' ? 'HOT LEAD' : 
-     p1.Intent_to_Purchase_Rating === 'LOW' ? 'COLD/LOST' : 'NURTURING');
-
-  // Get outcome headline
-  const outcomeHeadline = theVerdict.Recovery_Outcome_Headline || 
-    p4.Commitment_Obtained || 
-    (oldSummary.Call_Synopsis ? oldSummary.Call_Synopsis.substring(0, 40) : 'Call Completed');
-
-  // Get primary barrier
-  const primaryBarrier = theVerdict.Primary_Barrier || p1.Primary_Abandonment_Reason || 'Not Specified';
-
-  // Get funnel stage
-  const funnelStage = theVerdict.Funnel_Stage_AIDA || p1.Customer_Stage_AIDA || 'Interest';
-
-  // Get intent
-  const purchaseIntent = theVerdict.Purchase_Intent || p1.Intent_to_Purchase_Rating || 'MEDIUM';
-
-  // RELAX scores (new schema or old)
-  const relaxScores = {
-    R: relaxFramework.R_Reach_Out?.Score || p3.R_Reach_Out?.Rating || 3,
-    E: relaxFramework.E_Explore?.Score || p3.E_Explore_Needs?.Rating || 3,
-    L: relaxFramework.L_Link?.Score || p3.L_Link_Experience?.Rating || 3,
-    A: relaxFramework.A_Add_Value?.Score || p3.A_Add_Value?.Rating || 3,
-    X: relaxFramework.X_Express?.Score || p3.X_Express_Closing?.Rating || 3,
-  };
-
-  const relaxReasons = {
-    R: relaxFramework.R_Reach_Out?.Reason || p3.R_Reach_Out?.Reasons?.join('. ') || '',
-    E: relaxFramework.E_Explore?.Reason || p3.E_Explore_Needs?.Reasons?.join('. ') || '',
-    L: relaxFramework.L_Link?.Reason || p3.L_Link_Experience?.Reasons?.join('. ') || '',
-    A: relaxFramework.A_Add_Value?.Reason || p3.A_Add_Value?.Reasons?.join('. ') || '',
-    X: relaxFramework.X_Express?.Reason || p3.X_Express_Closing?.Reasons?.join('. ') || '',
-  };
-
-  // Conversion attempts (new schema or old)
-  const storeVisit = conversionAttempts.Store_Visit || {};
-  const videoCall = conversionAttempts.Video_Call || {};
-  const discountOffer = conversionAttempts.Discount_Offer || {};
-
-  // Experience scores
-  const csatScore = experienceSkills.CSAT_Score || p2.Overall_Experience_Rating || 4;
-  const customerSentiment = experienceSkills.Customer_Sentiment || p2.Customer_Experience?.Closing_Sentiment || 'Neutral';
-  const sentimentReason = experienceSkills.Sentiment_Reason || '';
-  const empathyScore = softSkills.Empathy_Score || p2.Customer_Experience?.Empathy_Displayed_Rating || 4;
-  const listeningScore = softSkills.Active_Listening_Score || p2.Customer_Experience?.Listening_Quality_Rating || 4;
-  const objectionScore = softSkills.Objection_Handling_Score || p5.Sales_Skills?.Score || 3;
-
-  // Summary
-  const finalSummary = summaryNarrative || oldSummary.Call_Synopsis || 'No summary available.';
-
   // Helper functions
-  const getLeadStatusStyle = (status) => {
-    const statusUpper = (status || '').toUpperCase();
-    if (statusUpper.includes('HOT')) return { bg: 'bg-emerald-900/30', border: 'border-emerald-600/40', text: 'text-emerald-400' };
-    if (statusUpper.includes('NURTURING')) return { bg: 'bg-amber-900/30', border: 'border-amber-600/40', text: 'text-amber-400' };
-    return { bg: 'bg-red-900/30', border: 'border-red-600/40', text: 'text-red-400' };
+  const getRatingText = (rating) => {
+    if (rating === null || rating === undefined) return 'N/A';
+    const numRating = parseInt(rating);
+    if (!isNaN(numRating)) {
+      if (numRating >= 4) return 'HIGH';
+      if (numRating >= 3) return 'MEDIUM';
+      return 'LOW';
+    }
+    const r = rating.toString().toUpperCase();
+    if (r === 'H' || r === 'HIGH') return 'HIGH';
+    if (r === 'M' || r === 'MEDIUM') return 'MEDIUM';
+    if (r === 'L' || r === 'LOW') return 'LOW';
+    return r;
   };
 
-  const getIntentStyle = (intent) => {
-    const intentUpper = (intent || '').toUpperCase();
-    if (intentUpper.includes('HIGH')) return { bg: 'bg-emerald-900/30', text: 'text-emerald-300', border: 'border-emerald-600/40' };
-    if (intentUpper.includes('MEDIUM')) return { bg: 'bg-amber-900/30', text: 'text-amber-300', border: 'border-amber-600/40' };
-    return { bg: 'bg-red-900/30', text: 'text-red-300', border: 'border-red-600/40' };
-  };
+  const getRelaxOverallRating = (relaxObj) => {
+    // Convert H/M/L score to numeric for average calculation
+    const scoreToNumeric = (score) => {
+      if (!score) return 0;
+      const scoreUpper = String(score).toUpperCase();
+      if (scoreUpper === 'H' || scoreUpper === 'HIGH') return 3;
+      if (scoreUpper === 'M' || scoreUpper === 'MEDIUM') return 2;
+      if (scoreUpper === 'L' || scoreUpper === 'LOW') return 1;
+      // Handle numeric scores as fallback
+      const numScore = parseInt(score);
+      if (!isNaN(numScore)) {
+        if (numScore >= 4) return 3;
+        if (numScore >= 3) return 2;
+        if (numScore >= 1) return 1;
+      }
+      return 0;
+    };
 
-  const getRelaxBarClass = (score) => {
-    if (score >= 4) return 'bg-gradient-to-t from-emerald-600 to-emerald-500';
-    if (score >= 3) return 'bg-gradient-to-t from-amber-600 to-amber-500';
-    if (score >= 2) return 'bg-gradient-to-t from-orange-600 to-orange-500';
-    return 'bg-gradient-to-t from-red-600 to-red-500';
-  };
-
-  const getRelaxBorderColor = (score) => {
-    if (score >= 4) return 'border-emerald-600';
-    if (score >= 3) return 'border-amber-600';
-    return 'border-red-600';
-  };
-
-  const getConversionStatus = (status) => {
-    if (!status) return { label: 'Not Mentioned', style: 'bg-gray-500/10 text-gray-400', borderColor: 'border-gray-600' };
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('accepted')) return { label: 'Accepted', style: 'bg-emerald-500/10 text-emerald-400', borderColor: 'border-emerald-500' };
-    if (statusLower.includes('declined')) return { label: 'Declined', style: 'bg-red-500/10 text-red-400', borderColor: 'border-red-500' };
-    if (statusLower.includes('not invited') || statusLower.includes('not offered')) return { label: 'Missed', style: 'bg-red-500/10 text-red-400', borderColor: 'border-red-500' };
-    if (statusLower.includes('discussed')) return { label: 'Discussed', style: 'bg-amber-500/10 text-amber-400', borderColor: 'border-amber-500' };
-    return { label: status, style: 'bg-gray-500/10 text-gray-400', borderColor: 'border-gray-600' };
-  };
-
-  const getFunnelStages = () => {
-    const stages = ['Awareness', 'Interest', 'Desire', 'Action'];
-    const currentIndex = stages.findIndex(s => s.toLowerCase() === funnelStage.toLowerCase());
-    return stages.map((stage, index) => ({
-      name: stage,
-      isActive: index <= currentIndex,
-      isCurrent: index === currentIndex
-    }));
+    const scores = [
+      scoreToNumeric(relaxObj?.R?.Score),
+      scoreToNumeric(relaxObj?.E?.Score),
+      scoreToNumeric(relaxObj?.L?.Score),
+      scoreToNumeric(relaxObj?.A?.Score),
+      scoreToNumeric(relaxObj?.X?.Score)
+    ].filter(s => s > 0);
+    
+    if (scores.length === 0) return 'N/A';
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    return avg.toFixed(2);
   };
 
   const formatDate = (dateStr) => {
@@ -212,413 +256,802 @@ const AbcReportDetail = () => {
     }
   };
 
+  const getCartValueBracket = (value) => {
+    if (!value || value === 'N/A') return 'N/A';
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return value;
+    if (numValue < 15000) return 'Below 15k';
+    if (numValue < 25000) return '15k to 25k';
+    if (numValue < 50000) return '25k to 50k';
+    return '50k+';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading ABC Report...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 text-xl mb-4">{error || 'Report not found'}</p>
+          <Link to="/abc-calls" className="text-blue-600 hover:underline">← Back to ABC Reports</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Extract data from analysis (NEW schema)
+  const analysis = report.analysis || {};
+  
+  // New schema fields
+  const metaData = analysis.MetaData || {};
+  const callSummary = analysis.Call_Summary || '';
+  const callObjective = analysis['1_Call_Objective'] || {};
+  const intentToPurchase = analysis['2_Intent_to_Purchase'] || {};
+  const storeExperience = analysis['3_Store_Experience'] || {};
+  const callExperience = analysis['4_Call_Experience'] || {};
+  const funnelAnalysis = analysis['5_Funnel_Analysis'] || {};
+  const productIntelligence = analysis['6_Product_Intelligence'] || {};
+  const customerNeeds = analysis['7_Customer_Needs'] || {};
+  const purchaseBarriers = analysis['8_Purchase_Barriers'] || {};
+  const decisionMaker = analysis['9_Decision_Maker'] || '';
+  const invitations = analysis['10_Invitations'] || {};
+  const conversionHooks = analysis['11_Conversion_Hooks'] || {};
+  const relaxFramework = analysis['12_RELAX_Framework'] || {};
+  const agentEvaluation = analysis['13_Agent_Evaluation'] || {};
+  const agentLearnings = analysis['14_Agent_Learnings'] || [];
+  const nextActions = analysis['15_Next_Actions'] || '';
+  const npsData = analysis['16_End_to_End_NPS'] || {};
+  const transcript = analysis.Transcript_Log || [];
+
+  // Old schema fallback
+  const headerData = analysis.Header_Data || {};
+  const theVerdict = analysis.The_Verdict || {};
+  const oldConversionAttempts = analysis.Conversion_Attempts || {};
+  const oldRelaxFramework = analysis.RELAX_Framework || {};
+  const experienceSkills = analysis.Experience_and_Skills || {};
+  const oldNextActions = analysis.Next_Actions || [];
+  const summaryNarrative = analysis.Summary_Narrative || '';
+
+  // Get agent name
+  const agentName = report.agent_name || 
+    report.raw_data?.AgentName || 
+    report.raw_data?.Agent_Name || 
+    metaData.Agent_Name ||
+    'Unknown Agent';
+
+  // Get cart value
+  const cartValue = report.raw_data?.['Lineitem price'] || metaData.Consideration_Value || 'N/A';
+
+  // Get customer info
+  const customerName = metaData.Customer_Name || theVerdict.Customer_Name || 'Customer';
+  const customerLocation = metaData.Customer_Location || report.city || 'N/A';
+  const customerLanguage = metaData.Customer_Language || 'N/A';
+  const callDuration = metaData.Call_Duration || headerData.Call_Duration || 'N/A';
+  const customerEnthusiasm = metaData.Customer_Enthusiasm || 'Medium';
+  const callQuality = metaData.Call_Quality_Overall || 'Medium';
+  const connectedToCustomer = metaData.Connected_to_Customer !== false;
+
+  // Get lead status
+  const leadStatusLabel = headerData.Lead_Status_Label || 
+    (intentToPurchase.Rating === 'High' ? 'HOT LEAD' : 
+     intentToPurchase.Rating === 'Low' ? 'COLD/LOST' : 'NURTURING');
+
+  // Get summary
+  const finalSummary = callSummary || summaryNarrative || theVerdict.Recovery_Outcome_Description || 'No summary available.';
+
+  // Get call objective
+  const objectiveType = callObjective.Type || theVerdict.Recovery_Outcome_Headline || 'Cart Recovery';
+  const objectivePhrase = callObjective.Objective_Phrase || productIntelligence.Product_of_Interest || '';
+
+  // Get funnel stage
+  const funnelStage = funnelAnalysis.Stage || theVerdict.Funnel_Stage_AIDA || 'Consideration';
+  const timelineToPurchase = funnelAnalysis.Timeline_to_Purchase || 'Unknown';
+
+  // Get barriers
+  const primaryBarrier = purchaseBarriers.On_Call || purchaseBarriers.At_Store || theVerdict.Primary_Barrier || 'Not Specified';
+
+  // Get intent ratings
+  const purchaseIntentRating = intentToPurchase.Rating || theVerdict.Purchase_Intent || 'MEDIUM';
+  const purchaseIntentReason = intentToPurchase.Reason || theVerdict.Recovery_Outcome_Description || '';
+  
+  // Map Call Experience from schema
+  const getExperienceRating = () => {
+    if (callExperience.Rating) return callExperience.Rating;
+    const csatScore = experienceSkills.CSAT_Score;
+    if (csatScore) {
+      if (csatScore >= 4) return 'High';
+      if (csatScore >= 3) return 'Medium';
+      return 'Low';
+    }
+    const sentiment = (experienceSkills.Customer_Sentiment || '').toLowerCase();
+    if (sentiment.includes('positive') || sentiment.includes('satisfied')) return 'High';
+    if (sentiment.includes('neutral')) return 'Medium';
+    if (sentiment.includes('negative') || sentiment.includes('frustrated')) return 'Low';
+    return 'Medium';
+  };
+  const experienceRating = getExperienceRating();
+  const experienceReason = callExperience.Reason || experienceSkills.Sentiment_Reason || '';
+
+  // Get product info
+  const narrowDownStage = productIntelligence.Narrow_Down_Stage || 'Category';
+  const productOfInterest = productIntelligence.Product_of_Interest || 'N/A';
+  const orderValue = productIntelligence.Approx_Order_Value || 'N/A';
+  const needsDescription = customerNeeds.Description || theVerdict.Recovery_Outcome_Description || summaryNarrative || 'No details available.';
+
+  // Get invitations - map from Conversion_Attempts in old schema
+  const homeMeasurementData = invitations.Home_Measurement || oldConversionAttempts.Store_Visit || {};
+  const videoDemoData = invitations.Video_Demo || oldConversionAttempts.Video_Call || {};
+  
+  // Transform old schema Status to Rating format for display
+  const getInvitationRating = (data) => {
+    if (data.Rating) return data.Rating;
+    const status = (data.Status || '').toLowerCase();
+    if (status.includes('accepted') || status.includes('invited') || status.includes('offered')) return 'High';
+    if (status.includes('discussed') || status.includes('mentioned')) return 'Medium';
+    if (status.includes('not invited') || status.includes('not offered') || status.includes('not discussed')) return 'N/A';
+    return 'N/A';
+  };
+  
+  const storeVisit = {
+    Rating: getInvitationRating(homeMeasurementData),
+    Reason: homeMeasurementData.Reason || homeMeasurementData.Details || 'No details available.'
+  };
+  
+  const videoDemo = {
+    Rating: getInvitationRating(videoDemoData),
+    Reason: videoDemoData.Reason || videoDemoData.Details || 'No details available.'
+  };
+
+  // Get RELAX scores (support both new and old schema)
+  const relax = {
+    R: relaxFramework.R_Reach_Out || oldRelaxFramework.R_Reach_Out || {},
+    E: relaxFramework.E_Explore_Needs || oldRelaxFramework.E_Explore || {},
+    L: relaxFramework.L_Link_Product || oldRelaxFramework.L_Link || {},
+    A: relaxFramework.A_Add_Value || oldRelaxFramework.A_Add_Value || {},
+    X: relaxFramework.X_Express_Closing || oldRelaxFramework.X_Express || {}
+  };
+
+  // Get agent evaluation - map from Experience_and_Skills.Soft_Skills in old schema
+  const softSkillsData = experienceSkills.Soft_Skills || {};
+  const mainSkills = agentEvaluation.Main_Skills || {
+    Sales_Skills: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'N/A',
+    Product_Knowledge: 'N/A',
+    Upsell_Revenue_Skills: 'N/A'
+  };
+  const secondaryTraits = agentEvaluation.Secondary_Traits || {
+    Agent_Nature: experienceSkills.Customer_Sentiment || 'N/A',
+    Objection_Handling: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'N/A'
+  };
+
+  // Get NPS
+  const npsScore = npsData.Score || experienceSkills.CSAT_Score || 'N/A';
+  const npsComment = npsData.Comment || experienceSkills.Sentiment_Reason || '';
+
+  // Get next actions
+  const finalNextActions = typeof nextActions === 'string' ? nextActions : 
+    (Array.isArray(oldNextActions) ? oldNextActions.join('. ') : '');
+
+  // Get learnings
+  const learnings = Array.isArray(agentLearnings) ? agentLearnings : [];
+
+  // Helper for lead status styling
+  const getLeadStatusStyle = (status) => {
+    const statusUpper = (status || '').toUpperCase();
+    if (statusUpper.includes('HOT')) return { bg: 'bg-green-100', border: 'border-green-200', text: 'text-green-700' };
+    if (statusUpper.includes('NURTURING')) return { bg: 'bg-yellow-100', border: 'border-yellow-200', text: 'text-yellow-700' };
+    return { bg: 'bg-red-100', border: 'border-red-200', text: 'text-red-700' };
+  };
+
   const leadStyle = getLeadStatusStyle(leadStatusLabel);
-  const intentStyle = getIntentStyle(purchaseIntent);
+
+  // Funnel stages for ABC
+  const getFunnelStages = () => {
+    const stages = ['Consideration', 'Cart Addition', 'Checkout Recovery'];
+    const stageMap = {
+      'awareness': 0,
+      'consideration': 0,
+      'interest': 1,
+      'desire': 1,
+      'action': 2,
+      'recovered': 2
+    };
+    const currentIndex = stageMap[funnelStage.toLowerCase()] || 1;
+    return stages.map((stage, index) => ({
+      name: stage,
+      isActive: index <= currentIndex,
+      isCurrent: index === currentIndex
+    }));
+  };
+
   const funnelStages = getFunnelStages();
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Background Noise Texture */}
-      <div 
-        className="fixed inset-0 opacity-[0.03] pointer-events-none" 
-        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }}
-      ></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
+    <div className="min-h-screen bg-gray-50 text-gray-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1600px] mx-auto px-8 py-10 relative z-10">
         
         {/* Navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <Link to="/abc-calls" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
-            <ArrowLeft className="w-4 h-4" /> Back to ABC Reports
+        <div className="flex items-center justify-between mb-10">
+          <Link to="/abc-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
+            ← BACK TO ABC LEADS
           </Link>
-          <div className="flex gap-3">
+          <div className="flex gap-4">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+              ID: {report.call_id}
+            </span>
             <button 
               onClick={playAudio}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-              title={report?.driveLink ? 'Open from Google Drive' : 'Open from S3'}
+              className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
             >
-              <Play className="w-4 h-4" /> {report?.driveLink ? 'Play from Drive' : 'Access Recording'}
-            </button>
-            <button
-              onClick={downloadReport}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <Download className="w-4 h-4" /> Download Report
-            </button>
-            <button 
-              onClick={downloadTranscript} 
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <FileDown className="w-4 h-4" /> Transcript
+              📞 LISTEN TO CALL
             </button>
           </div>
         </div>
 
-        {/* Header Section */}
-        <header className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border border-white/6 rounded-3xl p-8 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-amber-600 to-transparent"></div>
+        {/* HEADER: Metadata & Summary */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-10 mb-10 shadow-lg">
+          <div className="border-l-4 border-blue-500 pl-5 mb-8">
+            <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Abandoned Cart Recovery
+            </h1>
+            <p className="text-base text-gray-500 mt-2">
+              {objectiveType} • Agent: {agentName} • Cart Value: ₹{Number(cartValue).toLocaleString('en-IN') || 'N/A'}
+            </p>
+          </div>
           
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-xs text-gray-500 tracking-wider">ID: {report.call_id}</span>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-semibold text-gray-100" style={{ fontFamily: 'Fraunces, serif', letterSpacing: '-0.02em' }}>
-                  CART RECOVERY
-                </h1>
-                {/* Lead Status Badge */}
-                <span className={`inline-flex items-center gap-2 ${leadStyle.bg} border ${leadStyle.border} px-3 py-1 rounded-full text-xs font-bold ${leadStyle.text} uppercase tracking-wider`}>
-                  <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-                  {leadStatusLabel}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* Col 1: Identity & Metadata */}
+            <div className="lg:col-span-4 border-r border-gray-200 pr-8">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <span className="font-mono text-sm text-gray-500 tracking-widest uppercase">Customer</span>
+                  <h2 className="text-3xl font-semibold text-gray-900 mt-1" style={{ fontFamily: "'Fraunces', serif" }}>
+                    {customerName}
+                  </h2>
+                </div>
+                <span className={`${connectedToCustomer ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'} text-sm font-bold px-4 py-1.5 rounded-full border uppercase`}>
+                  {connectedToCustomer ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
-              <div className="flex gap-2 mt-1">
-                <span className="text-xs text-gray-400 bg-white/5 px-2 py-1 rounded">Customer: {report.phone}</span>
-                <span className="text-xs text-gray-400 bg-white/5 px-2 py-1 rounded">Agent: {agentName}</span>
+              
+              <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
+                  <span className="text-gray-900 font-medium text-lg">{customerLocation} • {customerLanguage}</span>
+                </div>
+                
+                <div>
+                  <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Cart Value</span>
+                  <span className="text-blue-600 text-3xl font-bold">{getCartValueBracket(cartValue)}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
+                    <span className="font-mono text-lg text-gray-900">{callDuration}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Enthusiasm</span>
+                    <span className={`text-lg font-bold ${
+                      customerEnthusiasm === 'High' ? 'text-green-600' : 
+                      customerEnthusiasm === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                    }`}>{customerEnthusiasm}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Quality</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                      callQuality === 'High' ? 'bg-green-500' : 
+                      callQuality === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}></span>
+                    <span className="text-base font-bold text-gray-700">{callQuality}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            
-            <div className="flex flex-col items-end gap-2">
-              <span className="text-xs uppercase tracking-wider text-gray-500">Cart Value</span>
-              <div className="text-2xl font-bold text-gray-100 font-mono">
-                {cartValue !== 'N/A' ? `₹${Number(cartValue).toLocaleString('en-IN')}` : 'N/A'}
+
+            {/* Col 2: Call Summary */}
+            <div className="lg:col-span-8 pl-4 flex flex-col justify-center">
+              <div className="mb-5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Call Objective</span>
+                <h3 className="text-2xl text-gray-900 font-semibold" style={{ fontFamily: "'Fraunces', serif" }}>
+                  {objectiveType} {objectivePhrase && `| ${objectivePhrase}`}
+                </h3>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-8">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-widest block mb-3">Executive Summary</span>
+                <p className="text-lg text-gray-700 leading-relaxed font-medium">
+                  {finalSummary}
+                </p>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Metadata Grid */}
-          <div className="grid grid-cols-6 gap-6 pt-6 border-t border-white/5">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call Date</p>
-              <p className="text-sm font-medium text-gray-200">{formatDate(report.processed_at)}</p>
+        {/* SECTION 1: Abandonment Intelligence */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Abandonment Intelligence
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+            <InfoCard 
+              label="Intent to Purchase" 
+              value={purchaseIntentRating}
+              tooltip={purchaseIntentReason || 'No details available'}
+            />
+            <InfoCard 
+              label="Customer Experience" 
+              value={experienceRating}
+              tooltip={experienceReason || 'No details available'}
+            />
+            <InfoCard 
+              label="Purchase Timeline" 
+              value={timelineToPurchase}
+              tooltip="Customer's expected purchase timeframe"
+            />
+            <InfoCard 
+              label="Funnel Stage" 
+              value={funnelStage}
+              tooltip="Customer's position in the purchase funnel"
+            />
+          </div>
+
+          {/* Funnel Visual */}
+          <div className="flex items-center gap-1 mb-8">
+            {funnelStages.map((stage, i) => (
+              <div 
+                key={stage.name}
+                className={`relative flex items-center justify-center py-3 px-4 text-sm font-bold uppercase tracking-wider
+                  ${stage.isCurrent 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md' 
+                    : stage.isActive 
+                      ? 'bg-green-100 text-green-700 border border-green-300'
+                      : 'bg-gray-100 text-gray-500 border border-gray-200'
+                  }`}
+                style={{
+                  clipPath: i === 0 
+                    ? 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)'
+                    : i === funnelStages.length - 1
+                    ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 10% 50%)'
+                    : 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)'
+                }}
+              >
+                {stage.name}
+              </div>
+            ))}
+          </div>
+
+          {/* Barrier Analysis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Abandonment Reason */}
+            <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <span className="text-3xl">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-gray-600 uppercase tracking-wider mb-2">Abandonment Reason</p>
+                  <p className="text-lg text-gray-900 font-medium">{primaryBarrier}</p>
+                  <p className="text-base text-gray-600 mt-2">Primary barrier identified during recovery call.</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</p>
-              <p className="text-sm font-medium text-gray-200">{headerData.Call_Duration || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Cart Status</p>
-              <p className="text-sm font-medium text-red-300">Abandoned</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Lead Stage</p>
-              <p className="text-sm font-medium text-amber-300">{funnelStage}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Location</p>
-              <p className="text-sm font-medium text-gray-200">{report.city || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Audio Quality</p>
-              <div className="flex gap-1 items-end h-6">
-                {[12, 16, 20, 14, 18].map((h, i) => (
-                  <div key={i} className="w-1 rounded-sm bg-emerald-500" style={{ height: `${h}px` }}></div>
-                ))}
+
+            {/* Lead Status */}
+            <div className={`${leadStyle.bg} border-2 ${leadStyle.border} rounded-xl p-6`}>
+              <div className="flex items-start gap-4">
+                <span className="text-3xl">{leadStatusLabel.includes('HOT') ? '🔥' : leadStatusLabel.includes('NURTURING') ? '🌱' : '❄️'}</span>
+                <div className="flex-1">
+                  <p className={`text-base font-bold ${leadStyle.text} uppercase tracking-wider mb-2`}>Lead Status</p>
+                  <p className={`text-lg ${leadStyle.text} font-bold`}>{leadStatusLabel}</p>
+                  <p className={`text-base ${leadStyle.text} mt-2 opacity-80`}>
+                    {leadStatusLabel.includes('HOT') ? 'High probability of conversion.' : 
+                     leadStatusLabel.includes('NURTURING') ? 'Needs follow-up and nurturing.' : 
+                     'Low conversion probability.'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* ROW 1: Lead Status & Next Action */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
-          {/* Card 1: Recovery Outcome */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 col-span-2 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-4 relative z-10">
+        {/* SECTION 2: Product Intelligence & Customer Context */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          {/* Product Intelligence */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Product Intelligence
+              </h2>
+            </div>
+
+            <div className="space-y-6">
+              {/* Narrow Down Stage */}
               <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Recovery Outcome</p>
-                <h2 className="text-xl font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>
-                  {outcomeHeadline}
-                </h2>
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Cart Contents</p>
+                <div className="flex items-center gap-1">
+                  {['Category', 'Range', 'Cart Items'].map((stage, i) => {
+                    const stageMap = { 'category': 0, 'range': 1, 'specific sku': 2, 'cart items': 2 };
+                    const currentIndex = stageMap[narrowDownStage.toLowerCase()] || 0;
+                    const isActive = i <= currentIndex;
+                    
+                    return (
+                      <div 
+                        key={stage}
+                        className={`flex items-center justify-center py-3 px-6 text-sm font-semibold tracking-wide
+                          ${isActive 
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md' 
+                            : 'bg-gray-100 text-gray-500 border border-gray-200'
+                          }`}
+                        style={{
+                          clipPath: i === 0 
+                            ? 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)'
+                            : 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)'
+                        }}
+                      >
+                        {stage}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className={`w-12 h-12 rounded-full ${leadStyle.bg} border ${leadStyle.border} flex items-center justify-center`}>
-                <CalendarCheck className={`w-6 h-6 ${leadStyle.text}`} />
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Product of Interest</p>
+                <span className="text-lg font-semibold text-gray-900">{productOfInterest}</span>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Decision Maker</p>
+                <span className="text-lg font-semibold text-gray-900">{decisionMaker || 'Unknown'}</span>
               </div>
             </div>
-            <div className={`bg-[#16161d] rounded-lg p-4 border-l-2 ${leadStatusLabel.includes('HOT') ? 'border-emerald-500' : leadStatusLabel.includes('NURTURING') ? 'border-amber-500' : 'border-red-500'} relative z-10`}>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                <span className={`font-bold ${leadStyle.text}`}>
-                  {leadStatusLabel.includes('HOT') ? 'Success:' : leadStatusLabel.includes('NURTURING') ? 'In Progress:' : 'Outcome:'}
-                </span>{' '}
-                {theVerdict.Recovery_Outcome_Description || finalSummary}
+          </div>
+
+          {/* Customer Context */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Customer Context
+              </h2>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-300 rounded-lg p-6">
+              <p className="text-lg text-gray-700 leading-relaxed whitespace-pre-line">
+                {needsDescription}
               </p>
             </div>
-            {/* Subtle background glow */}
-            <div className={`absolute top-0 right-0 w-64 h-64 ${leadStatusLabel.includes('HOT') ? 'bg-emerald-600/5' : leadStatusLabel.includes('NURTURING') ? 'bg-amber-600/5' : 'bg-red-600/5'} rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none`}></div>
-          </div>
-
-          {/* Card 2: Next Action */}
-          <div className="bg-[#0f0f14] border border-amber-600/30 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🚀</span>
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Next Action</h2>
-            </div>
-            <div className="space-y-3">
-              {nextActions.length > 0 ? nextActions.map((action, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className={`mt-1 w-4 h-4 rounded-full border ${index === 0 ? 'border-amber-500' : 'border-gray-600'} flex items-center justify-center flex-shrink-0`}>
-                    {index === 0 && <div className="w-2 h-2 rounded-full bg-amber-500"></div>}
-                  </div>
-                  <p className={`text-sm ${index === 0 ? 'text-gray-300' : 'text-gray-400'}`}>{action}</p>
-                </div>
-              )) : (
-                <p className="text-sm text-gray-500">No specific actions recommended</p>
-              )}
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-xs uppercase tracking-wider text-gray-500">Lead Status</p>
-                <p className={`text-xs mt-1 ${leadStyle.text}`}>{leadStatusLabel}</p>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* ROW 2: Insights & Barriers */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          {/* Left: Funnel & Barrier Analysis */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Funnel & Barrier Analysis</h2>
-            </div>
-            
-            <div className="space-y-6">
-              {/* Funnel State */}
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Funnel State (AIDA)</p>
-                <div className="flex items-center gap-1">
-                  {funnelStages.map((stage, index) => (
-                    <React.Fragment key={stage.name}>
-                      <div className={`flex-1 h-8 rounded ${
-                        stage.isCurrent 
-                          ? 'bg-amber-900/40 border border-amber-500/50' 
-                          : stage.isActive 
-                            ? 'bg-emerald-900/40 border border-emerald-500/30' 
-                            : 'bg-gray-800 text-gray-500'
-                      } flex items-center justify-center text-xs font-bold ${
-                        stage.isCurrent ? 'text-amber-400' : stage.isActive ? 'text-emerald-400' : ''
-                      } relative`}>
-                        {stage.name}
-                        {stage.isCurrent && <span className="absolute -bottom-2 w-2 h-2 rotate-45 bg-amber-500"></span>}
-                      </div>
-                      {index < funnelStages.length - 1 && <div className="w-4 h-0.5 bg-gray-800"></div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Intent Gauge */}
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Purchase Intent</p>
-                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${intentStyle.bg} ${intentStyle.text} border ${intentStyle.border} w-full justify-center`}>
-                    <span className="w-2 h-2 rounded-full bg-current"></span>
-                    {purchaseIntent}
-                  </div>
-                </div>
-                {/* Barrier */}
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Primary Barrier</p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-300 w-full justify-center">
-                    <span>🏷️</span> {primaryBarrier}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* SECTION 3: Recovery Hooks Utilized */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Recovery Hooks Utilized
+            </h2>
           </div>
 
-          {/* Right: Conversion Attempts */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Conversion Attempts</h2>
-              <span className="text-xs text-gray-500">Did the agent try to close?</span>
-            </div>
-            
-            <div className="space-y-4">
-              {/* Store Visit */}
-              {(() => {
-                const status = getConversionStatus(storeVisit.Status);
-                return (
-                  <div className={`flex items-center justify-between p-4 bg-[#16161d] rounded-lg border-l-4 ${status.borderColor}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${status.borderColor === 'border-emerald-500' ? 'bg-emerald-900/20 text-emerald-400' : status.borderColor === 'border-red-500' ? 'bg-red-900/20 text-red-400' : 'bg-amber-900/20 text-amber-400'}`}>
-                        <Home className="w-[18px] h-[18px]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-200">Store Visit Invited</p>
-                        <p className="text-xs text-gray-400">{storeVisit.Details || 'No details available'}</p>
-                      </div>
-                    </div>
-                    <span className={`px-2 py-1 ${status.style} text-xs font-bold rounded uppercase`}>{status.label}</span>
-                  </div>
-                );
-              })()}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {(() => {
+              const hooks = [
+                { 
+                  key: 'Offers_Discounts_EMI', 
+                  label: 'DISCOUNT/EMI',
+                  data: conversionHooks.Offers_Discounts_EMI || {}
+                },
+                { 
+                  key: 'Product_Brochure', 
+                  label: 'BROCHURE',
+                  data: conversionHooks.Product_Brochure || {}
+                },
+                { 
+                  key: 'Mattress_Measurement', 
+                  label: 'MEASUREMENT',
+                  data: conversionHooks.Mattress_Measurement || {}
+                },
+                { 
+                  key: 'Brand_Legacy_Warranty', 
+                  label: 'WARRANTY',
+                  data: conversionHooks.Brand_Legacy_Warranty || {}
+                },
+                { 
+                  key: 'Sleep_Trial', 
+                  label: 'SLEEP TRIAL',
+                  data: conversionHooks.Sleep_Trial || {}
+                }
+              ];
 
-              {/* Video Call */}
-              {(() => {
-                const status = getConversionStatus(videoCall.Status);
+              return hooks.map((hook) => {
+                const isYes = hook.data.Status === 'Yes';
+                const isExpanded = expandedHooks[hook.key] || false;
+                
                 return (
-                  <div className={`flex items-center justify-between p-4 bg-[#16161d] rounded-lg border-l-4 ${status.borderColor} ${status.borderColor === 'border-red-500' ? 'opacity-75' : ''}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${status.borderColor === 'border-emerald-500' ? 'bg-emerald-900/20 text-emerald-400' : status.borderColor === 'border-red-500' ? 'bg-red-900/20 text-red-400' : 'bg-amber-900/20 text-amber-400'}`}>
-                        <Video className="w-[18px] h-[18px]" />
+                  <div key={hook.key} className={`${isYes ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'} border-2 rounded-lg overflow-hidden`}>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`${isYes ? 'text-green-600' : 'text-red-600'} font-bold text-xl`}>
+                            {isYes ? '✓' : '✗'}
+                          </span>
+                          <p className="text-sm text-gray-600 font-bold uppercase">{hook.label}</p>
+                        </div>
+                        <button 
+                          className="text-gray-400 hover:text-gray-600 text-xl font-bold transition"
+                          onClick={() => setExpandedHooks(prev => ({
+                            ...prev,
+                            [hook.key]: !prev[hook.key]
+                          }))}
+                        >
+                          {isExpanded ? '−' : '+'}
+                        </button>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-200">Video Call Demo</p>
-                        <p className="text-xs text-gray-400">{videoCall.Details || 'No details available'}</p>
-                      </div>
+                      <p className={`text-lg font-semibold ${isYes ? 'text-green-600' : 'text-red-600'}`}>
+                        {isYes ? 'YES' : 'NO'}
+                      </p>
                     </div>
-                    <span className={`px-2 py-1 ${status.style} text-xs font-bold rounded uppercase`}>{status.label}</span>
+                    {isExpanded && (
+                      <div className={`px-6 pb-6 pt-2 border-t-2 ${isYes ? 'border-green-200' : 'border-gray-200'}`}>
+                        <p className="text-sm text-gray-700">
+                          {hook.data.Comment || 'No details available.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
-              })()}
-
-              {/* Discount */}
-              {(() => {
-                const status = getConversionStatus(discountOffer.Status);
-                return (
-                  <div className={`flex items-center justify-between p-4 bg-[#16161d] rounded-lg border-l-4 ${status.borderColor}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${status.borderColor === 'border-emerald-500' ? 'bg-emerald-900/20 text-emerald-400' : status.borderColor === 'border-red-500' ? 'bg-red-900/20 text-red-400' : 'bg-amber-900/20 text-amber-400'}`}>
-                        <Percent className="w-[18px] h-[18px]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-200">Discount Offered</p>
-                        <p className="text-xs text-gray-400">{discountOffer.Details || 'No details available'}</p>
-                      </div>
-                    </div>
-                    <span className={`px-2 py-1 ${status.style} text-xs font-bold rounded uppercase`}>{status.label}</span>
-                  </div>
-                );
-              })()}
-            </div>
+              });
+            })()}
           </div>
         </div>
 
-        {/* ROW 3: RELAX Framework */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>RELAX Sales Methodology</h2>
-            <span className="text-xs text-gray-500">Framework Performance</span>
-          </div>
+        {/* SECTION 5: RELAX Framework & Agent Scorecard */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
           
-          {/* Visual Bars */}
-          <div className="flex justify-between items-end h-40 gap-4 mb-10 px-12">
-            {[
-              { letter: 'R', name: 'Reach Out', score: relaxScores.R },
-              { letter: 'E', name: 'Explore', score: relaxScores.E },
-              { letter: 'L', name: 'Link', score: relaxScores.L },
-              { letter: 'A', name: 'Add Value', score: relaxScores.A },
-              { letter: 'X', name: 'Express', score: relaxScores.X },
-            ].map((item) => (
-              <div key={item.letter} className="flex flex-col items-center gap-3 flex-1">
-                <div className="relative w-full flex justify-center group">
-                  <div 
-                    className={`w-12 rounded-t-lg ${getRelaxBarClass(item.score)} flex items-end justify-center pb-2 relative transition-all`} 
-                    style={{ height: `${Math.max(item.score * 30, 20)}px` }}
-                  >
-                    <span className="text-lg font-bold text-white">{item.score}</span>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-semibold text-gray-100">{item.letter}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.name}</p>
-                </div>
-              </div>
-            ))}
+          {/* RELAX Framework */}
+          <div className="lg:col-span-7 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                RELAX Framework
+              </h2>
+              <span className={`text-4xl font-bold ${
+                parseFloat(getRelaxOverallRating(relax)) >= 2.5 ? 'text-green-600' : 
+                parseFloat(getRelaxOverallRating(relax)) >= 1.5 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {getRelaxOverallRating(relax) !== 'N/A' ? `${getRelaxOverallRating(relax)}/3` : 'N/A'}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                { key: 'R', title: 'R — Reach Out', subtitle: 'Cart Context', data: relax.R },
+                { key: 'E', title: 'E — Explore Needs', subtitle: 'Probing Abandonment Reason', data: relax.E },
+                { key: 'L', title: 'L — Link Product', subtitle: 'Re-affirming Choice', data: relax.L },
+                { key: 'A', title: 'A — Add Value', subtitle: 'Assistance Hook', data: relax.A },
+                { key: 'X', title: 'X — Express Closing', subtitle: 'Confirmation', data: relax.X },
+              ].map((item) => (
+                <ExpandableCard
+                  key={item.key}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  rating={getRatingText(item.data?.Score)}
+                >
+                  <strong className={`text-sm uppercase block mb-1 ${
+                    getRatingText(item.data?.Score) === 'HIGH' ? 'text-green-700' :
+                    getRatingText(item.data?.Score) === 'MEDIUM' ? 'text-yellow-700' : 'text-red-700'
+                  }`}>Reason:</strong>
+                  {item.data?.Reason || 'No details available.'}
+                </ExpandableCard>
+              ))}
+            </div>
           </div>
 
-          {/* Text Breakdown */}
-          <div className="grid grid-cols-5 gap-4">
-            {[
-              { letter: 'R', score: relaxScores.R, reason: relaxReasons.R },
-              { letter: 'E', score: relaxScores.E, reason: relaxReasons.E },
-              { letter: 'L', score: relaxScores.L, reason: relaxReasons.L },
-              { letter: 'A', score: relaxScores.A, reason: relaxReasons.A },
-              { letter: 'X', score: relaxScores.X, reason: relaxReasons.X },
-            ].map((item) => (
-              <div key={item.letter} className={`bg-[#16161d] rounded-lg p-3 border-l-2 ${getRelaxBorderColor(item.score)}`}>
-                <p className="text-xs text-gray-400">{item.reason || 'No feedback available.'}</p>
-              </div>
-            ))}
+          {/* Agent Scorecard */}
+          <div className="lg:col-span-5 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Agent Scorecard
+              </h2>
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Recovery Skills</h3>
+            <div className="space-y-4 mb-8">
+              <ExpandableCard
+                title="Sales Skills"
+                rating={mainSkills.Sales_Skills || 'N/A'}
+              >
+                Agent's ability to recover the sale and handle objections effectively.
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Product Knowledge"
+                rating={mainSkills.Product_Knowledge || 'N/A'}
+              >
+                Understanding of product features and benefits during recovery.
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Upsell Skills"
+                rating={mainSkills.Upsell_Revenue_Skills || 'N/A'}
+              >
+                Ability to suggest additional products or upgrades.
+              </ExpandableCard>
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pt-4 border-t border-gray-200">
+              Traits
+            </h3>
+            <div className="space-y-4">
+              <ExpandableCard
+                title="Agent Nature"
+                rating={secondaryTraits.Agent_Nature || 'N/A'}
+              >
+                {secondaryTraits.Agent_Nature === 'Proactive' 
+                  ? 'Takes initiative in guiding the customer through recovery.'
+                  : secondaryTraits.Agent_Nature === 'Responsive'
+                  ? 'Responds well to customer queries during recovery.'
+                  : 'Agent interaction style during the call.'}
+              </ExpandableCard>
+
+              <ExpandableCard
+                title="Objection Handling"
+                rating={secondaryTraits.Objection_Handling || 'N/A'}
+              >
+                Ability to address customer concerns and barriers effectively.
+              </ExpandableCard>
+            </div>
           </div>
         </div>
 
-        {/* ROW 4: Experience & Soft Skills */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
-          {/* CSAT */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-md font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Customer Experience</h2>
+        {/* SECTION 6: Agent Learnings & Closing Intelligence */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          
+          {/* Agent Learnings */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Agent Learnings
+              </h2>
             </div>
-            <div className="flex items-center gap-4 mb-4">
-              <div className={`w-16 h-16 rounded-full border-2 ${csatScore >= 4 ? 'border-emerald-600' : csatScore >= 3 ? 'border-amber-600' : 'border-red-600'} flex items-center justify-center relative`}>
-                <span className={`text-2xl font-bold ${csatScore >= 4 ? 'text-emerald-400' : csatScore >= 3 ? 'text-amber-400' : 'text-red-400'}`}>{csatScore}</span>
-                <div className={`absolute inset-0 -m-1 rounded-full border-2 ${csatScore >= 4 ? 'border-emerald-600' : csatScore >= 3 ? 'border-amber-600' : 'border-red-600'} opacity-30`}></div>
-              </div>
-              <div>
-                <span className="text-sm text-gray-300 font-semibold">{customerSentiment} Sentiment</span>
-                <p className="text-xs text-gray-500">{sentimentReason || 'Customer feedback recorded.'}</p>
-              </div>
+
+            <div className="space-y-4">
+              {learnings.length > 0 ? learnings.map((learning, index) => (
+                <ExpandableCard
+                  key={index}
+                  title={`${index + 1}. ${learning.substring(0, 50)}${learning.length > 50 ? '...' : ''}`}
+                >
+                  <strong className="text-green-700 block mb-1 text-sm uppercase tracking-wide">Feedback:</strong>
+                  {learning}
+                </ExpandableCard>
+              )) : (
+                <p className="text-gray-500 text-center py-4">No specific learnings recorded.</p>
+              )}
             </div>
           </div>
 
-          {/* Soft Skills */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 col-span-2">
-            <h2 className="text-md font-medium text-gray-100 mb-4" style={{ fontFamily: 'Fraunces, serif' }}>Soft Skills & Etiquette</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-[#16161d] rounded-lg p-3 text-center">
-                <p className={`text-2xl font-bold ${empathyScore >= 4 ? 'text-emerald-400' : empathyScore >= 3 ? 'text-amber-400' : 'text-red-400'}`}>{empathyScore}</p>
-                <p className="text-[10px] uppercase text-gray-500 mt-1">Empathy</p>
-              </div>
-              <div className="bg-[#16161d] rounded-lg p-3 text-center">
-                <p className={`text-2xl font-bold ${listeningScore >= 4 ? 'text-emerald-400' : listeningScore >= 3 ? 'text-amber-400' : 'text-red-400'}`}>{listeningScore}</p>
-                <p className="text-[10px] uppercase text-gray-500 mt-1">Active Listening</p>
-              </div>
-              <div className="bg-[#16161d] rounded-lg p-3 text-center">
-                <p className={`text-2xl font-bold ${objectionScore >= 4 ? 'text-emerald-400' : objectionScore >= 3 ? 'text-amber-400' : 'text-red-400'}`}>{objectionScore}</p>
-                <p className="text-[10px] uppercase text-gray-500 mt-1">Obj Handling</p>
-              </div>
+          {/* Closing Intelligence */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Closing Intelligence
+              </h2>
             </div>
-          </div>
-        </div>
 
-        {/* Call Summary */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6">
-          <h2 className="text-lg font-medium text-gray-100 mb-4" style={{ fontFamily: 'Fraunces, serif' }}>Call Summary</h2>
-          <div className="bg-[#16161d] rounded-lg p-6">
-            <p className="text-sm text-gray-300 leading-relaxed italic">
-              "{finalSummary}"
-            </p>
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6 mb-8">
+              <p className="text-sm text-blue-700 font-bold uppercase tracking-wider mb-4">Next Actions</p>
+              <p className="text-lg text-gray-700 leading-relaxed font-semibold">
+                {finalNextActions || 'No specific actions recorded.'}
+              </p>
+            </div>
+
+            <div className={`bg-gradient-to-br ${
+              parseInt(npsScore) >= 8 ? 'from-green-100 to-green-50 border-green-400' : 
+              parseInt(npsScore) >= 6 ? 'from-yellow-100 to-yellow-50 border-yellow-400' : 
+              'from-red-100 to-red-50 border-red-400'
+            } border-2 rounded-xl p-8 text-center`}>
+              <p className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                parseInt(npsScore) >= 8 ? 'text-green-700' : 
+                parseInt(npsScore) >= 6 ? 'text-yellow-700' : 'text-red-700'
+              }`}>End-to-End NPS</p>
+              <div className={`text-6xl font-bold mb-4 ${
+                parseInt(npsScore) >= 8 ? 'text-green-700' : 
+                parseInt(npsScore) >= 6 ? 'text-yellow-700' : 'text-red-700'
+              }`}>{npsScore}</div>
+              <p className={`text-base font-bold uppercase tracking-wide mb-4 ${
+                parseInt(npsScore) >= 8 ? 'text-green-700' : 
+                parseInt(npsScore) >= 6 ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {parseInt(npsScore) >= 9 ? 'PROMOTER' : 
+                 parseInt(npsScore) >= 7 ? 'PASSIVE' : 'DETRACTOR'}
+              </p>
+              {npsComment && (
+                <p className="text-base text-gray-700 italic leading-relaxed">
+                  "{npsComment}"
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Transcript */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden">
-          <div className="flex justify-between items-center p-7">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Call Transcript</h2>
-            <button
-              onClick={() => setExpandTranscript(!expandTranscript)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#16161d] rounded-lg text-sm text-amber-400 hover:bg-[#1c1c25] transition"
-            >
-              <span>{expandTranscript ? 'Collapse' : 'Expand'}</span>
-              {expandTranscript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+        <div className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden mb-10 shadow-lg">
+          <div className="flex justify-between items-center p-8 border-b-2 border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Call Transcript
+            </h2>
+            <div className="flex gap-3">
+              <button
+                onClick={downloadTranscript}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition"
+              >
+                📥 Download
+              </button>
+              <button
+                onClick={() => setExpandTranscript(!expandTranscript)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition"
+              >
+                {expandTranscript ? '− Collapse' : '+ Expand'}
+              </button>
+            </div>
           </div>
 
           {expandTranscript && (
-            <div className="max-h-[500px] overflow-y-auto p-7 pt-0 space-y-6">
-              {transcript.length > 0 ? transcript.map((msg, i) => (
-                <div key={i} className="flex gap-4 pb-4 border-b border-gray-800 last:border-0">
-                  <span className="font-mono text-xs text-gray-500 min-w-12 pt-1">{msg.Timestamp || ''}</span>
-                  <div className="flex-1">
-                    <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${msg.Speaker === 'Agent' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                      {msg.Speaker}
-                    </p>
-                    <p className="text-sm text-gray-300 leading-relaxed">{msg.Text}</p>
+            <div className="max-h-[600px] overflow-y-auto p-8 space-y-6 bg-gray-50">
+              {typeof transcript === 'string' ? (
+                <p className="text-gray-700 whitespace-pre-line">{transcript}</p>
+              ) : Array.isArray(transcript) && transcript.length > 0 ? (
+                transcript.map((msg, i) => (
+                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
+                    <span className="font-mono text-xs text-gray-500 min-w-16 pt-1">{msg.Timestamp || ''}</span>
+                    <div className="flex-1">
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${
+                        msg.Speaker === 'Agent' ? 'text-blue-600' : 'text-green-600'
+                      }`}>
+                        {msg.Speaker}
+                      </p>
+                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
+                    </div>
                   </div>
-                </div>
-              )) : (
-                <p className="text-sm text-gray-500 text-center py-8">No transcript available for this call.</p>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-8">No transcript available for this call.</p>
               )}
             </div>
           )}
+        </div>
+
+        {/* Download Section */}
+        <div className="flex justify-center gap-4 mb-10">
+          <button
+            onClick={downloadCSV}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <Download className="w-5 h-5" />
+            Download Full Report (CSV)
+          </button>
+          <button
+            onClick={downloadTranscript}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-base font-bold transition shadow-md"
+          >
+            <FileDown className="w-5 h-5" />
+            Download Transcript (TXT)
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center pt-8 border-t-2 border-gray-200">
+          <p className="text-base text-gray-500">Duroflex ABC Intelligence • Powered by AI Analysis</p>
         </div>
 
       </div>
