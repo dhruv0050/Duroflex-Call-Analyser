@@ -375,6 +375,7 @@ class OutboundCallUploadProcessor:
   "MetaData": {
     "Customer_Name": "String",
     "Customer_Location": "String",
+    "Agent_Name": "String",
     "Call_Region": "String(for example South, North, East, West as per the location)",
     "Customer_Language": "String",
     "Customer_Gender": "Male | Female | Unknown",

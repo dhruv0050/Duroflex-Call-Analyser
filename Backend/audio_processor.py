@@ -326,6 +326,7 @@ OUTPUT SCHEMA (JSON)
         "Customer_Name": "String",
         "Customer_Location": "String(in case of mixed language give top2 used mostly)",
         "Call_Region": "String(for example South, North, East, West as per the location)",
+        "Agent_Name": "String",
         "Customer_Language": "String",
         "Customer_Gender": "Male | Female | Unknown",
         "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
