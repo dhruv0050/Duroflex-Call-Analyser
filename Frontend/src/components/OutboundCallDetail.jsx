@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, Play, FileDown, Home, Package, Users, Calendar, Percent, Download } from 'lucide-react';
+import { ArrowLeft, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -32,67 +32,23 @@ const OutboundCallDetail = () => {
 
   const playRecording = () => {
     const url = report?.driveLink || report?.recording_url;
-    if (url) {
-      window.open(url, '_blank');
-    }
-  };
-
-  const downloadTranscript = () => {
-    if (!report) return;
-    const analysis = report.analysis || {};
-    let transcript = analysis.Transcript_Log || '';
-    
-    if (typeof transcript === 'string') {
-      // Already a string, use as-is
-    } else if (Array.isArray(transcript)) {
-      transcript = transcript.map(t => `[${t.Timestamp || ''}] ${t.Speaker || ''}: ${t.Text || ''}`).join('\n\n');
-    }
-
-    if (!transcript) {
-      alert('No transcript available');
-      return;
-    }
-
-    let textContent = `WALK-IN RECOVERY CALL TRANSCRIPT\n`;
-    textContent += `${'='.repeat(80)}\n\n`;
-    textContent += `Call ID: ${report.call_id}\n`;
-    textContent += `Store: ${report.store_name}\n`;
-    textContent += `Date: ${report.call_date}\n`;
-    textContent += `Duration: ${report.duration}s\n\n`;
-    textContent += `${'='.repeat(80)}\n\n`;
-    textContent += transcript;
-
-    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `walkin_transcript_${report.call_id}.txt`;
-    link.click();
-  };
-
-  const downloadReport = () => {
-    if (!report) return;
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `walkin_report_${report.call_id}.json`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    if (url) window.open(url, '_blank');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-gray-300">Loading call report...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading call report...</div>
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error || 'Report not found'}</p>
-          <Link to="/outbound-calls" className="text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-2">
+          <p className="text-red-500 mb-4">{error || 'Report not found'}</p>
+          <Link to="/outbound-calls" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Calls
           </Link>
         </div>
@@ -102,560 +58,729 @@ const OutboundCallDetail = () => {
 
   const analysis = report.analysis || {};
 
-  // Extract data - support both new and old schema
-  // New Schema
-  const headerData = analysis.Header_Data || {};
+  // ========== NEW ABC-STYLE SCHEMA MAPPING ==========
+  const metaData = analysis.MetaData || {};
+  const callSummary = analysis.Call_Summary || '';
+  const callObjective = analysis['1_Call_Objective'] || {};
+  const intentToPurchase = analysis['2_Intent_to_Purchase'] || {};
+  const storeExperience = analysis['3_Store_Experience'] || {};
+  const callExperience = analysis['4_Call_Experience'] || {};
+  const funnelAnalysis = analysis['5_Funnel_Analysis'] || {};
+  const productIntelligence = analysis['6_Product_Intelligence'] || {};
+  const customerNeeds = analysis['7_Customer_Needs'] || {};
+  const purchaseBarriers = analysis['8_Purchase_Barriers'] || {};
+  const decisionMaker = analysis['9_Decision_Maker'] || 'Unknown';
+  const invitations = analysis['10_Invitations'] || {};
+  const conversionHooks = analysis['11_Conversion_Hooks'] || {};
+  const relaxFramework = analysis['12_RELAX_Framework'] || {};
+  const agentEvaluation = analysis['13_Agent_Evaluation'] || {};
+  const agentLearnings = analysis['14_Agent_Learnings'] || [];
+  const nextActions = analysis['15_Next_Actions'] || '';
+  const npsData = analysis['16_End_to_End_NPS'] || analysis['16_End_to_end_NPS'] || {};
+  const transcriptLog = analysis.Transcript_Log || '';
+
+  // ========== FALLBACK TO OLD PILLAR SCHEMA ==========
   const pillar1Double = analysis.Pillar_1_Double_Audit || {};
   const pillar2Diag = analysis.Pillar_2_Diagnosis || {};
   const pillar3Hooks = analysis.Pillar_3_Recovery_Hooks || {};
   const pillar4Health = analysis.Pillar_4_Lead_Health || {};
   const pillar5Method = analysis.Pillar_5_Methodology || {};
-  const summaryNew = analysis.Summary || {};
+  const summaryOld = analysis.Summary || {};
 
-  // Old Schema fallbacks
-  const pillar1Old = analysis.PILLAR_1_INTENT_BARRIERS || analysis.Pillar_1_Customer_Intent_and_Barriers || {};
-  const pillar2Old = analysis.PILLAR_2_EXPERIENCE_DELIVERED || analysis.Pillar_2_Experience_Delivered || {};
-  const pillar3Old = analysis.PILLAR_3_RELAX_FRAMEWORK || analysis.Pillar_3_RELAX_Framework || {};
-  const pillar4Old = analysis.PILLAR_4_INVITATION_TO_CONVERT || analysis.Pillar_4_Invitation_to_Convert || {};
-  const pillar5Old = analysis.PILLAR_5_AGENT_COMPETENCY || analysis.Pillar_5_Agent_Competency || {};
-  const summaryOld = analysis.OVERALL_SUMMARY || analysis.Overall_Summary || {};
+  // Customer Name
+  const customerName = metaData.Customer_Name || report.customer_phone || 'Walk-in Customer';
+  const customerLocation = metaData.Customer_Location || report.store_name || 'Unknown Store';
+  const considerationValue = metaData.Consideration_Value || 'Not Specified';
+  const callQuality = metaData.Call_Quality_Overall || 'Medium';
+  const callDuration = metaData.Call_Duration || formatDuration(report.duration || 0);
+  const customerEnthusiasm = metaData.Customer_Enthusiasm || 'Medium';
+  const connectedToCustomer = metaData.Connected_to_Customer !== false;
 
-  // Header Data
-  const productOfInterest = headerData.Product_of_Interest || 'Not Specified';
-  const leadStatusLabel = headerData.Lead_Status_Label || 
-    summaryNew.Recovery_Verdict || 
-    summaryOld.Recovery_Verdict || 
-    'Unknown';
+  // Intent
+  const intentRating = intentToPurchase.Rating || 'Medium';
+  const intentReason = intentToPurchase.Reason || '';
 
-  // Store Audit (New) or derive from old
-  const storeAudit = pillar1Double.Store_Audit || {};
-  const storeRating = storeAudit.Rating || 
-    (pillar2Old.A_CUSTOMER_EXPERIENCE?.Opening_Experience ? 3 : 0) || 3;
-  const storeSentiment = storeAudit.Sentiment_Label || 
-    pillar2Old.A_CUSTOMER_EXPERIENCE?.Closing_Sentiment || 'Neutral';
-  const storeFeedback = storeAudit.Specific_Feedback || 
-    pillar2Old.A_CUSTOMER_EXPERIENCE?.Opening_Experience || 'No specific feedback';
+  // Store Experience
+  const storeExpRating = storeExperience.Rating || pillar1Double.Store_Audit?.Sentiment_Label || 'Medium';
+  const storeExpReason = storeExperience.Reason || pillar1Double.Store_Audit?.Specific_Feedback || '';
 
-  // Call Audit (New) or derive from old
-  const callAudit = pillar1Double.Call_Audit || {};
-  const callRating = callAudit.Rating || 
-    pillar2Old.Overall_Experience_Rating || 3;
-  const callSentiment = callAudit.Sentiment_Label || 
-    pillar2Old.A_CUSTOMER_EXPERIENCE?.Customer_Experience_Rating || 'Neutral';
-  const callSkillHighlight = callAudit.Skill_Highlight || 
-    (pillar5Old.C_SOFT_SKILLS_ETIQUETTE > 3 ? 'Professional Tone' : 'Communication');
+  // Call Experience
+  const callExpRating = callExperience.Rating || pillar1Double.Call_Audit?.Sentiment_Label || 'Medium';
+  const callExpReason = callExperience.Reason || pillar1Double.Call_Audit?.Skill_Highlight || '';
 
-  // Diagnosis (New) or derive from old
-  const primaryWalkoutReason = pillar2Diag.Primary_WalkOut_Reason || 
-    pillar1Old.Primary_NonPurchase_Reason || 'Not Disclosed';
-  const primaryBarrierIcon = pillar2Diag.Primary_Barrier_Icon || 'Other';
-  const decisionMaker = pillar2Diag.Decision_Maker || 'Self';
-  const timelineLabel = pillar2Diag.Timeline_Label || 
-    pillar1Old.Timeline_to_Purchase || 'Uncertain';
+  // Funnel
+  const funnelStage = funnelAnalysis.Stage || pillar4Health.AIDA_Stage || 'Consideration';
+  const funnelReason = funnelAnalysis.Reason || funnelAnalysis.reason || '';
+  const timelineToPurchase = funnelAnalysis.Timeline_to_Purchase || pillar2Diag.Timeline_Label || 'Unknown';
 
-  // Recovery Hooks (New)
-  const sweetenerHook = pillar3Hooks.Sweetener_Hook || {};
-  const homeMeasureHook = pillar3Hooks.Home_Measure_Hook || {};
+  // Product Intelligence
+  const narrowDownStage = productIntelligence.Narrow_Down_Stage || 'Category';
+  const productOfInterest = productIntelligence.Product_of_Interest || 'Not Specified';
 
-  // Lead Health (New) or derive from old
-  const aidaStage = pillar4Health.AIDA_Stage || 
-    pillar1Old.Customer_Stage_AIDA || 'Interest';
-  const nextActionText = pillar4Health.Next_Action_Text || 
-    summaryOld.Next_Action || 'Follow up with customer';
+  // Customer Needs
+  const needsDescription = customerNeeds.Description || '';
 
-  // RELAX Scores (New or Old)
-  const relaxScoresNew = pillar5Method.RELAX_Scores || {};
-  const relaxScores = {
-    R: relaxScoresNew.R?.Score || pillar3Old.R_REACH_OUT?.Rating || pillar3Old.R_Reach_Out?.Rating || 3,
-    E: relaxScoresNew.E?.Score || pillar3Old.E_EXPLORE_NEEDS?.Rating || pillar3Old.E_Explore_Needs?.Rating || 3,
-    L: relaxScoresNew.L?.Score || pillar3Old.L_LINK_EXPERIENCE?.Rating || pillar3Old.L_Link_Experience?.Rating || 3,
-    A: relaxScoresNew.A?.Score || pillar3Old.A_ADD_VALUE?.Rating || pillar3Old.A_Add_Value?.Rating || 3,
-    X: relaxScoresNew.X?.Score || pillar3Old.X_EXPRESS_CLOSING?.Rating || pillar3Old.X_Express_Closing?.Rating || 3,
-  };
-  const relaxReasons = {
-    R: relaxScoresNew.R?.Reason || pillar3Old.R_REACH_OUT?.Reason || pillar3Old.R_Reach_Out?.Reasons?.[0] || '',
-    E: relaxScoresNew.E?.Reason || pillar3Old.E_EXPLORE_NEEDS?.Reason || pillar3Old.E_Explore_Needs?.Reasons?.[0] || '',
-    L: relaxScoresNew.L?.Reason || pillar3Old.L_LINK_EXPERIENCE?.Reason || pillar3Old.L_Link_Experience?.Reasons?.[0] || '',
-    A: relaxScoresNew.A?.Reason || pillar3Old.A_ADD_VALUE?.Reason || pillar3Old.A_Add_Value?.Reasons?.[0] || '',
-    X: relaxScoresNew.X?.Reason || pillar3Old.X_EXPRESS_CLOSING?.Reason || pillar3Old.X_Express_Closing?.Reasons?.[0] || '',
-  };
+  // Barriers
+  const barrierAtStore = purchaseBarriers.At_Store || pillar2Diag.Primary_WalkOut_Reason || '';
+  const barrierOnCall = purchaseBarriers.On_Call || '';
 
-  // Soft Skills (New or Old)
-  const softSkillsNew = pillar5Method.Soft_Skills || {};
-  const softSkills = {
-    Empathy: softSkillsNew.Empathy || pillar5Old.C_SOFT_SKILLS_ETIQUETTE || 3,
-    Patience: softSkillsNew.Patience || pillar5Old.C_SOFT_SKILLS_ETIQUETTE || 3,
-    Persuasion: softSkillsNew.Persuasion || pillar5Old.B_SALES_SKILLS || 3,
-    Tone: softSkillsNew.Tone || pillar5Old.C_SOFT_SKILLS_ETIQUETTE || 4,
-  };
+  // Home Measurement Invitation
+  const homeMeasurement = invitations.Home_Measurement || {};
+  const homeMeasureRating = homeMeasurement.Rating || 'Low';
+  const homeMeasureReason = homeMeasurement.Reason || pillar3Hooks.Home_Measure_Hook?.Reasoning || '';
+  const homeMeasureOffered = normalizeRating(homeMeasureRating) === 'High' || normalizeRating(homeMeasureRating) === 'Medium' || pillar3Hooks.Home_Measure_Hook?.Offered;
 
-  // Summary
-  const callSynopsis = summaryNew.Call_Synopsis || summaryOld.Call_Synopsis || 'No synopsis available';
-  const recoveryVerdict = summaryNew.Recovery_Verdict || summaryOld.Recovery_Verdict || 'Unknown';
+  // Conversion Hooks
+  const hookOffers = conversionHooks.Offers_Discounts_EMI || {};
+  const hookWarranty = conversionHooks.Brand_Legacy_Warranty || {};
+  const hookSleepTrial = conversionHooks.Sleep_Trial || {};
 
-  // Transcript - parse string format
+  // RELAX Framework
+  const relaxR = relaxFramework.R_Reach_Out || pillar5Method.RELAX_Scores?.R || {};
+  const relaxE = relaxFramework.E_Explore_Needs || pillar5Method.RELAX_Scores?.E || {};
+  const relaxL = relaxFramework.L_Link_Product || pillar5Method.RELAX_Scores?.L || {};
+  const relaxA = relaxFramework.A_Add_Value || pillar5Method.RELAX_Scores?.A || {};
+  const relaxX = relaxFramework.X_Express_Closing || pillar5Method.RELAX_Scores?.X || {};
+
+  // Agent Evaluation
+  const mainSkills = agentEvaluation.Main_Skills || {};
+  const secondaryTraits = agentEvaluation.Secondary_Traits || {};
+
+  // NPS
+  const npsScore = npsData.Score !== undefined ? npsData.Score : '';
+  const npsComment = npsData.Comment || '';
+
+  // Next Actions (fallback)
+  const nextActionsText = nextActions || pillar4Health.Next_Action_Text || summaryOld.Call_Synopsis || '';
+
+  // Call Objective
+  const objectiveType = callObjective.Type || 'Store Walk-in Recovery';
+
+  // ========== HELPER FUNCTIONS ==========
+  function formatDuration(seconds) {
+    if (typeof seconds === 'string') return seconds;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  }
+
+  function normalizeRating(rating) {
+    if (!rating) return 'Medium';
+    const r = String(rating).trim().toLowerCase();
+    if (r === 'h' || r === 'high') return 'High';
+    if (r === 'm' || r === 'med' || r === 'medium') return 'Medium';
+    if (r === 'l' || r === 'low') return 'Low';
+    if (r === 'positive' || r === 'excellent') return 'High';
+    if (r === 'neutral') return 'Medium';
+    if (r === 'negative') return 'Low';
+    return rating;
+  }
+
+  function getScoreDotClass(rating) {
+    const norm = normalizeRating(rating);
+    if (norm === 'High') return 'bg-emerald-500';
+    if (norm === 'Medium') return 'bg-amber-500';
+    return 'bg-red-500';
+  }
+
+  function getRatingTextClass(rating) {
+    const norm = normalizeRating(rating);
+    if (norm === 'High') return 'text-emerald-600';
+    if (norm === 'Medium') return 'text-amber-600';
+    return 'text-red-600';
+  }
+
+  function getRatingBadgeClass(rating) {
+    const norm = normalizeRating(rating);
+    if (norm === 'High') return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+    if (norm === 'Medium') return 'bg-amber-100 text-amber-700 border-amber-300';
+    return 'bg-red-100 text-red-700 border-red-300';
+  }
+
+  function getNPSLabel(score) {
+    const s = Number(score);
+    if (s >= 9) return 'PROMOTER';
+    if (s >= 7) return 'PASSIVE';
+    return 'DETRACTOR';
+  }
+
+  function getNPSColorClass(score) {
+    const s = Number(score);
+    if (s >= 9) return 'text-emerald-700';
+    if (s >= 7) return 'text-amber-700';
+    return 'text-red-700';
+  }
+
+  function getRelaxScore(item) {
+    if (!item) return 'M';
+    if (item.Score) return item.Score;
+    if (typeof item === 'object' && item.Rating) return item.Rating;
+    return 'M';
+  }
+
+  function getRelaxReason(item) {
+    if (!item) return '';
+    return item.Reason || item.Reasons?.[0] || '';
+  }
+
+  // Calculate overall RELAX adherence
+  function getOverallRelaxAdherence() {
+    const scores = [relaxR, relaxE, relaxL, relaxA, relaxX].map(item => {
+      const s = normalizeRating(getRelaxScore(item));
+      if (s === 'High') return 3;
+      if (s === 'Medium') return 2;
+      return 1;
+    });
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    if (avg >= 2.5) return 'High';
+    if (avg >= 1.5) return 'Medium';
+    return 'Low';
+  }
+
+  // Funnel stages
+  const funnelStages = ['Awareness', 'Consideration', 'Action'];
+  const currentFunnelIndex = funnelStages.findIndex(s => 
+    s.toLowerCase() === String(funnelStage).toLowerCase() ||
+    String(funnelStage).toLowerCase().includes(s.toLowerCase())
+  );
+
+  // Narrow down stages
+  const narrowStages = ['Category', 'Range', 'Specific SKU'];
+  const currentNarrowIndex = narrowStages.findIndex(s => 
+    String(narrowDownStage).toLowerCase().includes(s.toLowerCase().replace(' ', ''))
+  );
+
+  // Parse transcript
   let transcriptItems = [];
-  const rawTranscript = analysis.Transcript_Log;
-  if (typeof rawTranscript === 'string' && rawTranscript.length > 0) {
-    // Try parsing conversation format like "A: ... C: ..." or "Agent: ... Customer: ..."
+  if (typeof transcriptLog === 'string' && transcriptLog.length > 0) {
     let parts = [];
-    
-    // First try to split by Agent/Customer labels
-    if (rawTranscript.includes('Agent:') || rawTranscript.includes('Customer:')) {
-      parts = rawTranscript.split(/(?=(?:Agent|Customer):)/g).filter(Boolean);
+    if (transcriptLog.includes('Agent:') || transcriptLog.includes('Customer:')) {
+      parts = transcriptLog.split(/(?=(?:Agent|Customer):)/g).filter(Boolean);
+    } else if (transcriptLog.match(/[AC]:/)) {
+      parts = transcriptLog.split(/(?=[AC]:)/g).filter(Boolean);
+    } else {
+      parts = [transcriptLog];
     }
-    // Try A: C: format
-    else if (rawTranscript.match(/[AC]:/)) {
-      parts = rawTranscript.split(/(?=[AC]:)/g).filter(Boolean);
-    }
-    // If no clear format, treat as single message
-    else {
-      parts = [rawTranscript];
-    }
-
-    transcriptItems = parts.map((part, idx) => {
+    transcriptItems = parts.map((part) => {
       let speaker = 'Unknown';
       let text = part.trim();
-
-      // Match "A: text" or "C: text"
       let match = part.match(/^([AC]):\s*(.*)$/s);
       if (match) {
         speaker = match[1] === 'A' ? 'Agent' : 'Customer';
         text = match[2].trim();
-      }
-      // Match "Agent: text" or "Customer: text"
-      else {
+      } else {
         match = part.match(/^(Agent|Customer):\s*(.*)$/is);
         if (match) {
           speaker = match[1].charAt(0).toUpperCase() + match[1].slice(1);
           text = match[2].trim();
         }
       }
-
-      return {
-        Speaker: speaker,
-        Text: text,
-        Timestamp: ''
-      };
+      return { Speaker: speaker, Text: text };
     }).filter(item => item.Text.length > 0);
-  } else if (Array.isArray(rawTranscript)) {
-    transcriptItems = rawTranscript.map(item => ({
+  } else if (Array.isArray(transcriptLog)) {
+    transcriptItems = transcriptLog.map(item => ({
       Speaker: item.Speaker || item.speaker || 'Unknown',
       Text: item.Text || item.text || String(item),
-      Timestamp: item.Timestamp || item.timestamp || ''
     }));
   }
 
-  // Helper functions
-  const getLeadStatusStyle = (status) => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('hot')) return { bg: 'bg-emerald-900/30', border: 'border-emerald-600/40', text: 'text-emerald-400' };
-    if (s.includes('warm') || s.includes('progress')) return { bg: 'bg-amber-900/30', border: 'border-amber-600/40', text: 'text-amber-400' };
-    if (s.includes('cold') || s.includes('lost')) return { bg: 'bg-red-900/30', border: 'border-red-600/40', text: 'text-red-400' };
-    return { bg: 'bg-gray-800/50', border: 'border-gray-600/40', text: 'text-gray-400' };
+  // ========== EXPANDABLE DETAILS COMPONENT ==========
+  const ExpandableDetail = ({ title, subtitle, rating, reason, variant = 'default' }) => {
+    const [open, setOpen] = useState(false);
+    const badgeClass = getRatingBadgeClass(rating);
+    
+    return (
+      <div className={`rounded-lg overflow-hidden border-2 ${variant === 'green' ? 'bg-emerald-50 border-emerald-200' : variant === 'yellow' ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'}`}>
+        <button
+          onClick={() => setOpen(!open)}
+          className={`w-full p-6 text-left transition ${variant === 'green' ? 'hover:bg-emerald-100' : variant === 'yellow' ? 'hover:bg-amber-100' : 'hover:bg-gray-100'}`}
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-lg font-bold text-gray-900">{title}</p>
+              {subtitle && <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-bold px-4 py-1.5 rounded-full border-2 ${badgeClass}`}>
+                {normalizeRating(rating).toUpperCase()}
+              </span>
+              <span className="text-gray-400 text-xl font-bold">{open ? '−' : '+'}</span>
+            </div>
+          </div>
+        </button>
+        {open && reason && (
+          <div className={`px-6 pb-6 text-base text-gray-700 border-t-2 pt-4 ${variant === 'green' ? 'border-emerald-200' : variant === 'yellow' ? 'border-amber-300' : 'border-gray-200'}`}>
+            <strong className={`text-sm uppercase ${variant === 'green' ? 'text-emerald-700' : variant === 'yellow' ? 'text-amber-700' : 'text-gray-500'}`}>Reason:</strong> {reason}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const getSentimentStyle = (sentiment) => {
-    const s = (sentiment || '').toLowerCase();
-    if (s.includes('excellent') || s.includes('positive')) return { bg: 'bg-emerald-900/30', text: 'text-emerald-300' };
-    if (s.includes('neutral')) return { bg: 'bg-amber-900/30', text: 'text-amber-300' };
-    return { bg: 'bg-red-900/30', text: 'text-red-300' };
+  // ========== HOOK CARD COMPONENT ==========
+  const HookCard = ({ title, status, comment, isPrimary = false }) => {
+    const [open, setOpen] = useState(false);
+    const isYes = String(status).toLowerCase() === 'yes';
+    
+    return (
+      <div className={`rounded-lg overflow-hidden border-2 relative ${isPrimary ? 'bg-emerald-50 border-emerald-200 md:col-span-2' : 'bg-gray-50 border-gray-200'}`}>
+        <button
+          onClick={() => setOpen(!open)}
+          className={`w-full p-6 text-left transition ${isPrimary ? 'hover:bg-emerald-100' : isYes ? 'hover:bg-emerald-50' : 'hover:bg-red-50'}`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`font-bold text-xl ${isYes ? 'text-emerald-600' : 'text-red-600'}`}>
+              {isPrimary ? '★' : isYes ? '✓' : '✗'}
+            </span>
+            <p className={`text-sm font-bold uppercase ${isPrimary ? 'text-emerald-800' : 'text-gray-600'}`}>{title}</p>
+          </div>
+          <p className={`text-lg font-semibold ${isYes ? 'text-emerald-600' : 'text-red-600'}`}>
+            {isPrimary && isYes ? 'OFFERED & ACCEPTED' : isYes ? 'YES' : 'NO'}
+          </p>
+          <span className="absolute right-6 top-6 text-gray-400 text-xl font-bold">{open ? '−' : '+'}</span>
+        </button>
+        {open && comment && (
+          <div className={`px-6 pb-6 text-sm border-t-2 pt-4 ${isPrimary ? 'text-emerald-800 border-emerald-200' : 'text-gray-700 border-gray-200'}`}>
+            {comment}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const getScoreColor = (score) => {
-    if (score >= 4) return 'text-emerald-400';
-    if (score >= 3) return 'text-amber-400';
-    return 'text-red-400';
+  // ========== INFO CARD WITH TOOLTIP ==========
+  const InfoCard = ({ label, value, reason, valueClass = '' }) => {
+    const [hovered, setHovered] = useState(false);
+    
+    return (
+      <div 
+        className="relative bg-gray-50 border-2 border-gray-200 rounded-xl p-6 hover:border-emerald-400 transition cursor-pointer"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {reason && hovered && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-3 bg-gray-800 border border-gray-700 px-4 py-3 rounded-lg text-sm text-gray-100 whitespace-normal w-max max-w-85 z-50 shadow-xl">
+            {reason}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-800"></div>
+          </div>
+        )}
+        <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">{label}</p>
+        <div className="flex items-center">
+          <span className={`w-2.5 h-2.5 rounded-full mr-2 ${getScoreDotClass(value)}`}></span>
+          <span className={`text-2xl font-bold ${valueClass || getRatingTextClass(value)}`}>
+            {normalizeRating(value).toUpperCase()}
+          </span>
+        </div>
+      </div>
+    );
   };
-
-  const getRelaxBarHeight = (score) => `${Math.max(score * 20, 20)}%`;
-
-  const getRelaxBarClass = (score) => {
-    if (score >= 4) return 'bg-gradient-to-t from-emerald-600 to-emerald-400';
-    if (score >= 3) return 'bg-gradient-to-t from-amber-600 to-amber-400';
-    return 'bg-gradient-to-t from-red-600 to-red-400';
-  };
-
-  const getRelaxBorderColor = (score) => {
-    if (score >= 4) return 'border-emerald-500';
-    if (score >= 3) return 'border-amber-500';
-    return 'border-red-500';
-  };
-
-  const getBarrierIcon = (barrier) => {
-    const b = (barrier || '').toLowerCase();
-    if (b.includes('price')) return '💰';
-    if (b.includes('product') || b.includes('confusion')) return '🤔';
-    if (b.includes('family') || b.includes('spouse')) return '👥';
-    if (b.includes('timing') || b.includes('delivery')) return '📅';
-    if (b.includes('trust')) return '🔒';
-    return '❓';
-  };
-
-  const getDecisionIcon = (decision) => {
-    const d = (decision || '').toLowerCase();
-    if (d.includes('joint')) return '👥';
-    if (d.includes('spouse')) return '💑';
-    if (d.includes('family')) return '👨‍👩‍👧‍👦';
-    return '👤';
-  };
-
-  const getTimelineIcon = () => '📅';
-
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const safeStringify = (value) => {
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (typeof value === 'object') {
-      // Try to extract meaningful properties
-      if (value.Details) return String(value.Details);
-      if (value.Reason) return String(value.Reason);
-      if (value.Text) return String(value.Text);
-      if (value.Message) return String(value.Message);
-      return '';
-    }
-    return String(value);
-  };
-
-  const leadStyle = getLeadStatusStyle(leadStatusLabel);
-  const storeSentimentStyle = getSentimentStyle(storeSentiment);
-  const callSentimentStyle = getSentimentStyle(callSentiment);
-
-  // AIDA stages
-  const aidaStages = ['Awareness', 'Interest', 'Desire', 'Action'];
-  const currentAidaIndex = aidaStages.findIndex(s => s.toLowerCase() === (aidaStage || '').toLowerCase());
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Background Noise Texture */}
-      <div 
-        className="fixed inset-0 opacity-[0.03] pointer-events-none" 
-        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }}
-      ></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
+    <div className="min-h-screen bg-gray-50 text-gray-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-400 mx-auto px-8 py-10 relative z-10">
         
         {/* Navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <Link to="/outbound-calls" className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition">
-            <ArrowLeft className="w-4 h-4" /> Back to Walk-in Leads
+        <div className="flex items-center justify-between mb-10">
+          <Link to="/outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
+            ← BACK TO WALK-IN LEADS
           </Link>
-          <div className="flex gap-3">
+          <div className="flex gap-4">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+              ID: {report.call_id}
+            </span>
             <button 
               onClick={playRecording}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
             >
-              <Play className="w-4 h-4" /> Access Recording
-            </button>
-            <button
-              onClick={downloadReport}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <Download className="w-4 h-4" /> Download Report
-            </button>
-            <button 
-              onClick={downloadTranscript}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
-            >
-              <FileDown className="w-4 h-4" /> Transcript
+              <Phone className="w-4 h-4" /> LISTEN TO CALL
             </button>
           </div>
         </div>
 
-        {/* Header Section */}
-        <header className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border border-white/6 rounded-3xl p-8 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-600 to-transparent"></div>
-          
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-xs text-gray-500 tracking-wider">ID: {report.call_id}</span>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-semibold text-gray-100" style={{ fontFamily: 'Fraunces, serif', letterSpacing: '-0.02em' }}>
-                  WALK-IN RECOVERY
-                </h1>
-                <span className={`inline-flex items-center gap-2 ${leadStyle.bg} border ${leadStyle.border} px-3 py-1 rounded-full text-xs font-bold ${leadStyle.text} uppercase tracking-wider`}>
-                  <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-                  {leadStatusLabel}
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex flex-col items-end gap-2">
-              <span className="text-xs uppercase tracking-wider text-gray-500">Product of Interest</span>
-              <div className="text-2xl font-bold text-gray-100 font-mono">{productOfInterest}</div>
-            </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="grid grid-cols-5 gap-6 pt-6 border-t border-white/5">
-            <div className="col-span-2">
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Store Visited</p>
-              <div className="flex items-center gap-2 text-gray-200 font-medium">
-                <Home className="w-4 h-4 text-indigo-400" />
-                {report.store_name || 'Unknown Store'}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Visit Date</p>
-              <p className="text-sm font-medium text-gray-200">{report.call_date || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Customer</p>
-              <p className="text-sm font-medium text-gray-200">{report.customer_phone || 'Walk-in Customer'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call Duration</p>
-              <p className="text-sm font-medium text-gray-200">{formatDuration(report.duration || 0)}</p>
-            </div>
-          </div>
-        </header>
-
-        {/* ZONE 1: THE DOUBLE AUDIT */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Store Experience Audit */}
-          <div className={`bg-[#0f0f14] border border-white/6 rounded-2xl p-6 border-l-4 ${storeRating >= 4 ? 'border-l-emerald-500' : storeRating >= 3 ? 'border-l-amber-500' : 'border-l-red-500'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Store Experience Rating</h2>
-              <span className={`px-2 py-1 ${storeSentimentStyle.bg} ${storeSentimentStyle.text} rounded text-xs font-bold uppercase`}>
-                {storeSentiment}
-              </span>
-            </div>
-            <div className="flex gap-4 items-center">
-              <div className={`text-4xl font-bold ${getScoreColor(storeRating)}`}>
-                {storeRating}<span className="text-lg text-gray-600">/5</span>
-              </div>
-              <div>
-                <p className="text-sm text-gray-300 font-medium">"{String(storeFeedback).substring(0, 50)}..."</p>
-                <p className="text-xs text-gray-500 mt-1">{String(storeFeedback)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Call Experience Audit */}
-          <div className={`bg-[#0f0f14] border border-white/6 rounded-2xl p-6 border-l-4 ${callRating >= 4 ? 'border-l-emerald-500' : callRating >= 3 ? 'border-l-amber-500' : 'border-l-red-500'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Call Experience (Agent)</h2>
-              <span className={`px-2 py-1 ${callSentimentStyle.bg} ${callSentimentStyle.text} rounded text-xs font-bold uppercase`}>
-                {callSentiment}
-              </span>
-            </div>
-            <div className="flex gap-4 items-center">
-              <div className={`text-4xl font-bold ${getScoreColor(callRating)}`}>
-                {callRating}<span className="text-lg text-gray-600">/5</span>
-              </div>
-              <div>
-                <p className="text-sm text-gray-300 font-medium">{callSkillHighlight}</p>
-                <p className="text-xs text-gray-500 mt-1">Key skill demonstrated during the call</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ZONE 2: DIAGNOSIS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Why: Barrier */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Primary Walk-out Reason</p>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">{getBarrierIcon(primaryWalkoutReason)}</span>
-              <span className="font-bold text-gray-200">{primaryWalkoutReason}</span>
-            </div>
-            <p className="text-xs text-gray-400">Main barrier identified during the call.</p>
-          </div>
-
-          {/* Who: Decision Maker */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Decision Maker</p>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">{getDecisionIcon(decisionMaker)}</span>
-              <span className="font-bold text-gray-200">{decisionMaker}</span>
-            </div>
-            <p className="text-xs text-gray-400">Who makes the final purchase decision.</p>
-          </div>
-
-          {/* When: Timeline */}
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Timeline to Purchase</p>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">{getTimelineIcon()}</span>
-              <span className={`font-bold ${timelineLabel.toLowerCase().includes('short') || timelineLabel.toLowerCase().includes('immediate') ? 'text-amber-300' : 'text-gray-200'}`}>
-                {timelineLabel}
-              </span>
-            </div>
-            <p className="text-xs text-gray-400">Expected purchase timeline.</p>
-          </div>
-        </div>
-
-        {/* ZONE 3: RECOVERY HOOKS */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6 relative overflow-hidden">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Recovery Hooks Used</h2>
-            <span className="text-xs text-gray-500">Did the agent add value to save the deal?</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-            {/* Hook 1: Value Add / Sweetener */}
-            <div className={`bg-[#16161d] rounded-xl p-5 border ${sweetenerHook.Rating_Label === 'HIGH' ? 'border-emerald-500/30' : sweetenerHook.Rating_Label === 'MEDIUM' ? 'border-amber-500/30' : 'border-gray-600/30'}`}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="text-sm font-bold text-gray-200">Value Add / Sweetener</p>
-                  <p className="text-xs text-gray-400">Discount or Gift offered?</p>
-                </div>
-                <span className={`px-2 py-1 text-xs font-bold rounded ${
-                  sweetenerHook.Rating_Label === 'HIGH' ? 'bg-emerald-500/20 text-emerald-400' :
-                  sweetenerHook.Rating_Label === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400' :
-                  sweetenerHook.Rating_Label === 'LOW' ? 'bg-red-500/20 text-red-400' :
-                  'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {sweetenerHook.Rating_Label || 'NOT OFFERED'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Percent className={`w-4 h-4 ${sweetenerHook.Rating_Label === 'HIGH' ? 'text-emerald-400' : sweetenerHook.Rating_Label === 'MEDIUM' ? 'text-amber-400' : 'text-gray-400'}`} />
-                <span className="text-sm text-gray-300">{safeStringify(sweetenerHook.Details) || 'No specific offer mentioned'}</span>
-              </div>
-            </div>
-
-            {/* Hook 2: Home Measure */}
-            <div className={`bg-[#16161d] rounded-xl p-5 border ${homeMeasureHook.Offered ? 'border-emerald-500/30' : 'border-gray-600/30'}`}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="text-sm font-bold text-gray-200">Home Measure Visit</p>
-                  <p className="text-xs text-gray-400">Service hook offered?</p>
-                </div>
-                <span className={`px-2 py-1 text-xs font-bold rounded ${homeMeasureHook.Offered ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                  {homeMeasureHook.Offered ? 'OFFERED' : 'NOT OFFERED'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Package className={`w-4 h-4 ${homeMeasureHook.Offered ? 'text-emerald-400' : 'text-gray-400'}`} />
-                <span className="text-sm text-gray-300">{safeStringify(homeMeasureHook.Reasoning) || 'Home measurement service not discussed'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ZONE 4: LEAD HEALTH */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Lead Health</h2>
-            <span className="text-xs text-gray-500">Funnel State (AIDA)</span>
-          </div>
-
-          {/* AIDA Funnel Visual */}
-          <div className="flex items-center justify-between w-full gap-2 mb-8 px-2">
-            {aidaStages.map((stage, index) => (
-              <React.Fragment key={stage}>
-                <div className={`flex-1 py-3 rounded-md text-center text-sm font-bold uppercase tracking-wider relative ${
-                  index === currentAidaIndex 
-                    ? 'bg-amber-900/20 border border-amber-500/50 text-amber-500' 
-                    : 'bg-[#16161d] border border-white/5 text-gray-500'
-                }`}>
-                  {stage}
-                  {index === currentAidaIndex && (
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 bg-amber-500 rotate-45 border-2 border-[#08080c]"></div>
-                  )}
-                </div>
-                {index < aidaStages.length - 1 && <div className="w-4 h-0.5 bg-gray-800"></div>}
-              </React.Fragment>
-            ))}
-          </div>
-
-          <div className="bg-[#16161d] rounded-lg p-5 border-l-2 border-indigo-500">
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Next Action for Duroflex</p>
-            <p className="text-sm font-medium text-white">{nextActionText}</p>
-          </div>
-        </div>
-
-        {/* ZONE 5: RELAX METHODOLOGY */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>RELAX Sales Methodology</h2>
-            <span className="text-xs text-gray-500">Framework Performance</span>
+        {/* HEADER: Metadata & Summary */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-10 mb-10 shadow-lg">
+          <div className="border-l-4 border-blue-500 pl-5 mb-8">
+            <h1 className="text-4xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Walk-in Recovery Analysis</h1>
+            <p className="text-base text-gray-500 mt-2">Store Visit Follow-up • {customerLocation} • Agent: Central Sales</p>
           </div>
           
-          {/* RELAX Bar Chart */}
-          <div className="flex justify-between items-end h-48 px-8 mb-8">
-            {[
-              { letter: 'R', name: 'Reach Out', score: relaxScores.R },
-              { letter: 'E', name: 'Explore', score: relaxScores.E },
-              { letter: 'L', name: 'Link', score: relaxScores.L },
-              { letter: 'A', name: 'Add Value', score: relaxScores.A },
-              { letter: 'X', name: 'Express', score: relaxScores.X },
-            ].map((item) => (
-              <div key={item.letter} className="flex flex-col items-center gap-3 flex-1">
-                <div 
-                  className={`w-14 rounded-t-lg ${getRelaxBarClass(item.score)} flex items-end justify-center pb-3 relative shadow-lg`}
-                  style={{ height: getRelaxBarHeight(item.score) }}
-                >
-                  <span className="text-lg font-bold text-white drop-shadow-md">{item.score}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* Col 1: Identity & Metadata */}
+            <div className="lg:col-span-4 border-r border-gray-200 pr-8">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <span className="font-mono text-sm text-gray-500 tracking-widest uppercase">Customer</span>
+                  <h2 className="text-3xl font-semibold text-gray-900 mt-1" style={{ fontFamily: 'Fraunces, serif' }}>{customerName}</h2>
                 </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-gray-200">{item.letter}</p>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">{item.name}</p>
+                <span className={`text-sm font-bold px-4 py-1.5 rounded-full border uppercase ${connectedToCustomer ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                  {connectedToCustomer ? 'Connected' : 'Not Connected'}
+                </span>
+              </div>
+              
+              <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Store Location</span>
+                  <span className="text-gray-900 font-medium text-lg">{customerLocation}</span>
+                </div>
+                
+                <div>
+                  <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Consideration Value</span>
+                  <span className="text-blue-600 text-3xl font-bold">{considerationValue}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
+                    <span className="font-mono text-lg text-gray-900">{callDuration}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Enthusiasm</span>
+                    <span className={`text-lg font-bold ${getRatingTextClass(customerEnthusiasm)}`}>{normalizeRating(customerEnthusiasm)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Quality</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${getScoreDotClass(callQuality)}`}></span>
+                    <span className="text-base font-bold text-gray-700">{normalizeRating(callQuality)}</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Text Breakdown Grid */}
-          <div className="grid grid-cols-5 gap-3">
-            {['R', 'E', 'L', 'A', 'X'].map((letter) => (
-              <div key={letter} className={`bg-[#16161d] rounded p-3 border-l-2 ${getRelaxBorderColor(relaxScores[letter])}`}>
-                <p className="text-xs text-gray-400 leading-relaxed">{relaxReasons[letter] || 'No details available.'}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Soft Skills */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 mb-6">
-          <h2 className="text-md font-medium text-gray-100 mb-4" style={{ fontFamily: 'Fraunces, serif' }}>Agent Soft Skills</h2>
-          <div className="grid grid-cols-4 gap-4">
-            {Object.entries(softSkills).map(([skill, score]) => (
-              <div key={skill} className="bg-[#16161d] p-4 rounded-lg text-center">
-                <span className={`block text-2xl font-bold ${getScoreColor(score)}`}>{score}</span>
-                <span className="text-[10px] text-gray-500 uppercase mt-1">{skill}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7 mb-6">
-          <h2 className="text-lg font-medium text-gray-100 mb-4" style={{ fontFamily: 'Fraunces, serif' }}>Call Summary & Verdict</h2>
-          <div className={`bg-[#16161d] rounded-lg p-6 border-l-4 ${
-            recoveryVerdict.toLowerCase().includes('hot') ? 'border-emerald-500' :
-            recoveryVerdict.toLowerCase().includes('warm') || recoveryVerdict.toLowerCase().includes('progress') ? 'border-amber-500' :
-            'border-red-500'
-          }`}>
-            <div className="flex justify-between items-start mb-2">
-              <h3 className={`text-sm font-bold uppercase tracking-wide ${
-                recoveryVerdict.toLowerCase().includes('hot') ? 'text-emerald-400' :
-                recoveryVerdict.toLowerCase().includes('warm') || recoveryVerdict.toLowerCase().includes('progress') ? 'text-amber-400' :
-                'text-red-400'
-              }`}>{recoveryVerdict}</h3>
             </div>
-            <p className="text-sm text-gray-300 leading-relaxed italic">
-              "{callSynopsis}"
-            </p>
+
+            {/* Col 2: Call Summary */}
+            <div className="lg:col-span-8 pl-4 flex flex-col justify-center">
+              <div className="mb-5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Call Objective</span>
+                <h3 className="text-2xl text-gray-900 font-semibold" style={{ fontFamily: 'Fraunces, serif' }}>{objectiveType}</h3>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-8">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-widest block mb-3">Executive Summary</span>
+                <p className="text-lg text-gray-700 leading-relaxed font-medium">
+                  {callSummary || summaryOld.Call_Synopsis || 'No summary available for this call.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 1: Recovery & Experience Audit */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Recovery & Experience Audit</h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+            <InfoCard label="Intent to Purchase" value={intentRating} reason={intentReason} />
+            <InfoCard label="Store Experience" value={storeExpRating} reason={storeExpReason} />
+            <InfoCard label="Call Experience" value={callExpRating} reason={callExpReason} />
+            <div className="relative group bg-gray-50 border-2 border-gray-200 rounded-xl p-6 hover:border-blue-400 transition cursor-pointer">
+              {funnelReason && (
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-3 bg-gray-800 border border-gray-700 px-4 py-3 rounded-lg text-sm text-gray-100 whitespace-normal w-max max-w-85 z-50 shadow-xl">
+                  {funnelReason}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-800"></div>
+                </div>
+              )}
+              <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">Funnel Stage</p>
+              <span className="text-2xl font-bold text-blue-600">{funnelStage.toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Funnel Visual */}
+          <div className="flex items-center gap-1 mb-8">
+            {funnelStages.map((stage, index) => (
+              <div
+                key={stage}
+                className={`relative font-bold uppercase text-sm tracking-wider flex items-center justify-center py-3 px-4 border ${
+                  index === 0 
+                    ? 'rounded-l-lg' 
+                    : ''
+                } ${
+                  index === funnelStages.length - 1 
+                    ? 'rounded-r-lg' 
+                    : ''
+                } ${
+                  index <= currentFunnelIndex
+                    ? 'bg-linear-to-r from-emerald-500 to-emerald-600 text-white border-emerald-600 shadow-md'
+                    : 'bg-gray-100 text-gray-500 border-gray-200'
+                }`}
+                style={{
+                  clipPath: index === 0 
+                    ? 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)' 
+                    : 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)',
+                  flex: 1,
+                }}
+              >
+                {stage}
+              </div>
+            ))}
+          </div>
+
+          {/* Barrier Analysis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <span className="text-3xl">🏬</span>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-gray-600 uppercase tracking-wider mb-2">Walk-out Reason (Store)</p>
+                  <p className="text-lg text-gray-900 font-medium">{barrierAtStore || 'Not specified'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <span className="text-3xl">✅</span>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-emerald-700 uppercase tracking-wider mb-2">Current Barrier / Recovery</p>
+                  <p className="text-lg text-emerald-900 font-medium">{barrierOnCall || homeMeasureReason || 'Addressed via follow-up call'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: Product Intelligence & Customer Needs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          {/* Product Intelligence */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Product Intelligence</h2>
+            </div>
+
+            <div className="space-y-6">
+              {/* Narrow Down Stage */}
+              <div>
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Narrow Down Stage</p>
+                <div className="flex items-center gap-2">
+                  {narrowStages.map((stage, index) => (
+                    <div
+                      key={stage}
+                      className={`font-semibold text-sm tracking-wide flex items-center justify-center py-3 px-5 border ${
+                        index <= currentNarrowIndex
+                          ? 'bg-linear-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                      }`}
+                      style={{
+                        clipPath: index === 0 
+                          ? 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)' 
+                          : 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)',
+                        flex: 1,
+                      }}
+                    >
+                      {stage}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Product of Interest</p>
+                <span className="text-lg font-semibold text-gray-900">{productOfInterest}</span>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Decision Maker</p>
+                <span className="text-lg font-semibold text-gray-900">{decisionMaker}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Needs */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-6 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Customer Needs Profile</h2>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-300 rounded-lg p-6">
+              <p className="text-lg text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {needsDescription || 'No detailed needs description captured for this call.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: Recovery Tactics */}
+        <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 mb-10 shadow-lg">
+          <div className="mb-8 border-b-2 border-gray-200 pb-4">
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Recovery Tactics Utilized</h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <HookCard 
+              title="Home Measurement" 
+              status={homeMeasureOffered ? 'Yes' : 'No'} 
+              comment={homeMeasureReason}
+              isPrimary={true}
+            />
+            <HookCard 
+              title="Discount/EMI" 
+              status={hookOffers.Status} 
+              comment={hookOffers.Comment}
+            />
+            <HookCard 
+              title="Warranty" 
+              status={hookWarranty.Status} 
+              comment={hookWarranty.Comment}
+            />
+            <HookCard 
+              title="Sleep Trial" 
+              status={hookSleepTrial.Status} 
+              comment={hookSleepTrial.Comment}
+            />
+          </div>
+        </div>
+
+        {/* SECTION 4: RELAX Framework & Agent Scorecard */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
+          
+          {/* RELAX Framework */}
+          <div className="lg:col-span-7 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>RELAX Framework</h2>
+              <span className={`text-4xl font-bold ${getRatingTextClass(getOverallRelaxAdherence())}`}>
+                {getOverallRelaxAdherence()}
+                <span className="text-xl text-gray-500 ml-1">Adherence</span>
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <ExpandableDetail 
+                title="R — Reach Out" 
+                subtitle="Context Setting" 
+                rating={getRelaxScore(relaxR)} 
+                reason={getRelaxReason(relaxR)}
+              />
+              <ExpandableDetail 
+                title="E — Explore Needs" 
+                subtitle="Probing Walk-out Reason" 
+                rating={getRelaxScore(relaxE)} 
+                reason={getRelaxReason(relaxE)}
+              />
+              <ExpandableDetail 
+                title="L — Link Product" 
+                subtitle="Re-affirm Store Demo" 
+                rating={getRelaxScore(relaxL)} 
+                reason={getRelaxReason(relaxL)}
+              />
+              <ExpandableDetail 
+                title="A — Add Value" 
+                subtitle="Recovery Hook" 
+                rating={getRelaxScore(relaxA)} 
+                reason={getRelaxReason(relaxA)}
+              />
+              <ExpandableDetail 
+                title="X — Express Closing" 
+                subtitle="Appointment Setting" 
+                rating={getRelaxScore(relaxX)} 
+                reason={getRelaxReason(relaxX)}
+              />
+            </div>
+          </div>
+
+          {/* Agent Scorecard */}
+          <div className="lg:col-span-5 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Agent Scorecard</h2>
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Recovery Skills</h3>
+            <div className="space-y-4 mb-8">
+              <ExpandableDetail 
+                title="Sales Skills" 
+                rating={mainSkills.Sales_Skills || 'Medium'} 
+                reason=""
+              />
+              <ExpandableDetail 
+                title="Objection Handling" 
+                rating={secondaryTraits.Objection_Handling || 'Medium'} 
+                reason=""
+              />
+              <ExpandableDetail 
+                title="Upsell Skills" 
+                rating={mainSkills.Upsell_Revenue_Skills || 'Medium'} 
+                reason=""
+              />
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pt-4 border-t border-gray-200">Traits</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-gray-600 font-bold uppercase tracking-wider">Agent Nature</p>
+                  <span className={`text-sm font-bold px-3 py-1.5 rounded border-2 ${
+                    String(secondaryTraits.Agent_Nature || '').toLowerCase() === 'proactive' 
+                      ? 'bg-blue-100 text-blue-700 border-blue-300' 
+                      : 'bg-gray-100 text-gray-700 border-gray-300'
+                  }`}>
+                    {secondaryTraits.Agent_Nature || 'Responsive'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 5: Learnings & Closing Intelligence */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          
+          {/* Agent Learnings */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Agent Learnings</h2>
+            </div>
+
+            <div className="space-y-4">
+              {agentLearnings.length > 0 ? agentLearnings.map((learning, index) => (
+                <div key={index} className={`p-5 rounded-lg border-2 ${index === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
+                  <span className={`text-base font-bold ${index === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {index + 1}. {learning}
+                  </span>
+                </div>
+              )) : (
+                <div className="p-5 rounded-lg border-2 bg-gray-50 border-gray-200">
+                  <span className="text-base text-gray-600">No specific learnings captured for this call.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Closing Intelligence */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
+            <div className="mb-8 border-b-2 border-gray-200 pb-4">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Closing Intelligence</h2>
+            </div>
+
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6 mb-8">
+              <p className="text-sm text-blue-700 font-bold uppercase tracking-wider mb-4">Next Actions</p>
+              <p className="text-lg text-gray-700 leading-relaxed font-semibold">
+                {nextActionsText || 'No specific next actions captured.'}
+              </p>
+            </div>
+
+            {(npsScore !== '' && npsScore !== undefined) && (
+              <div className="bg-linear-to-br from-emerald-100 to-emerald-50 border-2 border-emerald-400 rounded-xl p-8 text-center">
+                <p className="text-sm text-emerald-700 font-bold uppercase tracking-wider mb-4">End-to-End NPS</p>
+                <div className={`text-6xl font-bold mb-4 ${getNPSColorClass(npsScore)}`}>{npsScore}</div>
+                <p className={`text-base font-bold uppercase tracking-wide mb-4 ${getNPSColorClass(npsScore)}`}>{getNPSLabel(npsScore)}</p>
+                {npsComment && (
+                  <p className="text-base text-gray-700 italic leading-relaxed">"{npsComment}"</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Transcript */}
-        {transcriptItems.length > 0 ? (
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-7 border-b border-white/6">
-              <h2 className="text-lg font-medium text-gray-100" style={{ fontFamily: 'Fraunces, serif' }}>Call Transcript</h2>
+        {transcriptItems.length > 0 && (
+          <div className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden shadow-lg mb-10">
+            <div className="flex justify-between items-center p-8 border-b-2 border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Call Transcript</h2>
               <button
                 onClick={() => setExpandTranscript(!expandTranscript)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#16161d] rounded-lg text-sm text-indigo-400 hover:bg-[#1c1c25] transition"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 hover:bg-gray-200 transition font-semibold"
               >
                 <span>{expandTranscript ? 'Collapse' : 'Expand'}</span>
                 {expandTranscript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -663,29 +788,28 @@ const OutboundCallDetail = () => {
             </div>
 
             {expandTranscript && (
-              <div className="max-h-[500px] overflow-y-auto p-7 space-y-6">
+              <div className="max-h-125 overflow-y-auto p-8 space-y-6">
                 {transcriptItems.map((msg, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-800 last:border-0">
-                    <span className="font-mono text-xs text-gray-500 min-w-12 pt-1">{msg.Timestamp || ''}</span>
+                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
                     <div className="flex-1">
                       <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${
-                        msg.Speaker?.toLowerCase().includes('agent') ? 'text-indigo-400' : 'text-emerald-400'
+                        msg.Speaker?.toLowerCase().includes('agent') ? 'text-blue-600' : 'text-emerald-600'
                       }`}>
                         {msg.Speaker}
                       </p>
-                      <p className="text-sm text-gray-300 leading-relaxed">{msg.Text}</p>
+                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        ) : (
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl p-7">
-            <h2 className="text-lg font-medium text-gray-100 mb-4" style={{ fontFamily: 'Fraunces, serif' }}>Call Transcript</h2>
-            <p className="text-gray-400">No transcript available for this call.</p>
-          </div>
         )}
+
+        {/* Footer */}
+        <div className="text-center pt-8 border-t-2 border-gray-200">
+          <p className="text-base text-gray-500">Duroflex Store Recovery Intelligence • Powered by AI Analysis</p>
+        </div>
 
       </div>
     </div>

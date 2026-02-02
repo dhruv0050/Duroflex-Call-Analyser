@@ -317,6 +317,16 @@ class OutboundCallUploadProcessor:
                             continue
                         
                         print(f"[OUTBOUND] ✅ Analysis completed for row {row_num}")
+
+                        # Normalize fields for storage consistency (avoid casing/alias issues)
+                        if isinstance(analysis, dict):
+                            funnel = analysis.get("5_Funnel_Analysis")
+                            if isinstance(funnel, dict) and "Reason" not in funnel:
+                                for alt_key in ("reason", "Rationale", "Why", "Stage_Reason", "StageReason"):
+                                    alt_val = funnel.get(alt_key)
+                                    if isinstance(alt_val, str) and alt_val.strip():
+                                        funnel["Reason"] = alt_val
+                                        break
                         
                         # Store successful record
                         base_record["analysis"] = analysis
@@ -357,221 +367,164 @@ class OutboundCallUploadProcessor:
             raise
 
     def _create_prompt_template(self, call_record: Dict) -> str:
-        """Create the analysis prompt with call context"""
-        # This will be formatted with actual values
-        return f"""You are an expert Retail Operations & Sales Analyst for Duroflex, a premium mattress and sleep solutions brand.
+        """Create the outbound store-walkin analysis prompt (ABC-style schema)."""
 
-## CONTEXT
-You are analyzing an Outbound Call made by a Duroflex Central Sales Agent to a customer who visited a Duroflex store but did not purchase. These customers experienced the products in-store, interacted with store staff, and left their contact details for follow-up. The Central Sales Team now calls to understand their barriers and nudge them toward successful purchase completion. Unlike online abandons, these customers have already physically tried the products — the agent must leverage this in-store experience.
+        # Keep the output schema in a non-f-string so curly braces don't get interpreted
+        # by Python's f-string formatter.
+        output_schema = """{
+  "MetaData": {
+    "Customer_Name": "String",
+    "Customer_Location": "String",
+    "Customer_Language": "String",
+    "Customer_Gender": "Male | Female | Unknown",
+    "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
+    "Consideration_Value": "String (e.g. 'Premium Range' or 'Budget')",
+    "Call_Quality_Overall": "High | Medium | Low",
+    "Call_Duration": "String",
+    "Connected_to_Customer": true,
+    "Customer_Enthusiasm": "High | Medium | Low"
+  },
+  "Call_Summary": "String (Max 150 words - Focus on the store feedback and call outcome)",
+  "1_Call_Objective": {
+    "Type": "Store Walk-in Recovery | Post-Purchase Check",
+    "Objective_Phrase": "String"
+  },
+  "2_Intent_to_Purchase": {
+    "Rating": "High | Medium | Low",
+    "Reason": "String (Evidence based)"
+  },
+  "3_Store_Experience": {
+    "Rating": "High | Medium | Low",
+    "Reason": "String (Why did they leave without buying? Staff/Stock/Price?)"
+  },
+  "4_Call_Experience": {
+    "Rating": "High | Medium | Low",
+    "Reason": "String (How well did the agent handle the feedback?)"
+  },
+  "5_Funnel_Analysis": {
+        "Stage": "Awareness | Consideration | Action",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
+    "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown"
+  },
+  "6_Product_Intelligence": {
+    "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",
+    "Product_of_Interest": "String",
+    "Approx_Order_Value": "String (or NA)"
+  },
+  "7_Customer_Needs": {
+    "Description": "String (Who is it for? Key pain points? Constraints?)"
+  },
+  "8_Purchase_Barriers": {
+    "At_Store": "String (Why they walked out?)",
+    "On_Call": "String (Why they aren't buying now?)"
+  },
+  "9_Decision_Maker": "Caller | Spouse | Joint | Unknown",
+  "10_Invitations": {
+    "Home_Measurement": {
+      "Rating": "High | Medium | Low",
+      "Reason": "String (Did agent suggest sending a technician?)"
+    }
+  },
+  "11_Conversion_Hooks": {
+    "Offers_Discounts_EMI": {"Status": "Yes | No", "Comment": "String (Did they offer a 'Manager's Discount'?) "},
+    "Product_Brochure": {"Status": "Yes | No", "Comment": "String"},
+    "Mattress_Measurement": {"Status": "Yes | No", "Comment": "String"},
+    "Brand_Legacy_Warranty": {"Status": "Yes | No", "Comment": "String"},
+    "Sleep_Trial": {"Status": "Yes | No", "Comment": "String"}
+  },
+  "12_RELAX_Framework": {
+    "R_Reach_Out": {
+      "Score": "H/M/L",
+      "Reason": "Context setting (Mentioning the store visit)"
+    },
+    "E_Explore_Needs": {
+      "Score": "H/M/L",
+      "Reason": "Probing for walk-out reason"
+    },
+    "L_Link_Product": {
+      "Score": "H/M/L",
+      "Reason": "Re-affirming store demo experience"
+    },
+    "A_Add_Value": {
+      "Score": "H/M/L",
+      "Reason": "Offering Home Measure/Discount"
+    },
+    "X_Express_Closing": {
+      "Score": "H/M/L",
+      "Reason": "Next steps/Appointment Setting"
+    }
+  },
+  "13_Agent_Evaluation": {
+    "Main_Skills": {
+      "Product_Knowledge": "High | Medium | Low",
+      "Sales_Skills": "High | Medium | Low",
+      "Upsell_Revenue_Skills": "High | Medium | Low"
+    },
+    "Secondary_Traits": {
+      "Need_Discovery": "High | Medium | Low",
+      "Objection_Handling": "High | Medium | Low",
+      "Agent_Nature": "Proactive | Responsive | Passive"
+    }
+  },
+  "14_Agent_Learnings": [
+    "String (Feedback 1)",
+    "String (Feedback 2)",
+    "String (Feedback 3)"
+  ],
+  "15_Next_Actions": "String (e.g. Schedule Technician Visit, Send Brochure)",
+  "16_End_to_End_NPS": {
+    "Score": "Integer (0-10)",
+    "Comment": "String (For the Call Experience)"
+  },
+  "Transcript_Log": "String (Full Transcript)"
+}"""
 
-## CALL & STORE VISIT CONTEXT
-- Store_Name: {call_record.get('store_name', 'N/A')}
-- Customer_Phone: {call_record.get('customer_phone', 'N/A')}
-- Lead_Source: {call_record.get('lead_source', 'Store Walkin - Non Customer')}
-- Created_Date: {call_record.get('created_date', 'N/A')}
-- CallStartDateTime: {call_record.get('call_date', 'N/A')}
-- Duration_Seconds: {call_record.get('duration', 'N/A')}
-- is_Converted: {call_record.get('is_converted', '0')}
+        # NOTE: This prompt is intentionally kept verbatim to the user-provided text.
+        # We avoid f-strings here so {INPUT_AUDIO_FILE} remains literal.
+        full_prompt = (
+            "Key Information to Extract\n"
+            "MetaData: Customer name, Customer location, Customer Language, Customer Gender, Customer Age, Consideration Value/Price | Call Quality(Agent + Customer), Call Duration, Connected to Customer?, Customer Availability/Enthusiasm (H/M/L)\n\n"
+            "Call Summary: Crisp and simple in few sentences (less than 150 words)\n\n"
+            "Features:\n"
+            "1. Sales Lead or Already Purchased, Call Objective Phrase\n"
+            "2. Intent to Purchase (High/Med/Low) - State Why in few words <Important Aspect>\n"
+            "3. Customer Experience at Store  (High/Med/Low) - (How happy were they with the store visit?) State Why in few words <Important Aspect>\n"
+            "4. Customer Experience on Call (High/Med/Low) - State Why in few words <Important Aspect>\n"
+            "4. Customer Funnel Stage (Awareness, Consideration, Action) - include Reason (evidence-based) and Timeline to purchase\n"
+            "5. Product Narrow Down stage (Category, Range, SKU), Product of Interest, Order Value (Approximate, if low confidence say NA)\n"
+            "6. Customer's Need Description (What? For Whom? Why? Constraints?)\n"
+            "7. Purchase Barrier at Store, Purchase Barrier on Call\n"
+            "8. Decision Maker identification\n"
+            "9. Invitation to Home Measurement (H/M/L _ Reason)\n"
+            "10. Conversion Hook (Offers/Discounts/No Cost emi, Product Brochure, Mattress/Product measurement, Brand Legacy and Warranty, Sleep Trial) - Yes/No and Comment about the aspect\n"
+            "11.  Relax Framework {Score H/M/L + reasons for each} (- R_Reach_Out: Greeting & Brand Name usage\n"
+            "- E_Explore_Needs: Discovery of user needs/pain points\n"
+            "- L_Link_Product: Linking need to Product\n"
+            "- A_Add_Value: Mentioning offers/financing/accessories\n"
+            "- X_Express_Closing: Next steps/Move closer to Purchase)\n"
+            "12. Agent Evaluation [Main: Agent Product Knowledge and Agent Sales Skills Ratings (also Upsell revenue skills)],[Secondary: Need Discovery, Objection Handling, Agent Nature (Proactive/Responsive) ( Scale of High / Med / Low)]\n"
+            "13. Agent Learnings [ Top 1 to 3 Areas of Feedback for Agent, keep it crisp]\n"
+            "14. Next Actions for Duroflex\n"
+            "15. End to End NPS Rating Score by Customer (for the Call) and comment for Feedback\n\n"
+            "Transcript: Entire Conversation transcript in English\n\n\n"
+            "Prompt\n"
+            "Role: You are an Expert Retail Sales Auditor for Duroflex. \n"
+            "Task: Analyze the provided Audio Recording of an Outbound Call made to a customer who recently visited a physical store but left without purchasing. \n"
+            "Goal: Extract intelligence on the Store Experience, pinpoint the Walk-out Reason, and evaluate the agent's effectiveness in re-engaging the customer through vocal sentiment and dialogue.\n"
+            "INPUT DATA\n"
+            "Audio Source: {INPUT_AUDIO_FILE} (Note: Analyze the raw audio for sentiment, interruptions, and environmental context)\n"
+            "INSTRUCTIONS\n"
+            "Auditory Experience Audit: Listen for the customer's \"Emotional Charge\" when discussing their store visit. Do they sound frustrated (indicating a bad service experience) or thoughtful (indicating they are still weighing the price/decision)?\n"
+            "Dual-Layer Analysis:\n"
+            "The Past (Store): Extract cues about the physical visit. Did the customer hesitate when asked if they were shown the \"Pressure Test\"? Listen for keywords and tonal shifts related to \"Staff Behavior\" or \"Stock Availability.\"\n"
+            "The Present (Call): Evaluate the agent’s \"Vocal Empathy.\" Does the agent sound genuinely interested in solving the customer's barrier, or are they rushing the script?\n"
+            "Inference from Tone: Use vocal pitch, response latency (delays in answering), and \"vocal fillers\" (ums/ahs) to infer Customer_Enthusiasm and Customer_Age_Group.\n"
+            "The \"Real\" Barrier: Identify if the reason for not buying was \"Functional\" (dimensions/stock) or \"Emotional\" (need for spouse approval/lack of trust), based on how firmly the customer states their objection.\n"
+            "Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler.\n\n"
+            "OUTPUT SCHEMA (JSON)\n"
+        ) + output_schema
 
-## RATING SCALE
-- 1: Poor / Not Attempted
-- 2: Below Average / Weak
-- 3: Average / Acceptable
-- 4: Good / Effective
-- 5: Excellent / Exemplary
-
----
-
-## PILLAR 1: DOUBLE AUDIT (Store + Call Experience)
-**Purpose:** Assess BOTH the in-store experience AND the follow-up call quality from the customer's perspective.
-
-### A. STORE AUDIT (Based on what customer mentions about their store visit)
-- **Rating**: 1-5 (Customer's sentiment about their store experience)
-- **Sentiment_Label**: Excellent / Positive / Neutral / Negative / Not Discussed
-- **Specific_Feedback**: What did the customer specifically mention about their store visit? (Product demo, staff behavior, ambience, wait time, etc.)
-
-### B. CALL AUDIT (Quality of this follow-up call)
-- **Rating**: 1-5 (Overall quality of this call from customer's perspective)
-- **Sentiment_Label**: Excellent / Positive / Neutral / Negative / Frustrated
-- **Skill_Highlight**: What specific skill did the agent demonstrate well? (Problem Solving / Active Listening / Empathy / Product Knowledge / Persuasion / Patience)
-
----
-
-## PILLAR 2: DIAGNOSIS (Understanding the Customer)
-**Purpose:** Diagnose the core reason for not purchasing and the customer's decision-making context.
-
-Evaluate:
-- **Primary_WalkOut_Reason**: The ONE main reason customer didn't purchase at the store
-  - Options: Price Concern / Product Confusion / Need Spouse Approval / Comparing Options / Budget Constraints / Size/Space Concerns / Delivery Timing / Just Browsing / Wanted Better Offer / Already Purchased Elsewhere / Not Disclosed
-
-- **Primary_Barrier_Icon**: Categorize the barrier type
-  - Options: Price / Product / Family / Timing / Trust / Other
-
-- **Decision_Maker**: Who makes the final purchase decision?
-  - Options: Self / Spouse / Joint / Family / Other
-
-- **Timeline_Label**: When are they likely to purchase?
-  - Options: Immediate / Short Term / Long Term / Uncertain / Not Purchasing
-
----
-
-## PILLAR 3: RECOVERY HOOKS (What agent offered to bring customer back)
-**Purpose:** Evaluate the specific tactics agent used to recover the sale.
-
-### A. SWEETENER HOOK (Offers/Discounts)
-- **Rating_Label**: HIGH / MEDIUM / LOW / NOT OFFERED
-  - HIGH: Compelling, time-bound offer clearly communicated
-  - MEDIUM: Generic offer mentioned
-  - LOW: Weak/unclear offer
-  - NOT OFFERED: No offer discussed
-- **Details**: What specific offer/discount was mentioned?
-
-### B. HOME MEASURE HOOK (Home Visit Service)
-- **Offered**: true / false (Did agent offer home measurement/demo visit?)
-- **Reasoning**: Why was this service offered? (Size uncertainty / Comfort trial / Family demonstration / Delivery consultation / Other)
-
-### C. OTHER HOOKS (Optional - if applicable)
-- Video Call Demo Offered
-- Store Re-Visit Incentive
-- Product Upgrade Suggestion
-- EMI/Financing Option
-
----
-
-## PILLAR 4: LEAD HEALTH (Where is the customer now?)
-**Purpose:** Assess the customer's current position in the buying journey after this call.
-
-Evaluate:
-- **AIDA_Stage**: Where is the customer after this call?
-  - Options: Awareness / Interest / Desire / Action / Lost
-
-- **Next_Action_Text**: Specific, actionable next step with timeline
-  - Example: "Coordinate with Technician for Home Measurement visit tomorrow"
-  - Example: "Customer to visit store this weekend to finalize size"
-  - Example: "Send WhatsApp link for online purchase by Friday"
-
----
-
-## PILLAR 5: METHODOLOGY (RELAX Framework + Soft Skills)
-**Purpose:** Evaluate agent's execution of Duroflex's structured sales methodology and interpersonal skills.
-
-### A. RELAX SCORES
-
-**R - REACH OUT** (Opening & Connection)
-- **Score**: 1-5
-- **Reason**: Short explanation
-  - Did agent professionally greet, identify brand, and establish the store visit context?
-
-**E - EXPLORE NEEDS** (Discovery & Understanding)
-- **Score**: 1-5
-- **Reason**: Short explanation
-  - Did agent probe to find the REAL reason for not purchasing during store visit?
-
-**L - LINK EXPERIENCE** (Connecting Solution to Need)
-- **Score**: 1-5
-- **Reason**: Short explanation
-  - Did agent remind customer of their positive in-store experience and link product benefits to their concerns?
-
-**A - ADD VALUE** (Enhancing the Proposition)
-- **Score**: 1-5
-- **Reason**: Short explanation
-  - Did agent position offers, services (home measure, EMI, accessories) as value additions?
-
-**X - EXPRESS CLOSING** (Commitment & Next Steps)
-- **Score**: 1-5
-- **Reason**: Short explanation
-  - Did agent close with a clear, specific commitment and action plan?
-
-### B. SOFT SKILLS (1-5 for each)
-- **Empathy**: Understanding and acknowledging customer's concerns
-- **Patience**: Not rushing, allowing customer to express themselves
-- **Persuasion**: Convincing without being pushy
-- **Tone**: Professional, warm, confident delivery
-
----
-
-## SUMMARY
-**Purpose:** Provide a concise, actionable overview of the call.
-
-- **Call_Synopsis**: 2-3 sentences covering the customer's store visit reason, main barrier discussed, and the outcome of this call.
-
-- **Recovery_Verdict**: What is the likelihood of this lead converting?
-  - Options: Hot Lead / Warm Lead / Cold Lead / Lost / In-Progress
-
----
-
-## OUTPUT FORMAT
-Return ONLY a valid JSON object matching this exact schema:
-
-{{
-  "Header_Data": {{
-    "Call_ID": "{call_record.get('call_id', 'N/A')}",
-    "Product_of_Interest": "String (mention specific product if discussed, else 'Not Specified')",
-    "Lead_Status_Label": "Hot Lead | Warm Lead | Cold Lead | Lost | In-Progress"
-  }},
-  "Pillar_1_Double_Audit": {{
-    "Store_Audit": {{
-      "Rating": 0,
-      "Sentiment_Label": "Excellent | Positive | Neutral | Negative | Not Discussed",
-      "Specific_Feedback": "String (What customer said about store experience)"
-    }},
-    "Call_Audit": {{
-      "Rating": 0,
-      "Sentiment_Label": "Excellent | Positive | Neutral | Negative | Frustrated",
-      "Skill_Highlight": "String (Primary skill agent demonstrated)"
-    }}
-  }},
-  "Pillar_2_Diagnosis": {{
-    "Primary_WalkOut_Reason": "String",
-    "Primary_Barrier_Icon": "Price | Product | Family | Timing | Trust | Other",
-    "Decision_Maker": "Self | Spouse | Joint | Family | Other",
-    "Timeline_Label": "Immediate | Short Term | Long Term | Uncertain | Not Purchasing"
-  }},
-  "Pillar_3_Recovery_Hooks": {{
-    "Sweetener_Hook": {{
-      "Rating_Label": "HIGH | MEDIUM | LOW | NOT OFFERED",
-      "Details": "String (Specific offer mentioned)"
-    }},
-    "Home_Measure_Hook": {{
-      "Offered": true/false,
-      "Reasoning": "String (Why this service was relevant)"
-    }}
-  }},
-  "Pillar_4_Lead_Health": {{
-    "AIDA_Stage": "Awareness | Interest | Desire | Action | Lost",
-    "Next_Action_Text": "String (Specific next step with timeline)"
-  }},
-  "Pillar_5_Methodology": {{
-    "RELAX_Scores": {{
-      "R": {{"Score": 0, "Reason": "String"}},
-      "E": {{"Score": 0, "Reason": "String"}},
-      "L": {{"Score": 0, "Reason": "String"}},
-      "A": {{"Score": 0, "Reason": "String"}},
-      "X": {{"Score": 0, "Reason": "String"}}
-    }},
-    "Soft_Skills": {{
-      "Empathy": 0,
-      "Patience": 0,
-      "Persuasion": 0,
-      "Tone": 0
-    }}
-  }},
-  "Summary": {{
-    "Call_Synopsis": "String (2-3 sentences)",
-    "Recovery_Verdict": "Hot Lead | Warm Lead | Cold Lead | Lost | In-Progress"
-  }},
-  "Transcript_Log": [
-    {{"Speaker": "Agent/Customer", "Text": "...", "Timestamp": "00:00"}}
-  ]
-}}
-
-**Important Notes:**
-1. All scores must be integers 1-5 (use 0 only if call didn't connect)
-2. For calls that don't connect properly, use neutral/low ratings and explain in Synopsis
-3. Transcribe the conversation as accurately as possible in Transcript_Log
-4. Remember: This customer has ALREADY tried the product in-store — leverage this context
-5. Return ONLY the JSON object, no additional text before or after
-"""
+        return full_prompt
 
     def _add_error(self, row_num: int, store_name: str, error: str):
         """Add error to job status"""
