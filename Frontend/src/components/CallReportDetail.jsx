@@ -344,6 +344,11 @@ const CallReportDetail = () => {
   const softSkills = agent.SoftSkills_Etiquette || {};
   const knowledge = agent.Verbal_Product_Knowledge || {};
   const invitation = agent.The_Invitation_to_Visit || {};
+  
+  // New prompt schema has Invitations object with Store_Visit and Video_Demo
+  const invitations = analysis['9_Invitations'] || {};
+  const storeVisitInvitation = invitations.Store_Visit || invitation; // Fallback to old schema
+  const videoDemoInvitation = invitations.Video_Demo || {};
 
   const funnelStages = ['Awareness', 'Consideration', 'Action'];
   const currentStageIndex = getFunnelStageIndex(customer.Customer_Stage_AIDA);
@@ -560,7 +565,12 @@ const CallReportDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Store Visit Pitch */}
             {(() => {
-              const storeVisitRating = invitation.Attempted ? getRatingText(invitation.Quality_Rating) : 'LOW';
+              // Support both old and new schema
+              const storeVisit = storeVisitInvitation.Rating 
+                ? storeVisitInvitation 
+                : { Rating: (invitation.Attempted ? invitation.Quality_Rating : 1), Reason: invitation.Reasons?.join(' ') || 'No assessment available' };
+              
+              const storeVisitRating = getRatingText(storeVisit.Rating) || 'LOW';
               const storeVisitExpanded = expandedHooks['StoreVisitPitch'] || false;
               
               return (
@@ -595,14 +605,11 @@ const CallReportDetail = () => {
                   </div>
                   {storeVisitExpanded && (
                     <div className="px-6 pb-6 pt-2 border-t-2 border-gray-200 bg-white">
-                      <strong className={`text-sm uppercase block mb-2 ${invitation.Attempted ? 'text-green-700' : 'text-red-700'}`}>
+                      <strong className="text-gray-600 text-sm uppercase block mb-2">
                         Assessment:
                       </strong>
                       <p className="text-sm text-gray-700">
-                        {invitation.Reasons?.join(' ') || (invitation.Attempted 
-                          ? 'Agent attempted to invite the customer to visit the store.'
-                          : 'Agent did not attempt to invite the customer to visit the store.'
-                        )}
+                        {storeVisit.Reason || invitation.Reasons?.join(' ') || 'No assessment available for store visit invitation.'}
                       </p>
                     </div>
                   )}
@@ -612,7 +619,12 @@ const CallReportDetail = () => {
 
             {/* Video Demo Offer */}
             {(() => {
-              const videoDemoRating = customer.Intent_to_Visit_Rating || 'N/A';
+              // Support both old and new schema - Video Demo from new schema only
+              const videoDemo = videoDemoInvitation.Rating 
+                ? videoDemoInvitation 
+                : { Rating: null, Reason: null };
+              
+              const videoDemoRating = videoDemo.Rating ? getRatingText(videoDemo.Rating) : 'N/A';
               const videoDemoExpanded = expandedHooks['VideoDemoOffer'] || false;
               
               return (
@@ -623,7 +635,8 @@ const CallReportDetail = () => {
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`inline-block w-3 h-3 rounded-full ${
                             videoDemoRating === 'HIGH' ? 'bg-green-500' : 
-                            videoDemoRating === 'MEDIUM' ? 'bg-yellow-500' : 'bg-red-500'
+                            videoDemoRating === 'MEDIUM' ? 'bg-yellow-500' : 
+                            videoDemoRating === 'N/A' ? 'bg-gray-400' : 'bg-red-500'
                           }`}></span>
                           <p className="text-lg font-bold text-gray-900">Video Demo Offer</p>
                         </div>
@@ -650,7 +663,7 @@ const CallReportDetail = () => {
                     <div className="px-6 pb-6 pt-2 border-t-2 border-gray-200 bg-white">
                       <strong className="text-gray-600 text-sm uppercase block mb-2">Assessment:</strong>
                       <p className="text-sm text-gray-700">
-                        {customer.Intent_to_Visit_Rating_Reasons?.join(' ') || 'No assessment available for video demo offer.'}
+                        {videoDemo.Reason || 'No video demo offer information available for this call.'}
                       </p>
                     </div>
                   )}
