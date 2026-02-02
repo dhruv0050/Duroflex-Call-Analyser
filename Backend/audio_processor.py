@@ -302,7 +302,7 @@ class PromptTemplate:
     def get_audio_call_prompt() -> str:
         """
         Get the prompt template for audio call analysis.
-        This matches the Jupyter notebook prompt exactly.
+        Keep this aligned with the frontend/backend JSON contract.
         """
         return '''
 Role: You are an Expert Retail Sales Auditor for Duroflex.
@@ -318,6 +318,7 @@ Sentiment & Tone Inference: Use vocal pitch and response latency to determine Cu
 Environmental Context: Note any background noise (store music, other customers, traffic) that might impact the Audio_Quality or the agent's focus.
 Conversion Audit: Pay close attention to the "Closing" phase. Did the agent's voice sound confident when giving directions or offering the Sleep Trial?
 Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler.
+Transcript Requirement: Provide the entire conversation transcript in English.
 
 OUTPUT SCHEMA (JSON)
 {
@@ -342,6 +343,10 @@ OUTPUT SCHEMA (JSON)
         "Rating": "High | Medium | Low",
         "Reason": "String (Evidence based)"
     },
+    "2A_Intent_to_Visit": {
+        "Rating": "High | Medium | Low",
+        "Reason": "String (Evidence based)"
+    },
     "3_Customer_Experience": {
         "Rating": "High | Medium | Low",
         "Reason": "String"
@@ -356,7 +361,7 @@ OUTPUT SCHEMA (JSON)
         "Approx_Order_Value": "String (or NA)"
     },
     "6_Customer_Needs": {
-        "Description": "String (Who is it for? Key pain points? Constraints?)"
+        "Description": "String (for example : For Whom: 63-year-old Father (76kg weight)\n\nMedical Condition: Spinal cord bulge / Back pain\n\nRequirement: Needs firm orthopedic support. Customer specifically asked about 6-inch vs 8-inch options.\n\nKey Constraint: Remote purchase; relies heavily on Agent's assurance regarding warranty.)"
     },
     "7_Purchase_Barrier": "String (e.g. Distance, Price, Availability)",
     "8_Decision_Maker": "Caller | Spouse | Joint | Unknown",
@@ -388,7 +393,7 @@ OUTPUT SCHEMA (JSON)
         },
         "L_Link_Product": {
             "Score": "H/M/L",
-            "Reason": "Linking need to Product/Store Trial"
+            "Reason": "Linking need to Product"
         },
         "A_Add_Value": {
             "Score": "H/M/L",

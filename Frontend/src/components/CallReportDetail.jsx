@@ -558,26 +558,105 @@ const CallReportDetail = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ExpandableCard
-              title="Store Visit Pitch"
-              rating={invitation.Attempted ? getRatingText(invitation.Quality_Rating) : 'LOW'}
-            >
-              <strong className={`text-sm uppercase block mb-2 ${invitation.Attempted ? 'text-green-700' : 'text-red-700'}`}>
-                Assessment:
-              </strong>
-              {invitation.Reasons?.join(' ') || (invitation.Attempted 
-                ? 'Agent attempted to invite the customer to visit the store.'
-                : 'Agent did not attempt to invite the customer to visit the store.'
-              )}
-            </ExpandableCard>
+            {/* Store Visit Pitch */}
+            {(() => {
+              const storeVisitRating = invitation.Attempted ? getRatingText(invitation.Quality_Rating) : 'LOW';
+              const storeVisitExpanded = expandedHooks['StoreVisitPitch'] || false;
+              
+              return (
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`inline-block w-3 h-3 rounded-full ${
+                            storeVisitRating === 'HIGH' ? 'bg-green-500' : 
+                            storeVisitRating === 'MEDIUM' ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}></span>
+                          <p className="text-lg font-bold text-gray-900">Store Visit Pitch</p>
+                        </div>
+                        <p className={`text-2xl font-bold ${
+                          storeVisitRating === 'HIGH' ? 'text-green-600' : 
+                          storeVisitRating === 'MEDIUM' ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {storeVisitRating}
+                        </p>
+                      </div>
+                      <button 
+                        className="text-gray-400 hover:text-gray-600 text-2xl font-bold transition ml-4"
+                        onClick={() => setExpandedHooks(prev => ({
+                          ...prev,
+                          StoreVisitPitch: !prev.StoreVisitPitch
+                        }))}
+                      >
+                        {storeVisitExpanded ? '−' : '+'}
+                      </button>
+                    </div>
+                  </div>
+                  {storeVisitExpanded && (
+                    <div className="px-6 pb-6 pt-2 border-t-2 border-gray-200 bg-white">
+                      <strong className={`text-sm uppercase block mb-2 ${invitation.Attempted ? 'text-green-700' : 'text-red-700'}`}>
+                        Assessment:
+                      </strong>
+                      <p className="text-sm text-gray-700">
+                        {invitation.Reasons?.join(' ') || (invitation.Attempted 
+                          ? 'Agent attempted to invite the customer to visit the store.'
+                          : 'Agent did not attempt to invite the customer to visit the store.'
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
-            <ExpandableCard
-              title="Intent to Visit"
-              rating={customer.Intent_to_Visit_Rating || 'LOW'}
-            >
-              <strong className="text-gray-600 text-sm uppercase block mb-2">Assessment:</strong>
-              {customer.Intent_to_Visit_Rating_Reasons?.join(' ') || 'No assessment available for store visit intent.'}
-            </ExpandableCard>
+            {/* Video Demo Offer */}
+            {(() => {
+              const videoDemoRating = customer.Intent_to_Visit_Rating || 'N/A';
+              const videoDemoExpanded = expandedHooks['VideoDemoOffer'] || false;
+              
+              return (
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`inline-block w-3 h-3 rounded-full ${
+                            videoDemoRating === 'HIGH' ? 'bg-green-500' : 
+                            videoDemoRating === 'MEDIUM' ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}></span>
+                          <p className="text-lg font-bold text-gray-900">Video Demo Offer</p>
+                        </div>
+                        <p className={`text-2xl font-bold ${
+                          videoDemoRating === 'HIGH' ? 'text-green-600' : 
+                          videoDemoRating === 'MEDIUM' ? 'text-yellow-600' : 
+                          videoDemoRating === 'N/A' ? 'text-gray-600' : 'text-red-600'
+                        }`}>
+                          {videoDemoRating}
+                        </p>
+                      </div>
+                      <button 
+                        className="text-gray-400 hover:text-gray-600 text-2xl font-bold transition ml-4"
+                        onClick={() => setExpandedHooks(prev => ({
+                          ...prev,
+                          VideoDemoOffer: !prev.VideoDemoOffer
+                        }))}
+                      >
+                        {videoDemoExpanded ? '−' : '+'}
+                      </button>
+                    </div>
+                  </div>
+                  {videoDemoExpanded && (
+                    <div className="px-6 pb-6 pt-2 border-t-2 border-gray-200 bg-white">
+                      <strong className="text-gray-600 text-sm uppercase block mb-2">Assessment:</strong>
+                      <p className="text-sm text-gray-700">
+                        {customer.Intent_to_Visit_Rating_Reasons?.join(' ') || 'No assessment available for video demo offer.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
