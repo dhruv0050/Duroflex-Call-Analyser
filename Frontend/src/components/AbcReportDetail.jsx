@@ -1011,23 +1011,104 @@ const AbcReportDetail = () => {
           </div>
 
           {expandTranscript && (
-            <div className="max-h-[600px] overflow-y-auto p-8 space-y-6 bg-gray-50">
+            <div className="max-h-[600px] overflow-y-auto p-8 space-y-4 bg-white">
               {typeof transcript === 'string' ? (
-                <p className="text-gray-700 whitespace-pre-line">{transcript}</p>
+                (() => {
+                  // Parse transcript string
+                  let lines = [];
+                  
+                  // Method 1: Check if it has " / " separator (previous format)
+                  if (transcript.includes(' / ')) {
+                    lines = transcript.split(' / ').filter(line => line.trim()).map((line, i) => ({
+                      text: line.trim(),
+                      speaker: i % 2 === 0 ? 'Agent' : 'Customer'
+                    }));
+                  } 
+                  // Method 2: Check if it has ". " and try to detect speaker changes intelligently
+                  else {
+                    // Split by sentence endings, then merge into conversational chunks
+                    const sentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+                    let currentSpeaker = 'Agent'; // Assume agent starts
+                    let currentChunk = '';
+                    
+                    sentences.forEach((sentence, i) => {
+                      const s = sentence.trim();
+                      if (!s) return;
+                      
+                      // Detect speaker change patterns
+                      // Agent patterns: formal, longer sentences, uses "sir", "ma'am", company name
+                      // Customer patterns: shorter responses, "okay", "yes", "no", informal
+                      const isLikelyCustomerResponse = (
+                        s.length < 50 && 
+                        (s.match(/^(okay|ok|yes|yeah|no|fine|hmm|ah|tell me|hello|welcome|avunandi|ledu|parledandi)/i) ||
+                         s.split(' ').length <= 5)
+                      );
+                      
+                      const isLikelyAgent = (
+                        s.includes('sir') || s.includes('ma\'am') || s.includes('Duroflex') ||
+                        s.includes('team') || s.includes('check') || s.includes('confirm') ||
+                        s.includes('address') || s.includes('order')
+                      );
+                      
+                      // Determine if we should switch speakers
+                      let shouldSwitch = false;
+                      if (currentSpeaker === 'Agent' && isLikelyCustomerResponse) {
+                        shouldSwitch = true;
+                      } else if (currentSpeaker === 'Customer' && isLikelyAgent) {
+                        shouldSwitch = true;
+                      }
+                      
+                      if (shouldSwitch && currentChunk) {
+                        lines.push({ text: currentChunk.trim(), speaker: currentSpeaker });
+                        currentSpeaker = currentSpeaker === 'Agent' ? 'Customer' : 'Agent';
+                        currentChunk = s;
+                      } else {
+                        currentChunk += (currentChunk ? ' ' : '') + s;
+                      }
+                      
+                      // Push remaining chunk at the end
+                      if (i === sentences.length - 1 && currentChunk) {
+                        lines.push({ text: currentChunk.trim(), speaker: currentSpeaker });
+                      }
+                    });
+                  }
+                  
+                  // Render parsed lines
+                  return lines.map((line, i) => {
+                    const isAgent = line.speaker === 'Agent';
+                    const bgColor = isAgent ? 'bg-blue-50' : 'bg-green-50';
+                    const borderColor = isAgent ? 'border-l-blue-500' : 'border-l-green-500';
+                    const textColor = isAgent ? 'text-blue-700' : 'text-green-700';
+                    
+                    return (
+                      <div key={i} className={`${bgColor} border-l-4 ${borderColor} p-4 rounded-r-lg`}>
+                        <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${textColor}`}>
+                          {line.speaker}
+                        </p>
+                        <p className="text-base text-gray-800 leading-relaxed">{line.text}</p>
+                      </div>
+                    );
+                  });
+                })()
               ) : Array.isArray(transcript) && transcript.length > 0 ? (
-                transcript.map((msg, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
-                    <span className="font-mono text-xs text-gray-500 min-w-16 pt-1">{msg.Timestamp || ''}</span>
-                    <div className="flex-1">
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${
-                        msg.Speaker === 'Agent' ? 'text-blue-600' : 'text-green-600'
-                      }`}>
+                transcript.map((msg, i) => {
+                  const isAgent = msg.Speaker === 'Agent';
+                  const bgColor = isAgent ? 'bg-blue-50' : 'bg-green-50';
+                  const borderColor = isAgent ? 'border-l-blue-500' : 'border-l-green-500';
+                  const textColor = isAgent ? 'text-blue-700' : 'text-green-700';
+                  
+                  return (
+                    <div key={i} className={`${bgColor} border-l-4 ${borderColor} p-4 rounded-r-lg`}>
+                      {msg.Timestamp && (
+                        <span className="font-mono text-xs text-gray-500 mr-3">{msg.Timestamp}</span>
+                      )}
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${textColor}`}>
                         {msg.Speaker}
                       </p>
-                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
+                      <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-gray-500 text-center py-8">No transcript available for this call.</p>
               )}

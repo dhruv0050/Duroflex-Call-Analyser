@@ -375,6 +375,7 @@ class OutboundCallUploadProcessor:
   "MetaData": {
     "Customer_Name": "String",
     "Customer_Location": "String",
+    "Call_Region": "String(for example South, North, East, West as per the location)",
     "Customer_Language": "String",
     "Customer_Gender": "Male | Female | Unknown",
     "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
@@ -476,14 +477,14 @@ class OutboundCallUploadProcessor:
     "Score": "Integer (0-10)",
     "Comment": "String (For the Call Experience)"
   },
-  "Transcript_Log": "String (Full Transcript)"
+  "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
 }"""
 
         # NOTE: This prompt is intentionally kept verbatim to the user-provided text.
         # We avoid f-strings here so {INPUT_AUDIO_FILE} remains literal.
         full_prompt = (
             "Key Information to Extract\n"
-            "MetaData: Customer name, Customer location, Customer Language, Customer Gender, Customer Age, Consideration Value/Price | Call Quality(Agent + Customer), Call Duration, Connected to Customer?, Customer Availability/Enthusiasm (H/M/L)\n\n"
+            "MetaData: Customer name, Customer location, Call Region, Customer Language, Customer Gender, Customer Age, Consideration Value/Price | Call Quality(Agent + Customer), Call Duration, Connected to Customer?, Customer Availability/Enthusiasm (H/M/L)\n\n"
             "Call Summary: Crisp and simple in few sentences (less than 150 words)\n\n"
             "Features:\n"
             "1. Sales Lead or Already Purchased, Call Objective Phrase\n"
@@ -506,7 +507,7 @@ class OutboundCallUploadProcessor:
             "13. Agent Learnings [ Top 1 to 3 Areas of Feedback for Agent, keep it crisp]\n"
             "14. Next Actions for Duroflex\n"
             "15. End to End NPS Rating Score by Customer (for the Call) and comment for Feedback\n\n"
-            "Transcript: Entire Conversation transcript in English\n\n\n"
+            "Transcript: Entire Conversation transcript in English with proper definition of what is said by Agent and Customer\n\n\n"
             "Prompt\n"
             "Role: You are an Expert Retail Sales Auditor for Duroflex. \n"
             "Task: Analyze the provided Audio Recording of an Outbound Call made to a customer who recently visited a physical store but left without purchasing. \n"

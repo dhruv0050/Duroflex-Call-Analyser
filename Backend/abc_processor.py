@@ -278,6 +278,7 @@ class AbcCallProcessor:
   \"MetaData\": {
     \"Customer_Name\": \"String\",
     \"Customer_Location\": \"String\",
+    \"Call_Region\": \"String(for example South, North, East, West as per the location)\",
     \"Customer_Language\": \"String\",
     \"Customer_Gender\": \"Male | Female | Unknown\",
     \"Customer_Age_Group\": \"Young Adult | Middle Aged | Senior | Unknown\",
@@ -357,7 +358,7 @@ class AbcCallProcessor:
   \"14_Agent_Learnings\": [\"String (Feedback 1)\", \"String (Feedback 2)\", \"String (Feedback 3)\"],
   \"15_Next_Actions\": \"String (e.g. Schedule Technician Visit, Send Brochure)\",
   \"16_End_to_end_NPS\": {\"Score\": \"Integer (0-10)\", \"Comment\": \"String (For the Call Experience)\"},
-  \"Transcript_Log\": \"String (Full Transcript)\"
+  \"Transcript_Log\": \"String (Full Transcript with proper definition of what is said by Agent and Customer)\"
 }"""
         
         full_prompt = f"""Role: You are an Expert Cart Recovery Specialist & Auditor for Duroflex.

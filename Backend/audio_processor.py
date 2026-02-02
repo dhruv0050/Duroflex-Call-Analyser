@@ -325,6 +325,7 @@ OUTPUT SCHEMA (JSON)
     "MetaData": {
         "Customer_Name": "String",
         "Customer_Location": "String(in case of mixed language give top2 used mostly)",
+        "Call_Region": "String(for example South, North, East, West as per the location)",
         "Customer_Language": "String",
         "Customer_Gender": "Male | Female | Unknown",
         "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
@@ -427,7 +428,7 @@ OUTPUT SCHEMA (JSON)
         "Score": "Integer (0-10)",
         "Comment": "String (Inferred sentiment)"
     },
-    "Transcript_Log": "String (Full Transcript)"
+    "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
 }
 '''
 

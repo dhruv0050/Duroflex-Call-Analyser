@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, TrendingUp, Users, Phone, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Upload } from 'lucide-react';
+import { Download, Upload, Users, TrendingUp, Building2, CheckCircle2 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -57,22 +57,17 @@ const exportReportsAsCsv = (reports, filename) => {
 
 const AbcAggregatedDashboard = () => {
   const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState('last30');
-  const [view, setView] = useState('overall');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [timeRange, setTimeRange] = useState('30');
+  const [selectedRegion, setSelectedRegion] = useState('Overall');
+  const [selectedCity, setSelectedCity] = useState('All');
+  const [selectedStoreExp, setSelectedStoreExp] = useState('All');
+  const [selectedCallExp, setSelectedCallExp] = useState('All');
   const [selectedIntent, setSelectedIntent] = useState('All');
-  const [selectedExperience, setSelectedExperience] = useState('All');
-  const [selectedPriceBucket, setSelectedPriceBucket] = useState('All');
   const [allCalls, setAllCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const handleDownloadReports = () => {
     exportReportsAsCsv(allCalls, 'abc_cart_recovery_reports.csv');
-  };
-
-  const navigateWithFilter = (predicate, description) => {
-    const ids = filteredCalls.filter(predicate).map((c) => c.id || c.call_id).filter(Boolean);
-    navigate('/abc-calls', { state: { filterIds: ids, filterDescription: description } });
   };
 
   useEffect(() => {
@@ -92,25 +87,77 @@ const AbcAggregatedDashboard = () => {
     fetchAllData();
   }, []);
 
-  const normalizeIntent = (rating) => {
-    const val = (rating || 'Medium').toString().toUpperCase();
-    if (val.includes('HIGH')) return 'High';
-    if (val.includes('LOW')) return 'Low';
+  const normalizeRating = (rating) => {
+    if (!rating) return 'Medium';
+    const val = String(rating).toUpperCase();
+    if (val === 'H' || val.includes('HIGH')) return 'High';
+    if (val === 'L' || val.includes('LOW')) return 'Low';
     return 'Medium';
   };
 
-  const normalizeExperience = (score) => {
-    if (!score) return 'Medium';
-    if (score >= 4) return 'High';
-    if (score <= 2) return 'Low';
-    return 'Medium';
+  const normalizeIntent = (rating) => normalizeRating(rating);
+
+  const normalizeExperience = (rating) => {
+    if (!rating) return 'Medium';
+    if (typeof rating === 'number') {
+      if (rating >= 4) return 'High';
+      if (rating <= 2) return 'Low';
+      return 'Medium';
+    }
+    return normalizeRating(rating);
   };
 
-  const ratingToScore = (value, fallback = 75) => {
-    if (value === null || value === undefined) return fallback;
-    const numValue = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(numValue)) return fallback;
-    return Math.round(numValue * 20); // 1-5 to 0-100
+  const relaxScoreToNum = (score) => {
+    if (!score) return 5;
+    const s = String(score).toUpperCase();
+    if (s === 'H' || s === 'HIGH') return 9;
+    if (s === 'M' || s === 'MED' || s === 'MEDIUM') return 6.5;
+    if (s === 'L' || s === 'LOW') return 4;
+    const num = parseFloat(score);
+    return isNaN(num) ? 5 : num;
+  };
+
+  // Map cities/states to regions - comprehensive mapping for all Indian states
+  const getCityRegion = (cityName, report) => {
+    const city = (cityName || '').toUpperCase();
+    const location = (report?.analysis?.MetaData?.Customer_Location || '').toUpperCase();
+    
+    // South: Karnataka, Tamil Nadu, Andhra Pradesh, Telangana, Kerala
+    if (city.includes('BANGALORE') || city.includes('BENGALURU') || city.includes('KARNATAKA') ||
+        city.includes('CHENNAI') || city.includes('TAMIL NADU') ||
+        city.includes('HYDERABAD') || city.includes('TELANGANA') ||
+        city.includes('VIJAYAWADA') || city.includes('VISAKHAPATNAM') || city.includes('GUNTUR') ||
+        city.includes('ANDHRA') || city.includes('GODAVARI') || location.includes('AP') || location.includes('ANDHRA') ||
+        city.includes('KOCHI') || city.includes('KERALA') || city.includes('TRIVANDRUM')) {
+      return 'South';
+    }
+    
+    // West: Maharashtra, Gujarat, Goa, Rajasthan
+    if (city.includes('MUMBAI') || city.includes('PUNE') || city.includes('NAGPUR') || city.includes('MAHARASHTRA') ||
+        city.includes('AHMEDABAD') || city.includes('SURAT') || city.includes('GUJARAT') ||
+        city.includes('GOA') || city.includes('JAIPUR') || city.includes('RAJASTHAN')) {
+      return 'West';
+    }
+    
+    // North: Delhi, UP, Punjab, Haryana, HP, J&K, Uttarakhand
+    if (city.includes('DELHI') || city.includes('NOIDA') || city.includes('GURGAON') || city.includes('GURUGRAM') ||
+        city.includes('FARIDABAD') || city.includes('GHAZIABAD') || city.includes('HARYANA') ||
+        city.includes('LUCKNOW') || city.includes('KANPUR') || city.includes('AGRA') || city.includes('UTTAR PRADESH') || city.includes(' UP') ||
+        city.includes('CHANDIGARH') || city.includes('PUNJAB') || city.includes('LUDHIANA') ||
+        city.includes('HIMACHAL') || city.includes('JAMMU') || city.includes('KASHMIR') || city.includes('UTTARAKHAND')) {
+      return 'North';
+    }
+    
+    // East: West Bengal, Odisha, Bihar, Jharkhand, Assam, Northeast
+    if (city.includes('KOLKATA') || city.includes('WEST BENGAL') ||
+        city.includes('BHUBANESWAR') || city.includes('CUTTACK') || city.includes('ODISHA') || city.includes('ORISSA') ||
+        city.includes('PATNA') || city.includes('BIHAR') ||
+        city.includes('RANCHI') || city.includes('JHARKHAND') ||
+        city.includes('GUWAHATI') || city.includes('ASSAM')) {
+      return 'East';
+    }
+    
+    return 'South'; // Default fallback
   };
 
   const abcCalls = useMemo(() => {
@@ -118,39 +165,61 @@ const AbcAggregatedDashboard = () => {
 
     return allCalls.map((report) => {
       const analysis = report.analysis || {};
-      const p1 = analysis.Pillar_1_Customer_Intent_and_Barriers || {};
-      const p2 = analysis.Pillar_2_Experience_Delivered || {};
-      const p3 = analysis.Pillar_3_RELAX_Framework || {};
-      const p5 = analysis.Pillar_5_Agent_Competency || {};
+      const metaData = analysis.MetaData || {};
+      const intentData = analysis['2_Intent_to_Purchase'] || {};
+      const storeExpData = analysis['3_Store_Experience'] || {};
+      const callExpData = analysis['4_Call_Experience'] || {};
+      const funnelData = analysis['5_Funnel_Analysis'] || {};
+      const relaxData = analysis['12_RELAX_Framework'] || {};
+      const npsData = analysis['16_End_to_end_NPS'] || {};
       const rawData = report.raw_data || {};
 
-      const intent = normalizeIntent(p1.Intent_to_Purchase_Rating || 'MEDIUM');
-      const experience = normalizeExperience(p2.Overall_Experience_Rating || 3);
+      const intent = normalizeIntent(intentData.Rating);
+      const storeExp = normalizeExperience(storeExpData.Rating);
+      const callExp = normalizeExperience(callExpData.Rating);
+
+      // Check if already purchased
+      const funnelStage = String(funnelData.Stage || '').toLowerCase();
+      const isAlreadyPurchased = funnelStage.includes('purchased') || funnelStage.includes('action');
 
       const rawPrice = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
       const cartAmount = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
 
-      // Determine type based on outcome
-      const outcome = (analysis.Functional?.Call_Outcome || '').toLowerCase();
-      const type = outcome.includes('purchased') || outcome.includes('converted') ? 'Recovered' : 'Pending';
+      // RELAX scores
+      const rScore = relaxScoreToNum(relaxData.R_Reach_Out?.Score);
+      const eScore = relaxScoreToNum(relaxData.E_Explore_Needs?.Score);
+      const lScore = relaxScoreToNum(relaxData.L_Link_Product?.Score);
+      const aScore = relaxScoreToNum(relaxData.A_Add_Value?.Score);
+      const xScore = relaxScoreToNum(relaxData.X_Express_Closing?.Score);
+      const overallRelax = ((rScore + eScore + lScore + aScore + xScore) / 5).toFixed(1);
 
+      // NPS
+      const nps = npsData.Score !== undefined ? npsData.Score : 7;
+
+      // Agent name
+      const agentName = report.agent_name || rawData.AgentName || rawData.Agent_Name || 'Unknown';
+
+      const city = (report.city || metaData.Customer_Location || 'Unknown').toUpperCase();
+      const region = getCityRegion(city, report);
+      
       return {
         id: report.call_id,
-        city: report.city || 'Unknown',
+        city,
+        region,
         intent,
-        experience,
-        type,
-        cartValue: rawPrice,
+        storeExp,
+        callExp,
+        isAlreadyPurchased,
         cartAmount,
+        agentName,
+        nps,
+        overallRelax: parseFloat(overallRelax),
         scores: {
-          overall: ratingToScore(p3.RELAX_Overall_Score || 3, 60),
-          rapport: ratingToScore(p3.R_Reach_Out?.Rating || 3, 60),
-          explore: ratingToScore(p3.E_Explore_Needs?.Rating || 3, 60),
-          link: ratingToScore(p3.L_Link_Experience?.Rating || 3, 60),
-          add: ratingToScore(p3.A_Add_Value?.Rating || 3, 60),
-          close: ratingToScore(p3.X_Express_Closing?.Rating || 3, 60),
-          productKnowledge: ratingToScore(p5.Product_Knowledge?.Score || 3, 60),
-          softSkills: ratingToScore(p5.Soft_Skills?.Score || 3, 60)
+          r: rScore,
+          e: eScore,
+          l: lScore,
+          a: aScore,
+          x: xScore,
         },
       };
     });
@@ -160,190 +229,217 @@ const AbcAggregatedDashboard = () => {
     return [...new Set(abcCalls.map((c) => c.city))].filter(Boolean).sort();
   }, [abcCalls]);
 
-  // Ensure selected city is valid when switching to city view
-  useEffect(() => {
-    if (view === 'city' && !cities.includes(selectedCity)) {
-      setSelectedCity(cities[0] || '');
-    }
-  }, [view, cities, selectedCity]);
-
   const filteredCalls = useMemo(() => {
     let filtered = [...abcCalls];
-    
-    // Apply view filter
-    if (view === 'city' && selectedCity) {
+
+    // Region filter
+    if (selectedRegion !== 'Overall') {
+      filtered = filtered.filter((c) => c.region === selectedRegion);
+    }
+
+    // City filter
+    if (selectedCity !== 'All') {
       filtered = filtered.filter((c) => c.city === selectedCity);
     }
-    
-    // Apply time range filter (simplified - just limit count for demo)
-    if (timeRange === 'last7') {
-      filtered = filtered.slice(-7);
-    } else if (timeRange === 'last30') {
-      filtered = filtered.slice(-30);
-    } else if (timeRange === 'last90') {
-      filtered = filtered.slice(-90);
+
+    // Store Experience filter
+    if (selectedStoreExp !== 'All') {
+      filtered = filtered.filter((c) => c.storeExp === selectedStoreExp);
     }
-    
-    // Apply intent filter
+
+    // Call Experience filter
+    if (selectedCallExp !== 'All') {
+      filtered = filtered.filter((c) => c.callExp === selectedCallExp);
+    }
+
+    // Intent filter
     if (selectedIntent !== 'All') {
-      filtered = filtered.filter((call) => call.intent === selectedIntent);
+      filtered = filtered.filter((c) => c.intent === selectedIntent);
     }
 
-    // Apply customer experience filter
-    if (selectedExperience !== 'All') {
-      filtered = filtered.filter((call) => call.experience === selectedExperience);
+    // Time range filter (simplified - limit count)
+    if (timeRange === '7') {
+      filtered = filtered.slice(-7);
+    } else if (timeRange === '30') {
+      filtered = filtered.slice(-30);
     }
 
-    // Apply price bucket filter based on cartAmount
-    if (selectedPriceBucket !== 'All') {
-      filtered = filtered.filter((call) => {
-        const amount = call.cartAmount || 0;
-        if (selectedPriceBucket === 'High') return amount > 20000;
-        if (selectedPriceBucket === 'Medium') return amount >= 10000 && amount <= 20000;
-        if (selectedPriceBucket === 'Low') return amount > 0 && amount < 10000;
-        return true;
-      });
-    }
-    
     return filtered;
-  }, [abcCalls, view, selectedCity, timeRange, selectedIntent, selectedExperience, selectedPriceBucket]);
+  }, [abcCalls, selectedRegion, selectedCity, selectedStoreExp, selectedCallExp, selectedIntent, timeRange]);
+
+  const navigateWithFilter = (predicate, description) => {
+    const ids = filteredCalls.filter(predicate).map((c) => c.id || c.call_id).filter(Boolean);
+    navigate('/abc-calls', { state: { filterIds: ids, filterDescription: description } });
+  };
 
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
-    const recoveredCalls = filteredCalls.filter((c) => c.type === 'Recovered').length;
-    const pendingCalls = total - recoveredCalls;
-    
+    const alreadyPurchased = filteredCalls.filter((c) => c.isAlreadyPurchased).length;
+    const salesLeads = total - alreadyPurchased;
+
+    // Matrix: Intent × Call Experience (including Already Purchased row)
+    const intents = ['High', 'Medium', 'Low'];
+    const callExps = ['High', 'Medium', 'Low'];
+
     const matrix = {};
-    ['High', 'Medium', 'Low'].forEach((intent) => {
+    intents.forEach((intent) => {
       matrix[intent] = {};
-      ['High', 'Medium', 'Low'].forEach((exp) => {
-        matrix[intent][exp] = filteredCalls.filter((c) => c.intent === intent && c.experience === exp).length;
+      callExps.forEach((exp) => {
+        matrix[intent][exp] = filteredCalls.filter(
+          (c) => !c.isAlreadyPurchased && c.intent === intent && c.callExp === exp
+        ).length;
       });
     });
 
-    const cityMetrics = {};
+    // Already Purchased row
+    matrix['Purchased'] = {};
+    callExps.forEach((exp) => {
+      matrix['Purchased'][exp] = filteredCalls.filter(
+        (c) => c.isAlreadyPurchased && c.callExp === exp
+      ).length;
+    });
+
+    // Agent performance
+    const agentMap = {};
     filteredCalls.forEach((call) => {
-      if (!cityMetrics[call.city]) {
-        cityMetrics[call.city] = {
-          cityName: call.city,
+      if (!agentMap[call.agentName]) {
+        agentMap[call.agentName] = {
+          name: call.agentName,
           calls: [],
         };
       }
-      cityMetrics[call.city].calls.push(call);
+      agentMap[call.agentName].calls.push(call);
     });
 
-    const cityPerformance = Object.values(cityMetrics)
-      .map((city) => {
-        const calls = city.calls;
-        const avgScore = (metric) =>
-          calls.length ? Math.round(calls.reduce((sum, c) => sum + c.scores[metric], 0) / calls.length) : 0;
+    const agentPerformance = Object.values(agentMap)
+      .map((agent) => {
+        const calls = agent.calls;
+        const count = calls.length;
+        const avgNps = (calls.reduce((sum, c) => sum + c.nps, 0) / count).toFixed(1);
+        const avgCallExp = (
+          calls.reduce((sum, c) => sum + (c.callExp === 'High' ? 9 : c.callExp === 'Medium' ? 6.5 : 4), 0) / count
+        ).toFixed(1);
+        const avgOverall = (calls.reduce((sum, c) => sum + c.overallRelax, 0) / count).toFixed(1);
+        const avgR = (calls.reduce((sum, c) => sum + c.scores.r, 0) / count).toFixed(1);
+        const avgE = (calls.reduce((sum, c) => sum + c.scores.e, 0) / count).toFixed(1);
+        const avgL = (calls.reduce((sum, c) => sum + c.scores.l, 0) / count).toFixed(1);
+        const avgA = (calls.reduce((sum, c) => sum + c.scores.a, 0) / count).toFixed(1);
+        const avgX = (calls.reduce((sum, c) => sum + c.scores.x, 0) / count).toFixed(1);
 
         return {
-          cityName: city.cityName,
-          totalCalls: calls.length,
-          overallScore: avgScore('overall'),
-          rapport: avgScore('rapport'),
-          explore: avgScore('explore'),
-          link: avgScore('link'),
-          add: avgScore('add'),
-          close: avgScore('close'),
-          productKnowledge: avgScore('productKnowledge'),
-          softSkills: avgScore('softSkills'),
+          name: agent.name,
+          leads: count,
+          nps: parseFloat(avgNps),
+          callExp: parseFloat(avgCallExp),
+          overall: parseFloat(avgOverall),
+          r: parseFloat(avgR),
+          e: parseFloat(avgE),
+          l: parseFloat(avgL),
+          a: parseFloat(avgA),
+          x: parseFloat(avgX),
         };
       })
-      .sort((a, b) => b.totalCalls - a.totalCalls);
+      .sort((a, b) => b.overall - a.overall);
+
+    // City performance (intent distribution)
+    const cityMap = {};
+    filteredCalls.forEach((call) => {
+      if (!cityMap[call.city]) {
+        cityMap[call.city] = {
+          name: call.city,
+          total: 0,
+          highIntent: 0,
+          mediumIntent: 0,
+          lowIntent: 0,
+          purchased: 0,
+        };
+      }
+      cityMap[call.city].total++;
+      if (call.isAlreadyPurchased) {
+        cityMap[call.city].purchased++;
+      } else if (call.intent === 'High') {
+        cityMap[call.city].highIntent++;
+      } else if (call.intent === 'Medium') {
+        cityMap[call.city].mediumIntent++;
+      } else {
+        cityMap[call.city].lowIntent++;
+      }
+    });
+
+    const cityPerformance = Object.values(cityMap).sort((a, b) => b.total - a.total);
 
     return {
       total,
-      recoveredCalls,
-      pendingCalls,
+      salesLeads,
+      alreadyPurchased,
       matrix,
+      agentPerformance,
       cityPerformance,
     };
   }, [filteredCalls]);
 
-  const intents = ['High', 'Medium', 'Low'];
-  const experiences = ['High', 'Medium', 'Low'];
+  const getInitials = (name) => {
+    if (!name || name === 'Unknown') return 'UK';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
-  const matrixPalette = {
+  const getScorePillClass = (score) => {
+    if (score >= 8) return 'bg-green-100 text-green-700 border-green-200';
+    if (score >= 6) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    return 'bg-red-100 text-red-700 border-red-200';
+  };
+
+  const getAvatarColor = (name) => {
+    const colors = [
+      'bg-indigo-100 text-indigo-700',
+      'bg-emerald-100 text-emerald-700',
+      'bg-orange-100 text-orange-700',
+      'bg-blue-100 text-blue-700',
+      'bg-red-100 text-red-700',
+      'bg-purple-100 text-purple-700',
+      'bg-pink-100 text-pink-700',
+      'bg-teal-100 text-teal-700',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Matrix cell colors
+  const matrixColors = {
     High: {
-      High: 'from-[#059669] to-[#047857]',
-      Medium: 'from-[#10b981] to-[#059669]',
-      Low: 'from-[#dc2626] to-[#b91c1c]',
+      High: 'bg-[#3b8766]',
+      Medium: 'bg-[#5ab589]',
+      Low: 'bg-[#b9362a]',
     },
     Medium: {
-      High: 'from-[#84cc16] to-[#65a30d]',
-      Medium: 'from-[#eab308] to-[#ca8a04]',
-      Low: 'from-[#f97316] to-[#ea580c]',
+      High: 'bg-[#8cc63f]',
+      Medium: 'bg-[#dcb336]',
+      Low: 'bg-[#d97029]',
     },
     Low: {
-      High: 'from-[#eab308] to-[#ca8a04]',
-      Medium: 'from-[#d97706] to-[#92400e]',
-      Low: 'from-[#b91c1c] to-[#7f1d1d]',
+      High: 'bg-[#dcb336]',
+      Medium: 'bg-[#9e682e]',
+      Low: 'bg-[#852b26]',
+    },
+    Purchased: {
+      High: 'bg-[#6366f1]',
+      Medium: 'bg-[#4f46e5]',
+      Low: 'bg-[#4338ca]',
     },
   };
-
-  const matrixLabels = {
-    High: { High: 'The Goal', Medium: 'Nurture', Low: 'CRITICAL RISK' },
-    Medium: { High: 'Upsell', Medium: 'Neutral/Baseline', Low: 'Needs Attention' },
-    Low: { High: 'Over-servicing?', Medium: 'Low Priority', Low: 'Inefficiency' },
-  };
-
-  const matrixLegend = [
-    {
-      title: 'Dark Green',
-      desc: 'The Goal - High intent, excellent experience',
-      gradient: 'from-[#059669] to-[#047857]',
-      border: 'border-[#059669]',
-    },
-    {
-      title: 'Light Green',
-      desc: 'Nurture - High intent, room to improve experience',
-      gradient: 'from-[#10b981] to-[#059669]',
-      border: 'border-[#10b981]',
-    },
-    {
-      title: 'Bright Red',
-      desc: 'CRITICAL RISK - High intent, poor experience',
-      gradient: 'from-[#dc2626] to-[#b91c1c]',
-      border: 'border-[#dc2626]',
-    },
-    {
-      title: 'Yellow-Green',
-      desc: 'Upsell - Medium intent with great experience',
-      gradient: 'from-[#84cc16] to-[#65a30d]',
-      border: 'border-[#84cc16]',
-    },
-    {
-      title: 'Yellow',
-      desc: 'Neutral/Baseline - Average performance',
-      gradient: 'from-[#eab308] to-[#ca8a04]',
-      border: 'border-[#eab308]',
-    },
-    {
-      title: 'Orange',
-      desc: 'Needs Attention - Medium intent, poor experience',
-      gradient: 'from-[#f97316] to-[#ea580c]',
-      border: 'border-[#f97316]',
-    },
-    {
-      title: 'Orange-Grey',
-      desc: 'Low Priority - Low intent, medium experience',
-      gradient: 'from-[#d97706] to-[#92400e]',
-      border: 'border-[#d97706]',
-    },
-    {
-      title: 'Muted Red',
-      desc: 'Inefficiency - Low intent, poor experience',
-      gradient: 'from-[#b91c1c] to-[#7f1d1d]',
-      border: 'border-[#b91c1c]',
-    },
-  ];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading call analytics...</div>
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading call analytics...</p>
+        </div>
       </div>
     );
   }
@@ -362,38 +458,33 @@ const AbcAggregatedDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border-b border-white/6 shadow-2xl relative z-10">
-        <div className="max-w-[1600px] mx-auto px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/abc-calls" className="p-2 hover:bg-white/5 rounded-lg transition">
-                <ArrowLeft className="w-5 h-5 text-gray-400" />
-              </Link>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight mb-1" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-                  ABC Cart Recovery Analytics
-                </h1>
-              </div>
+    <div className="min-h-screen bg-gray-50 text-gray-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1600px] mx-auto px-8 py-8">
+        {/* HEADER & FILTERS */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <div>
+              <h1
+                className="text-3xl font-bold text-gray-900"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                ABC Cart Recovery Analytics
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Central Sales Follow-up on Abandoned Carts
+              </p>
             </div>
-
-            <div className="flex items-center gap-3">
+            <div className="flex gap-3 mt-4 md:mt-0">
               <button
                 onClick={handleDownloadReports}
-                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition"
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Download All Reports
+                Export Report
               </button>
               <Link
                 to="/abc-calls/upload"
-                className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg font-semibold text-sm transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />
                 Upload CSV
@@ -401,353 +492,502 @@ const AbcAggregatedDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-6">
-            <div className="flex flex-wrap items-center gap-3 bg-[#111116] border border-amber-400/60 rounded-xl px-4 py-3">
-              {/* View toggles */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setView('overall')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                    view === 'overall'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg'
-                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                  }`}
-                >
-                  Overall Overview
-                </button>
-                <button
-                  onClick={() => setView('city')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                    view === 'city'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg'
-                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                  }`}
-                >
-                  City-wise
-                </button>
-              </div>
+          {/* FILTER STRIP */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Location:
+              </span>
+              {/* Region */}
+              <select
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="Overall">Region: Overall</option>
+                <option value="South">South</option>
+                <option value="West">West</option>
+                <option value="North">North</option>
+                <option value="East">East</option>
+              </select>
 
-              {/* City filter */}
-              {view === 'city' && (
-                <div className="flex items-center gap-3 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                    style={{ colorScheme: 'dark' }}
-                  >
-                    {cities.map((city) => (
-                      <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
-                        {city}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                </div>
-              )}
+              {/* City */}
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="All">City: All</option>
+                {cities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* Time range filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value)}
-                  className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  <option value="last7" className="bg-[#1a1a1f] text-gray-200">Last 7 Days</option>
-                  <option value="last30" className="bg-[#1a1a1f] text-gray-200">Last 30 Days</option>
-                  <option value="last90" className="bg-[#1a1a1f] text-gray-200">Last 90 Days</option>
-                  <option value="ytd" className="bg-[#1a1a1f] text-gray-200">Year to Date</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
+            <div className="h-8 w-px bg-gray-200 hidden lg:block"></div>
 
-              {/* Intent to Purchase Filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <span className="text-xs text-gray-400">Intent to Purchase</span>
-                <select
-                  value={selectedIntent}
-                  onChange={(e) => setSelectedIntent(e.target.value)}
-                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  {['All','High','Medium','Low'].map((opt) => (
-                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Experience:
+              </span>
+              {/* Store Experience */}
+              <select
+                value={selectedStoreExp}
+                onChange={(e) => setSelectedStoreExp(e.target.value)}
+                className="bg-blue-50/50 border border-blue-200 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="All">Store Exp: All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
 
-              {/* Customer Experience Filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <span className="text-xs text-gray-400">Customer Experience</span>
-                <select
-                  value={selectedExperience}
-                  onChange={(e) => setSelectedExperience(e.target.value)}
-                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  {['All','High','Medium','Low'].map((opt) => (
-                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
+              {/* Call Experience */}
+              <select
+                value={selectedCallExp}
+                onChange={(e) => setSelectedCallExp(e.target.value)}
+                className="bg-green-50/50 border border-green-200 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200 focus:border-green-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="All">Call Exp: All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
 
-              {/* Price Bucket Filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <span className="text-xs text-gray-400">Price Bucket</span>
-                <select
-                  value={selectedPriceBucket}
-                  onChange={(e) => setSelectedPriceBucket(e.target.value)}
-                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  <option value="All" className="bg-[#1a1a1f] text-gray-200">All</option>
-                  <option value="High" className="bg-[#1a1a1f] text-gray-200">High (&gt; 20k)</option>
-                  <option value="Medium" className="bg-[#1a1a1f] text-gray-200">Medium (10k - 20k)</option>
-                  <option value="Low" className="bg-[#1a1a1f] text-gray-200">Low (&lt; 10k)</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
+            <div className="h-8 w-px bg-gray-200 hidden lg:block"></div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Intent */}
+              <select
+                value={selectedIntent}
+                onChange={(e) => setSelectedIntent(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="All">Intent: All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+              {/* Time */}
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-2 pr-8 rounded-lg appearance-none cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition shadow-sm"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                  backgroundPosition: 'right 0.5rem center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: '1.25em 1.25em',
+                }}
+              >
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+              </select>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-[1600px] mx-auto px-8 py-8 relative z-10">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        {/* KPI CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* Card 1: Total */}
           <div
             onClick={() => navigateWithFilter(() => true, 'All calls (current filters)')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition cursor-pointer border-l-4 border-l-indigo-500"
           >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-indigo-900/20 rounded-lg">
-                <Phone className="w-6 h-6 text-indigo-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-gray-100">{metrics.total.toLocaleString()}</p>
-                <p className="text-sm text-gray-400 mt-1">Total Calls Analyzed</p>
-              </div>
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+                Total Outbound Calls
+              </p>
+              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded">
+                +{Math.round((metrics.total / Math.max(abcCalls.length, 1)) * 100)}%
+              </span>
             </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Avg. per city</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.cityPerformance.length ? Math.round(metrics.total / metrics.cityPerformance.length) : 0}
-                </span>
-              </div>
-            </div>
+            <h3 className="text-4xl font-bold text-gray-900 mb-1">{metrics.total}</h3>
+            <p className="text-xs text-gray-400">
+              Leads from {metrics.cityPerformance.length} Cities
+            </p>
           </div>
 
+          {/* Card 2: Sales Leads */}
           <div
-            onClick={() => navigateWithFilter((c) => c.type === 'Recovered', 'Recovered calls')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+            onClick={() =>
+              navigateWithFilter((c) => !c.isAlreadyPurchased, 'Sales Leads (not yet purchased)')
+            }
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition cursor-pointer border-l-4 border-l-emerald-500"
           >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-emerald-900/20 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-emerald-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-emerald-400">{metrics.recoveredCalls}</p>
-                <p className="text-sm text-gray-400 mt-1">Recovered Carts</p>
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">
+                Sales Leads
+              </p>
+              <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
+                <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Recovery Ratio</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.total ? Math.round((metrics.recoveredCalls / metrics.total) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+            <h3 className="text-4xl font-bold text-emerald-600">{metrics.salesLeads}</h3>
+            <p className="text-xs text-gray-400">
+              {metrics.total > 0
+                ? Math.round((metrics.salesLeads / metrics.total) * 100)
+                : 0}
+              % Recovery Potential
+            </p>
           </div>
 
+          {/* Card 3: Already Purchased */}
           <div
-            onClick={() => navigateWithFilter((c) => c.type === 'Pending', 'Pending calls')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
+            onClick={() =>
+              navigateWithFilter((c) => c.isAlreadyPurchased, 'Already Purchased')
+            }
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition cursor-pointer border-l-4 border-l-purple-500"
           >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-900/20 rounded-lg">
-                <Users className="w-6 h-6 text-blue-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-blue-400">{metrics.pendingCalls}</p>
-                <p className="text-sm text-gray-400 mt-1">Pending Recovery</p>
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-purple-700 uppercase tracking-wide">
+                Already Purchased
+              </p>
+              <div className="p-1.5 bg-purple-50 rounded-lg text-purple-600">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Pending Ratio</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.total ? Math.round((metrics.pendingCalls / metrics.total) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+            <h3 className="text-4xl font-bold text-purple-600">{metrics.alreadyPurchased}</h3>
+            <p className="text-xs text-gray-400">
+              {metrics.total > 0
+                ? Math.round((metrics.alreadyPurchased / metrics.total) * 100)
+                : 0}
+              % Bought Elsewhere/Online
+            </p>
           </div>
         </div>
 
-        {/* Intent x Customer Experience Matrix */}
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 sm:p-8 mb-8">
+        {/* MATRIX SECTION */}
+        <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-xl shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
-              🎯
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold text-white">Purchase Intent × Customer Experience</h2>
-              <p className="text-sm text-slate-400">Click a cell to drill into matching calls</p>
-            </div>
+            <h2
+              className="text-2xl font-bold text-gray-900"
+              style={{ fontFamily: "'Fraunces', serif" }}
+            >
+              Purchase Intent × Call Experience Matrix
+            </h2>
+            <div className="h-px bg-gray-300 flex-1 ml-4"></div>
           </div>
 
-          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-4 sm:p-6 overflow-x-auto">
-            <div className="min-w-[900px] grid grid-cols-[170px_repeat(3,minmax(0,1fr))] gap-4">
+          <div className="overflow-x-auto pb-4">
+            <div className="min-w-[900px] grid grid-cols-[140px_repeat(3,minmax(0,1fr))] gap-4">
+              {/* Headers */}
               <div></div>
-              {experiences.map((exp) => (
-                <div key={`header-${exp}`} className="text-center font-semibold text-base text-slate-100 py-3">
-                  {exp} Experience
-                </div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">
+                High Call Exp
+              </div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">
+                Medium Call Exp
+              </div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">
+                Low Call Exp
+              </div>
+
+              {/* Row 1: High Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">
+                High Intent
+              </div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`High-${exp}`}
+                  onClick={() =>
+                    navigateWithFilter(
+                      (c) => !c.isAlreadyPurchased && c.intent === 'High' && c.callExp === exp,
+                      `High Intent × ${exp} Call Exp`
+                    )
+                  }
+                  className={`relative rounded-2xl p-6 text-center text-white cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center ${matrixColors.High[exp]}`}
+                >
+                  <div className="text-5xl font-bold leading-none mb-1 drop-shadow-sm">
+                    {metrics.matrix.High[exp]}
+                  </div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">
+                    Calls
+                  </div>
+                </button>
               ))}
 
-              {intents.map((intent) => (
-                <React.Fragment key={intent}>
-                  <div className="flex items-center justify-end pr-4 text-right text-base font-semibold text-slate-100">
-                    {intent} Intent
+              {/* Row 2: Medium Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">
+                Medium Intent
+              </div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`Medium-${exp}`}
+                  onClick={() =>
+                    navigateWithFilter(
+                      (c) => !c.isAlreadyPurchased && c.intent === 'Medium' && c.callExp === exp,
+                      `Medium Intent × ${exp} Call Exp`
+                    )
+                  }
+                  className={`relative rounded-2xl p-6 text-center text-white cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center ${matrixColors.Medium[exp]}`}
+                >
+                  <div className="text-5xl font-bold leading-none mb-1 drop-shadow-sm">
+                    {metrics.matrix.Medium[exp]}
                   </div>
-                  {experiences.map((exp) => (
-                    <button
-                      key={`${intent}-${exp}`}
-                      type="button"
-                      onClick={() => navigateWithFilter((c) => c.intent === intent && c.experience === exp, `${intent} intent × ${exp} experience`)}
-                      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${matrixPalette[intent][exp]} p-6 sm:p-7 text-center transition transform hover:-translate-y-1 hover:scale-[1.02] shadow-[0_12px_40px_rgba(0,0,0,0.35)]`}
-                    >
-                      <div className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">{metrics.matrix[intent][exp]}</div>
-                      <div className="text-sm font-medium text-white/80">calls</div>
-                      <div className="mt-3 inline-flex rounded-md bg-black/20 px-3 py-1 text-xs font-semibold text-white/90">
-                        {matrixLabels[intent][exp]}
-                      </div>
-                    </button>
-                  ))}
-                </React.Fragment>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">
+                    Calls
+                  </div>
+                </button>
               ))}
-            </div>
-          </div>
 
-          <div className="mt-7 rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-6">
-            <h3 className="text-lg font-semibold text-slate-100 mb-4">Color Legend & Interpretation</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {matrixLegend.map((item) => (
-                <div key={item.title} className="flex items-center gap-3 rounded-xl bg-[#0a0a0a] p-4">
-                  <div className={`h-12 w-12 rounded-lg border-2 ${item.border} bg-gradient-to-br ${item.gradient}`}></div>
-                  <div className="space-y-1 text-left">
-                    <p className="text-sm font-semibold text-slate-100">{item.title}</p>
-                    <p className="text-xs text-slate-400 leading-snug">{item.desc}</p>
+              {/* Row 3: Low Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">
+                Low Intent
+              </div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`Low-${exp}`}
+                  onClick={() =>
+                    navigateWithFilter(
+                      (c) => !c.isAlreadyPurchased && c.intent === 'Low' && c.callExp === exp,
+                      `Low Intent × ${exp} Call Exp`
+                    )
+                  }
+                  className={`relative rounded-2xl p-6 text-center text-white cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center ${matrixColors.Low[exp]}`}
+                >
+                  <div className="text-5xl font-bold leading-none mb-1 drop-shadow-sm">
+                    {metrics.matrix.Low[exp]}
                   </div>
-                </div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">
+                    Calls
+                  </div>
+                </button>
+              ))}
+
+              {/* Row 4: Already Purchased */}
+              <div className="flex items-center justify-end pr-6 font-bold text-purple-800 text-sm border-t pt-4 border-gray-200">
+                Purchased
+              </div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`Purchased-${exp}`}
+                  onClick={() =>
+                    navigateWithFilter(
+                      (c) => c.isAlreadyPurchased && c.callExp === exp,
+                      `Already Purchased × ${exp} Call Exp`
+                    )
+                  }
+                  className={`relative rounded-2xl p-6 text-center text-white cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center mt-4 ${matrixColors.Purchased[exp]}`}
+                >
+                  <div className="text-5xl font-bold leading-none mb-1 drop-shadow-sm">
+                    {metrics.matrix.Purchased[exp]}
+                  </div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">
+                    Calls
+                  </div>
+                </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* City Performance Table */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden mb-8">
-          <div className="p-8 border-b border-white/6">
-            <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
-              <TrendingUp className="w-6 h-6 text-amber-400" />
-              City Performance Analysis
-            </h2>
-            <p className="text-sm text-gray-400 mt-1">RELAX Framework Scores & Key Metrics</p>
+        {/* AGENT PERFORMANCE MATRIX */}
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Users className="w-6 h-6 text-amber-500" />
+              <h2
+                className="text-xl font-bold text-gray-900"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                Central Agent Performance Matrix
+              </h2>
+            </div>
+            <p className="text-sm text-gray-500 mt-1 ml-9">
+              Effectiveness in recovering abandoned carts
+            </p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#16161d] border-b border-white/6">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-8 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    City Name
+                  <th className="p-4 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Agent Name
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    # Calls
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-900 uppercase tracking-wider bg-gray-100 border-l border-r border-gray-200">
                     Overall Score
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-l border-white/6">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    # Leads
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    NPS
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Call CX
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider border-l border-gray-200">
                     R
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">
                     E
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">
                     L
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">
                     A
                   </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-r border-white/6">
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">
                     X
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Product Knowledge
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Soft Skills
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {metrics.cityPerformance.map((city, idx) => (
-                  <tr key={city.cityName} className={`border-b border-white/6 hover:bg-white/5 transition ${idx % 2 === 0 ? 'bg-[#0a0a0a]' : ''}`}>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center text-amber-400 font-semibold text-sm">
-                          {city.cityName.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-100">{city.cityName}</p>
-                        </div>
+              <tbody className="divide-y divide-gray-100">
+                {metrics.agentPerformance.map((agent) => (
+                  <tr key={agent.name} className="hover:bg-gray-50 transition">
+                    <td className="p-4 flex items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-3 ${getAvatarColor(
+                          agent.name
+                        )}`}
+                      >
+                        {getInitials(agent.name)}
                       </div>
+                      <div className="font-bold text-gray-900">{agent.name}</div>
                     </td>
-                    <td className="text-center px-4 py-5">
-                      <span className="font-semibold text-gray-200">{city.totalCalls}</span>
-                    </td>
-                    <td className="text-center px-4 py-5">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full font-bold text-sm" style={{ 
-                        backgroundColor: city.overallScore >= 70 ? 'rgba(16, 185, 129, 0.2)' : city.overallScore >= 50 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                        color: city.overallScore >= 70 ? '#10b981' : city.overallScore >= 50 ? '#f59e0b' : '#ef4444'
-                      }}>
-                        {city.overallScore}
-                      </div>
-                    </td>
-                    <td className="text-center px-4 py-5 border-l border-white/6"><span className="text-gray-300">{city.rapport}</span></td>
-                    <td className="text-center px-4 py-5"><span className="text-gray-300">{city.explore}</span></td>
-                    <td className="text-center px-4 py-5"><span className="text-gray-300">{city.link}</span></td>
-                    <td className="text-center px-4 py-5"><span className="text-gray-300">{city.add}</span></td>
-                    <td className="text-center px-4 py-5 border-r border-white/6"><span className="text-gray-300">{city.close}</span></td>
-                    <td className="text-center px-4 py-5">
-                      <span className={city.productKnowledge >= 70 ? 'text-emerald-400' : city.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}>
-                        {city.productKnowledge}
+                    <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-200">
+                      <span
+                        className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-sm border ${getScorePillClass(
+                          agent.overall
+                        )}`}
+                      >
+                        {agent.overall}
                       </span>
                     </td>
-                    <td className="text-center px-4 py-5">
-                      <span className={city.softSkills >= 70 ? 'text-emerald-400' : city.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}>
-                        {city.softSkills}
+                    <td className="p-4 text-center">
+                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">
+                        {agent.leads}
                       </span>
                     </td>
+                    <td className="p-4 text-center text-gray-900 font-bold">{agent.nps}</td>
+                    <td className="p-4 text-center text-gray-900">{agent.callExp}</td>
+                    <td className="p-4 text-center border-l border-gray-100 text-gray-600">
+                      {agent.r}
+                    </td>
+                    <td className="p-4 text-center text-gray-600">{agent.e}</td>
+                    <td className="p-4 text-center text-gray-600">{agent.l}</td>
+                    <td className="p-4 text-center text-gray-600">{agent.a}</td>
+                    <td className="p-4 text-center text-gray-600">{agent.x}</td>
                   </tr>
                 ))}
+                {metrics.agentPerformance.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
+                      No agent data available for current filters
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* CITY PERFORMANCE MATRIX */}
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Building2 className="w-6 h-6 text-blue-600" />
+              <h2
+                className="text-xl font-bold text-gray-900"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                City Performance Matrix
+              </h2>
+            </div>
+            <p className="text-sm text-gray-500 mt-1 ml-9">Intent Distribution by Cities</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-4 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    City
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-900 uppercase tracking-wider bg-gray-100">
+                    Total Calls
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-green-700 uppercase tracking-wider">
+                    High Intent
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-yellow-700 uppercase tracking-wider">
+                    Medium Intent
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-red-700 uppercase tracking-wider">
+                    Low Intent
+                  </th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">
+                    Already Purchased
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {metrics.cityPerformance.map((city) => (
+                  <tr key={city.name} className="hover:bg-gray-50 transition">
+                    <td className="p-4">
+                      <div className="font-bold text-gray-900">{city.name}</div>
+                    </td>
+                    <td className="p-4 text-center font-bold text-gray-900 bg-gray-50">
+                      {city.total}
+                    </td>
+                    <td className="p-4 text-center">{city.highIntent}</td>
+                    <td className="p-4 text-center">{city.mediumIntent}</td>
+                    <td className="p-4 text-center">{city.lowIntent}</td>
+                    <td className="p-4 text-center font-bold text-blue-600">{city.purchased}</td>
+                  </tr>
+                ))}
+                {metrics.cityPerformance.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                      No city data available for current filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="text-center text-gray-400 text-sm mt-8 pb-8">
+          Duroflex Analytics • Powered by AI Analysis
         </div>
       </div>
     </div>
