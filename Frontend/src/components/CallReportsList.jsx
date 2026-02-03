@@ -1,8 +1,73 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Phone, MapPin, Calendar, Clock, LogOut, BarChart3, Upload } from 'lucide-react';
+import { Phone, BarChart3, DollarSign, HelpCircle, Download, Upload, LogOut, ArrowLeft } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
+
+// Helper to safely get nested values
+const getField = (obj, ...paths) => {
+  for (const path of paths) {
+    const keys = path.split('.');
+    let value = obj;
+    for (const key of keys) {
+      if (value && typeof value === 'object') {
+        value = value[key];
+      } else {
+        value = undefined;
+        break;
+      }
+    }
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+};
+
+// Flatten nested JSON objects for CSV export
+const flattenObject = (obj, prefix = '') => {
+  const result = {};
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else if (Array.isArray(value)) {
+      result[newKey] = value.map(item => (item && typeof item === 'object' ? JSON.stringify(item) : item)).join('; ');
+    } else {
+      result[newKey] = value;
+    }
+  });
+  return result;
+};
+
+const toCsvValue = (value) => {
+  if (value === null || value === undefined) return '';
+  const str = String(value).replace(/"/g, '""');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str}"`;
+  }
+  return str;
+};
+
+const exportReportsAsCsv = (reports, filename) => {
+  if (!reports || !reports.length) {
+    alert('No reports to download');
+    return;
+  }
+  const flattened = reports.map(r => flattenObject(r));
+  const headers = Array.from(new Set(flattened.flatMap(item => Object.keys(item))));
+  const rows = [headers.join(',')];
+  flattened.forEach(item => {
+    const row = headers.map(h => toCsvValue(item[h]));
+    rows.push(row.join(','));
+  });
+  const csvContent = rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 const CallReportsList = () => {
   const navigate = useNavigate();
@@ -10,20 +75,24 @@ const CallReportsList = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
 
+  // Filter states
+  const [selectedRegion, setSelectedRegion] = useState('All');
+  const [selectedStore, setSelectedStore] = useState('All');
+  const [timeRange, setTimeRange] = useState('30');
+  const [selectedIntent, setSelectedIntent] = useState('All');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
   const filterDescription = location.state?.filterDescription;
 
   useEffect(() => {
     fetchReports();
-    fetchStats();
   }, []);
-
-  const visibleReports = useMemo(() => {
-    if (!filterIds || !Array.isArray(filterIds)) return reports;
-    return reports.filter((r) => filterIds.includes(r.call_id));
-  }, [reports, filterIds]);
 
   const fetchReports = async () => {
     try {
@@ -37,497 +106,608 @@ const CallReportsList = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/GmbCalls/stats/overview`);
-      const data = await res.json();
-      setStats(data.stats);
-    } catch (err) {
-      console.error('Failed to load stats', err);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin_email');
     navigate('/');
   };
 
-  const getIntentColor = (intent) => {
-    if (!intent) return 'bg-gray-800 text-gray-400 border-gray-700';
-    const upper = intent.toUpperCase();
-    if (upper.includes('HIGH')) return 'bg-emerald-900/30 text-emerald-300 border-emerald-600/40';
-    if (upper.includes('MEDIUM')) return 'bg-amber-900/30 text-amber-300 border-amber-600/40';
-    return 'bg-red-900/30 text-red-300 border-red-600/40';
-  };
+  // Process reports with extracted fields
+  const processedReports = useMemo(() => {
+    return reports.map(report => {
+      const analysis = report.analysis || {};
+      
+      // Extract fields using new schema paths with fallbacks
+      const callObjectiveType = getField(analysis, '1_Call_Objective.Type', 'Functional.Call_Objective_Theme') || '';
+      const intent = getField(analysis, '2_Intent_to_Purchase.Rating', 'Customer_Information.Intent_to_Purchase_Rating') || 'Medium';
+      const customerExp = getField(analysis, '3_Customer_Experience.Rating', 'Customer_Information.Customer_Satisfaction_Score') || 'Medium';
+      const callObjective = getField(analysis, '1_Call_Objective.Objective_Phrase', 'Functional.Call_Objective_Theme') || 'N/A';
+      const potentialValue = getField(analysis, '5_Product_Intelligence.Approx_Order_Value', 'MetaData.Consideration_Value') || 'N/A';
+      const storeVisitRating = getField(analysis, '9_Invitations.Store_Visit.Rating', 'Agent_Areas.The_Invitation_to_Visit.Attempted') || 'Low';
+      const region = getField(analysis, 'MetaData.Call_Region') || report.region || 'Unknown';
+      
+      // Determine lead type
+      let leadType = 'Sales Lead';
+      const objType = callObjectiveType.toLowerCase();
+      if (objType.includes('post') || objType.includes('service') || objType.includes('complaint') || objType.includes('delivery')) {
+        leadType = 'Post-Sales';
+      }
+      
+      // Check if already purchased
+      const isPurchased = objType.includes('already purchased') || objType.includes('post purchase');
+      
+      // Determine invited to store
+      let invitedToStore = 'No';
+      if (typeof storeVisitRating === 'boolean') {
+        invitedToStore = storeVisitRating ? 'Yes' : 'No';
+      } else {
+        const rating = String(storeVisitRating).toLowerCase();
+        invitedToStore = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      }
+      
+      // Parse call date
+      let callDate = null;
+      if (report.call_date) {
+        // Try parsing various formats
+        const dateStr = report.call_date;
+        if (dateStr.includes('-')) {
+          const parts = dateStr.split('-');
+          if (parts[0].length === 2) {
+            // DD-MM-YYYY format
+            callDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          } else {
+            callDate = new Date(dateStr);
+          }
+        } else {
+          callDate = new Date(dateStr);
+        }
+        if (isNaN(callDate.getTime())) callDate = null;
+      }
+      if (!callDate && report.upload_timestamp) {
+        callDate = new Date(report.upload_timestamp);
+      }
+      if (!callDate) callDate = new Date();
+      
+      return {
+        ...report,
+        callDate,
+        region,
+        leadType,
+        intent: normalizeRating(intent),
+        customerExp: normalizeRating(customerExp),
+        callObjective,
+        potentialValue: formatPotentialValue(potentialValue),
+        invitedToStore,
+        isPurchased
+      };
+    });
+  }, [reports]);
 
-  const [expandedStores, setExpandedStores] = useState(false);
+  // Get unique regions and stores for filters
+  const regions = useMemo(() => {
+    const uniqueRegions = [...new Set(processedReports.map(r => r.region).filter(r => r && r !== 'Unknown'))];
+    return ['All', ...uniqueRegions.sort()];
+  }, [processedReports]);
 
-  const ratingToScore = (value, fallback = 75) => {
-    if (value === null || value === undefined) return fallback;
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(num)) return fallback;
-    // If the rating is on a 0-5 scale, multiply by 20 to convert to 0-100
-    return Math.round(num * 20);
-  };
+  const stores = useMemo(() => {
+    const uniqueStores = [...new Set(processedReports.map(r => r.store_name).filter(Boolean))];
+    return ['All', ...uniqueStores.sort()];
+  }, [processedReports]);
 
-  const storePerformanceData = useMemo(() => {
-    // When coming from aggregated matrix/store clicks with filters applied,
-    // skip heavy store performance calculations and just show filtered calls.
+  // Apply filters
+  const filteredReports = useMemo(() => {
+    let result = processedReports;
+
+    // External filter from aggregated dashboard
     if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
-      return [];
+      result = result.filter(r => filterIds.includes(r.call_id));
+      return result; // Skip other filters when using external filter
     }
 
-    const storeMap = {};
+    // Region filter
+    if (selectedRegion !== 'All') {
+      result = result.filter(r => r.region === selectedRegion);
+    }
 
-    visibleReports.forEach((report) => {
-      const storeName = report.store_name || 'Unknown';
-      const storeKey = storeName;
-      if (!storeMap[storeKey]) {
-        storeMap[storeKey] = {
-          storeName: report.store_name,
-          city: report.city,
-          state: report.state,
-          calls: [],
-        };
+    // Store filter
+    if (selectedStore !== 'All') {
+      result = result.filter(r => r.store_name === selectedStore);
+    }
+
+    // Time filter
+    if (timeRange !== 'all') {
+      const days = parseInt(timeRange);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      cutoff.setHours(0, 0, 0, 0);
+      result = result.filter(r => {
+        if (!r.callDate) return false;
+        const callDay = new Date(r.callDate);
+        callDay.setHours(0, 0, 0, 0);
+        return callDay >= cutoff;
+      });
+    }
+
+    // Intent filter
+    if (selectedIntent !== 'All') {
+      if (selectedIntent === 'Purchased') {
+        result = result.filter(r => r.isPurchased);
+      } else {
+        result = result.filter(r => r.intent === selectedIntent && !r.isPurchased);
       }
-      storeMap[storeKey].calls.push(report);
-    });
+    }
 
-    const performance = Object.values(storeMap)
-      .map((store) => {
-        const calls = store.calls;
-        
-        const processedCalls = calls.map((report) => {
-          const analysis = report.analysis || {};
-          const agent = analysis.Agent_Areas || {};
-          const relax = agent.RELAX_Framework || {};
-          const soft = agent.SoftSkills_Etiquette || {};
-          const knowledge = agent.Verbal_Product_Knowledge || {};
+    return result;
+  }, [processedReports, filterIds, selectedRegion, selectedStore, timeRange, selectedIntent]);
 
-          const reach = relax.R_Reach_Out?.Rating;
-          const explore = relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating;
-          const link = relax.L_Link_Experience?.Rating;
-          const add = relax.A_Add_Value?.Rating;
-          const close = relax.X_Express_Closing?.Rating;
+  // Calculate KPIs
+  const kpis = useMemo(() => {
+    const total = filteredReports.length;
+    const highIntent = filteredReports.filter(r => r.intent === 'High' && !r.isPurchased).length;
+    const salesLeads = filteredReports.filter(r => r.leadType === 'Sales Lead').length;
+    const postPurchase = filteredReports.filter(r => r.leadType === 'Post-Sales' || r.isPurchased).length;
+    
+    return {
+      total,
+      highIntentPercent: total > 0 ? Math.round((highIntent / total) * 100) : 0,
+      salesLeads,
+      postPurchase
+    };
+  }, [filteredReports]);
 
-          const rapportScore = ratingToScore(reach, 75);
-          const exploreScore = ratingToScore(explore, 75);
-          const listenScore = ratingToScore(link, 75);
-          const adviseScore = ratingToScore(add, 75);
-          const executeScore = ratingToScore(close, 75);
+  // Pagination
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(start, start + itemsPerPage);
+  }, [filteredReports, currentPage]);
 
-          const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
-          const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
-          const overallRelax = availableRelax.length
-            ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
-            : 75;
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
 
-          const productKnowledgeScore = ratingToScore(
-            knowledge.Description_Quality_Rating || knowledge.Technical_Knowledge_Rating,
-            75
-          );
-
-          const softSkillsScore = (() => {
-            const parts = [
-              ratingToScore(soft.Tone_and_Patience_Rating, null),
-              ratingToScore(soft.Hold_Management_Rating, null),
-              ratingToScore(soft.Agent_Language_Fluency_Score, null)
-            ].filter((s) => s !== null);
-            if (!parts.length) return 75;
-            return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
-          })();
-
-          return {
-            overall: overallRelax,
-            rapport: rapportScore,
-            explore: exploreScore,
-            listen: listenScore,
-            advise: adviseScore,
-            execute: executeScore,
-            productKnowledge: productKnowledgeScore,
-            softSkills: softSkillsScore,
-          };
-        });
-
-        const avgScore = (metric) => {
-          const scores = processedCalls.map(c => c[metric]).filter(v => v !== undefined && v !== null);
-          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-        };
-
-        return {
-          storeName: store.storeName,
-          city: store.city,
-          state: store.state,
-          totalCalls: calls.length,
-          overallScore: avgScore('overall'),
-          rapport: avgScore('rapport'),
-          explore: avgScore('explore'),
-          listen: avgScore('listen'),
-          advise: avgScore('advise'),
-          execute: avgScore('execute'),
-          productKnowledge: avgScore('productKnowledge'),
-          softSkills: avgScore('softSkills'),
-        };
-      })
-      .sort((a, b) => b.overallScore - a.overallScore);
-
-    return performance;
-  }, [visibleReports, filterIds]);
-
-  const topStores = storePerformanceData.slice(0, 10);
-  const remainingStores = storePerformanceData.slice(10);
-
-  const getScoreBgColor = (score) => {
-    if (score >= 70) return 'text-emerald-400';
-    if (score >= 50) return 'text-amber-400';
-    return 'text-red-400';
+  // Reset filters
+  const handleResetFilters = () => {
+    setSelectedRegion('All');
+    setSelectedStore('All');
+    setTimeRange('30');
+    setSelectedIntent('All');
+    setCurrentPage(1);
+    // Clear external filter
+    if (filterIds) {
+      navigate('/GmbCalls', { replace: true });
+    }
   };
+
+  // Helper functions
+  function normalizeRating(val) {
+    if (!val) return 'Medium';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str === 'H') return 'High';
+    if (str.includes('LOW') || str === 'L') return 'Low';
+    return 'Medium';
+  }
+
+  function formatPotentialValue(val) {
+    if (!val || val === 'N/A') return 'N/A';
+    const str = String(val).toLowerCase();
+    if (str.includes('budget')) return 'Budget Range';
+    if (str.includes('premium')) return '50k+';
+    if (str.includes('50k') || str.includes('50000')) return '50k+';
+    if (str.includes('25k') || str.includes('25000')) return '25k to 50k';
+    if (str.includes('15k') || str.includes('15000')) return '15k to 25k';
+    // Check for range like "45000-67000"
+    const rangeMatch = val.match(/(\d+)-(\d+)/);
+    if (rangeMatch) {
+      const low = parseInt(rangeMatch[1]) / 1000;
+      const high = parseInt(rangeMatch[2]) / 1000;
+      if (high >= 50) return '50k+';
+      return `${Math.round(low)}k to ${Math.round(high)}k`;
+    }
+    return val;
+  }
+
+  function formatDuration(seconds) {
+    if (!seconds) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function formatDate(date) {
+    if (!date) return { date: 'N/A', time: '' };
+    const d = new Date(date);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const hours = d.getHours();
+    const mins = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return {
+      date: `${month} ${day}`,
+      time: `${hour12.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`
+    };
+  }
+
+  function getIntentDotColor(intent) {
+    if (intent === 'High') return 'bg-emerald-500';
+    if (intent === 'Medium') return 'bg-amber-500';
+    return 'bg-red-500';
+  }
+
+  function getExpColor(exp) {
+    if (exp === 'High') return 'text-emerald-600 font-bold';
+    if (exp === 'Medium') return 'text-yellow-600 font-bold';
+    return 'text-red-600 font-bold';
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-gray-300">Loading call reports...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading call reports...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-red-400">{error}</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+    <div className="min-h-screen bg-gray-50 text-gray-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1800px] mx-auto px-8 py-8">
+        
+        {/* HEADER */}
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <Link 
+              to="/dashboard" 
+              className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              BACK TO DASHBOARD
             </Link>
+            <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              GMB Inbound Calls
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Live feed of customer inquiries to store numbers</p>
           </div>
-
-          <div className="flex items-center gap-3">
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportReportsAsCsv(filteredReports, 'gmb_calls_report.csv')}
+              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
             <Link
               to="/GmbCalls/upload"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-lg text-purple-300 text-sm font-semibold transition"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload CSV
             </Link>
-
             <Link
               to="/GmbCalls/analytics"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-lg text-amber-200 text-sm font-semibold transition"
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
-              Analytics Dashboard
+              Analytics
             </Link>
-
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-600/30 rounded-lg text-red-400 text-sm font-semibold transition"
+              className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-3 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              Logout
             </button>
           </div>
         </div>
 
-        {/* Title Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-semibold text-gray-100 mb-2" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-            Audio Call Reports
-          </h1>
-          <p className="text-sm text-gray-400">Comprehensive analysis of recorded call data</p>
+        {/* KPI SUMMARY ROW */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Calls</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{kpis.total}</p>
+            </div>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <Phone className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">High Intent</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{kpis.highIntentPercent}%</p>
+            </div>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Sales Leads</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{kpis.salesLeads}</p>
+            </div>
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Post Purchase</p>
+              <p className="text-2xl font-bold text-gray-500 mt-1">{kpis.postPurchase}</p>
+            </div>
+            <div className="p-2 bg-gray-100 text-gray-500 rounded-lg">
+              <HelpCircle className="w-5 h-5" />
+            </div>
+          </div>
         </div>
 
-        {/* Store Performance Analysis */}
-        {storePerformanceData.length > 0 && (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
-            <div className="px-8 py-6 border-b border-[#2a2a2a]">
-              <div className="flex items-center gap-4 mb-2">
-                <span className="text-3xl">📊</span>
-                <h2 className="text-2xl font-semibold text-white">Store Performance Analysis</h2>
-              </div>
-              <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores & Key Metrics</p>
-            </div>
-
-            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Stores</p>
-                <p className="text-2xl font-bold text-white">{storePerformanceData.length}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
-                <p className="text-2xl font-bold text-white">{visibleReports.length}</p>
-              </div>
-              {storePerformanceData.length > 0 && (
-                <>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Score</p>
-                    <p className="text-2xl font-bold text-white">{Math.round(storePerformanceData.reduce((sum, s) => sum + s.overallScore, 0) / storePerformanceData.length)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Top Score</p>
-                    <p className="text-2xl font-bold text-emerald-400">{storePerformanceData[0]?.overallScore || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Lowest Score</p>
-                    <p className="text-2xl font-bold text-red-400">{storePerformanceData[storePerformanceData.length - 1]?.overallScore || 0}</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
-                  <tr>
-                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Store Name</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">E</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">A</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">X</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Knowledge</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Soft Skills</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(expandedStores ? storePerformanceData : topStores).map((store) => (
-                    <tr key={store.storeName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
-                      <td className="px-6 py-6">
-                        <div className="font-semibold text-white text-base">{store.storeName}</div>
-                        <div className="text-xs text-slate-500 mt-1">{store.city}, {store.state}</div>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="text-slate-200 font-semibold text-base">{store.totalCalls}</span>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm" style={{ color: store.overallScore >= 70 ? '#10b981' : store.overallScore >= 50 ? '#f59e0b' : '#dc2626' }}>
-                          {store.overallScore}
-                        </div>
-                      </td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.rapport}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.explore}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.listen}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.advise}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.execute}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.productKnowledge >= 70 ? 'text-emerald-400' : store.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.productKnowledge}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.softSkills >= 70 ? 'text-emerald-400' : store.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.softSkills}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {remainingStores.length > 0 && (
-              <div className="text-center px-8 py-6 bg-[#1a1a1a] border-t border-[#2a2a2a]">
-                <button
-                  onClick={() => setExpandedStores(!expandedStores)}
-                  className={`inline-flex items-center gap-3 px-8 py-3 rounded-lg font-semibold transition transform hover:-translate-y-0.5 ${expandedStores ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white' : 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white'}`}
-                >
-                  {expandedStores ? 'Show Less' : 'Show More Stores'}
-                  <span className={`text-lg leading-none transition ${expandedStores ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Stats Cards Row - only for unfiltered view */}
-        {!filterIds && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {/* Total Calls */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                    <Phone className="w-8 h-8 text-amber-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Total Calls</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
-            </div>
-
-            {/* Analyzed */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
-                    <BarChart3 className="w-8 h-8 text-green-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Analyzed</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">{reports.filter(r => r.analysis && !r.analysis.error).length}</div>
-            </div>
-
-            {/* Pending Analysis */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
-                    <Clock className="w-8 h-8 text-orange-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">
-                {reports.length - reports.filter(r => r.analysis && !r.analysis.error).length}
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* External Filter Banner */}
         {filterIds && (
-          <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
+          <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
             <div className="text-sm font-semibold">
-              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
+              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({filteredReports.length} of {reports.length})
             </div>
             <button
-              onClick={() => navigate('/GmbCalls')}
-              className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
+              onClick={handleResetFilters}
+              className="text-xs font-bold px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300"
             >
               Clear filter
             </button>
           </div>
         )}
 
-        {/* Reports Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleReports.length === 0 && (
-            <div className="col-span-full text-center text-gray-400 py-12">No reports match this filter.</div>
-          )}
-          {visibleReports.map((report) => {
-            const analysis = report.analysis || {};
-            const hasError = analysis.error;
-            const functional = analysis.Functional || {};
-            const customer = analysis.Customer_Information || {};
+        {/* FILTER STRIP */}
+        {!filterIds && (
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-center mb-8">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Filters:</span>
             
-            return (
-              <Link
-                key={report.call_id}
-                to={`/GmbCalls/${report.call_id}`}
-                className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:border-amber-500/50 transition-all overflow-hidden relative"
+            {/* Region */}
+            <select
+              value={selectedRegion}
+              onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              {regions.map(r => (
+                <option key={r} value={r}>{r === 'All' ? 'Region: All' : r}</option>
+              ))}
+            </select>
+
+            {/* Store */}
+            <select
+              value={selectedStore}
+              onChange={(e) => { setSelectedStore(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 max-w-[200px]"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              {stores.map(s => (
+                <option key={s} value={s}>{s === 'All' ? 'Store: All Stores' : s}</option>
+              ))}
+            </select>
+
+            {/* Time */}
+            <select
+              value={timeRange}
+              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="1">Time: Last 1 Day</option>
+              <option value="7">Time: Last 7 Days</option>
+              <option value="30">Time: Last 30 Days</option>
+              <option value="90">Time: Last 3 Months</option>
+              <option value="all">Time: All Time</option>
+            </select>
+
+            {/* Purchase Intent */}
+            <select
+              value={selectedIntent}
+              onChange={(e) => { setSelectedIntent(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Purchase Intent: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+              <option value="Purchased">Already Purchased</option>
+            </select>
+
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-400 font-medium">Showing {filteredReports.length} Results</span>
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-wider"
               >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
 
-                {/* Store Header */}
-                <div className="mb-6 pb-6 border-b border-white/6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg text-gray-100 group-hover:text-amber-400 transition" style={{ fontFamily: "'Fraunces', serif" }}>
-                      {report.store_name}
-                    </h3>
-                    {report.is_converted && (
-                      <span className="px-3 py-1 bg-emerald-900/30 border border-emerald-600/40 rounded-full text-xs font-semibold text-emerald-300">
-                        ✓ Converted
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <MapPin className="w-3 h-3" />
-                    <span>{report.city}, {report.state}</span>
-                  </div>
-                </div>
-
-                {/* Call ID */}
-                <div className="mb-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call ID</p>
-                  <p className="font-mono text-sm text-gray-300">{report.call_id}</p>
-                </div>
-
-                {/* Call Info Row */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Date</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-200">
-                      <Calendar className="w-4 h-4 text-gray-600" />
-                      <span>{report.call_date}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-200">
-                      <Clock className="w-4 h-4 text-gray-600" />
-                      <span>{Math.floor(report.duration_seconds / 60)}:{(report.duration_seconds % 60).toString().padStart(2, '0')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {hasError ? (
-                  <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-xs text-red-300">
-                    ⚠️ Analysis failed or pending
-                  </div>
+        {/* TABLE SECTION */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Potential Value</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Intent</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Store</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paginatedReports.length === 0 ? (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-8 text-center text-gray-400">
+                      No calls match the current filters.
+                    </td>
+                  </tr>
                 ) : (
-                  <>
-                    {/* Intent Badges */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {customer.Intent_to_Purchase_Rating && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getIntentColor(customer.Intent_to_Purchase_Rating)}`}>
-                          Purchase: {customer.Intent_to_Purchase_Rating}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Satisfaction Score & Invited at Store */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Satisfaction</p>
-                        <p className="text-lg font-bold text-amber-400">{customer.Customer_Satisfaction_Score !== undefined ? customer.Customer_Satisfaction_Score : 'N/A'}/5</p>
-                      </div>
-                      <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Invited to Store</p>
-                        <p className={`text-sm font-semibold ${analysis.Agent_Areas?.The_Invitation_to_Visit?.Attempted ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {analysis.Agent_Areas?.The_Invitation_to_Visit?.Attempted ? '✓ Yes' : '✗ No'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Objective */}
-                    {functional.Call_Objective_Theme && (
-                      <div className="bg-[#16161d] rounded-lg p-3 mb-4">
-                        <p className="text-xs text-gray-500 mb-1">Objective</p>
-                        <p className="text-sm text-gray-300">{functional.Call_Objective_Theme}</p>
-                      </div>
-                    )}
-
-                    {/* AIDA Stage */}
-                    {customer.Customer_Stage_AIDA && (
-                      <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Customer Stage</p>
-                        <p className="text-sm text-amber-400 font-semibold">{customer.Customer_Stage_AIDA}</p>
-                      </div>
-                    )}
-                  </>
+                  paginatedReports.map((report) => {
+                    const dateInfo = formatDate(report.callDate);
+                    return (
+                      <tr 
+                        key={report.call_id} 
+                        onClick={() => navigate(`/GmbCalls/${report.call_id}`)}
+                        className="hover:bg-gray-50 transition cursor-pointer"
+                      >
+                        {/* Call ID */}
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs font-bold text-gray-500">
+                            {report.call_id ? report.call_id.slice(-8).toUpperCase() : 'N/A'}
+                          </span>
+                        </td>
+                        
+                        {/* Date & Time */}
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-semibold text-gray-900">{dateInfo.date}</div>
+                          <div className="text-xs text-gray-500">{dateInfo.time}</div>
+                        </td>
+                        
+                        {/* Store Name */}
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-gray-900">{report.store_name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-500">{report.city}{report.state ? `, ${report.state.slice(0, 2).toUpperCase()}` : ''}</div>
+                        </td>
+                        
+                        {/* Duration */}
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-sm text-gray-600">{formatDuration(report.duration_seconds)}</span>
+                        </td>
+                        
+                        {/* Lead Type */}
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase whitespace-nowrap ${
+                            report.leadType === 'Sales Lead' 
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                              : 'bg-blue-100 text-blue-700 border border-blue-200'
+                          }`}>
+                            {report.leadType}
+                          </span>
+                        </td>
+                        
+                        {/* Potential Value */}
+                        <td className="px-4 py-3">
+                          <span className={`text-sm ${report.potentialValue === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.potentialValue}
+                          </span>
+                        </td>
+                        
+                        {/* Intent */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <span className={`h-2 w-2 rounded-full mr-2 ${getIntentDotColor(report.intent)}`}></span>
+                            <span className="font-bold text-gray-700 text-sm">{report.intent}</span>
+                          </div>
+                        </td>
+                        
+                        {/* Customer Exp */}
+                        <td className="px-4 py-3">
+                          <span className={`text-sm ${getExpColor(report.customerExp)}`}>
+                            {report.customerExp}
+                          </span>
+                        </td>
+                        
+                        {/* Call Objective */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-700 max-w-[150px] truncate block" title={report.callObjective}>
+                            {report.callObjective}
+                          </span>
+                        </td>
+                        
+                        {/* Invited to Store */}
+                        <td className="px-4 py-3">
+                          {report.invitedToStore === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Yes
+                            </span>
+                          ) : report.leadType === 'Post-Sales' ? (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          ) : (
+                            <span className="text-sm font-bold text-red-400 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              No
+                            </span>
+                          )}
+                        </td>
+                        
+                        {/* Action */}
+                        <td className="px-4 py-3">
+                          <span className="text-blue-600 font-bold text-xs uppercase pointer-events-none">
+                            View
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
-
-                <div className="mt-6 pt-6 border-t border-white/6 text-right">
-                  <span className="text-xs text-amber-400 group-hover:text-amber-300 font-semibold inline-flex items-center gap-1">
-                    View Report
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   );
