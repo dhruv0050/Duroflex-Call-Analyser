@@ -620,6 +620,8 @@ const AbcAggregatedDashboard = () => {
               >
                 <option value="7">Last 7 Days</option>
                 <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+                <option value="all">All Time</option>
               </select>
             </div>
           </div>

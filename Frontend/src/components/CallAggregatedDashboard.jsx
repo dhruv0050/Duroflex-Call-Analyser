@@ -507,6 +507,7 @@ const CallAggregatedDashboard = () => {
               <option value="7">Time: Last 7 Days</option>
               <option value="30">Time: Last 30 Days</option>
               <option value="90">Time: Last 3 Months</option>
+              <option value="all">All Time</option>
             </select>
 
             {/* Reset */}
