@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Phone, MapPin, Calendar, Clock, LogOut, BarChart3, Upload } from 'lucide-react';
+import { ArrowLeft, LogOut, BarChart3, Upload, Download, Users, DollarSign, CheckCircle } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
-// Helper functions to handle both expected and actual Gemini response structures
-const getAnalysisField = (analysis, ...paths) => {
+// Helper to safely get nested values
+const getField = (obj, ...paths) => {
   for (const path of paths) {
     const keys = path.split('.');
-    let value = analysis;
+    let value = obj;
     for (const key of keys) {
       if (value && typeof value === 'object') {
         value = value[key];
@@ -22,23 +22,51 @@ const getAnalysisField = (analysis, ...paths) => {
   return null;
 };
 
-const isConvertedValue = (value) => {
-  if (value === true) return true;
-  if (value === false || value === null || value === undefined) return false;
-  if (typeof value === 'number') return value > 0;
-  const str = String(value).trim().toLowerCase();
-  if (str === 'true' || str === 'yes' || str === 'y') return true;
-  const num = parseFloat(str);
-  if (!Number.isNaN(num)) return num > 0;
-  return false;
+// Flatten nested JSON objects for CSV export
+const flattenObject = (obj, prefix = '') => {
+  const result = {};
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else if (Array.isArray(value)) {
+      result[newKey] = value.join('; ');
+    } else {
+      result[newKey] = value;
+    }
+  });
+  return result;
 };
 
-const normalizeStoreName = (name) => {
-  const str = (name ?? '').toString().trim();
-  if (!str) return 'Unknown';
-  const lower = str.toLowerCase();
-  if (lower === 'nan' || lower === 'null' || lower === 'undefined') return 'Unknown';
+const toCsvValue = (value) => {
+  if (value === null || value === undefined) return '';
+  const str = String(value).replace(/"/g, '""');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str}"`;
+  }
   return str;
+};
+
+const exportReportsAsCsv = (reports, filename) => {
+  if (!reports || !reports.length) {
+    alert('No reports to download');
+    return;
+  }
+  const flattened = reports.map(r => flattenObject(r));
+  const headers = Array.from(new Set(flattened.flatMap(item => Object.keys(item))));
+  const rows = [headers.join(',')];
+  flattened.forEach(item => {
+    const row = headers.map(h => toCsvValue(item[h]));
+    rows.push(row.join(','));
+  });
+  const csvContent = rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 const OutboundCallsList = () => {
@@ -47,16 +75,24 @@ const OutboundCallsList = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
-  const [selectedIntent, setSelectedIntent] = useState('ALL');
-  const [expandedStores, setExpandedStores] = useState(false);
 
+  // Filter states
+  const [selectedRegion, setSelectedRegion] = useState('All');
+  const [selectedStore, setSelectedStore] = useState('All');
+  const [selectedValue, setSelectedValue] = useState('All');
+  const [selectedIntent, setSelectedIntent] = useState('All');
+  const [timeRange, setTimeRange] = useState('30');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
   const filterDescription = location.state?.filterDescription;
 
   useEffect(() => {
     fetchReports();
-    fetchStats();
   }, []);
 
   const fetchReports = async () => {
@@ -71,442 +107,671 @@ const OutboundCallsList = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/outbound-calls/stats/overview`);
-      const data = await res.json();
-      setStats(data.stats);
-    } catch (err) {
-      console.error('Failed to load stats', err);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin_email');
     navigate('/');
   };
 
-  const getIntentRating = (report) => {
-    const analysis = report.analysis || {};
-    // NEW SCHEMA: Map Recovery_Verdict to intent levels
-    const summary = analysis.Summary || {};
-    const verdict = summary.Recovery_Verdict;
-    if (verdict) {
-      if (verdict.includes('Hot')) return 'HIGH';
-      if (verdict.includes('Warm')) return 'MEDIUM';
-      if (verdict.includes('Cold') || verdict.includes('Lost')) return 'LOW';
-    }
-    
-    // OLD SCHEMA FALLBACK
-    const intent = getAnalysisField(analysis,
-      'Pillar_1_Customer_Intent_and_Barriers.Intent_to_Purchase_Rating',
-      'PILLAR_1_INTENT_BARRIERS.Intent_to_Purchase_Rating',
-      'Call_Analysis.PILLAR_1_CUSTOMER_INTENT_BARRIERS.Intent_to_Purchase_Rating',
-      'PILLAR_1.Intent_to_Purchase_Rating',
-      'PILLAR_1_CUSTOMER_INTENT_BARRIERS.Intent_to_Purchase_Rating'
-    );
-    return intent || 'MEDIUM';
-  };
-
-  const getIntentColor = (intent) => {
-    if (!intent) return 'bg-gray-800 text-gray-400 border-gray-700';
-    const upper = intent.toUpperCase();
-    if (upper.includes('HIGH')) return 'bg-emerald-900/30 text-emerald-300 border-emerald-600/40';
-    if (upper.includes('MEDIUM')) return 'bg-amber-900/30 text-amber-300 border-amber-600/40';
-    return 'bg-red-900/30 text-red-300 border-red-600/40';
-  };
-
-  const visibleReports = useMemo(() => {
-    if (!filterIds || !Array.isArray(filterIds)) return reports;
-    return reports.filter((r) => filterIds.includes(r.call_id));
-  }, [reports, filterIds]);
-
-  const filteredReports = useMemo(() => {
-    if (selectedIntent === 'ALL') return visibleReports;
-    return visibleReports.filter(r => getIntentRating(r) === selectedIntent);
-  }, [visibleReports, selectedIntent]);
-
-  const getOverallScore = (report) => {
-    const analysis = report.analysis || {};
-    // NEW SCHEMA: Use average of RELAX scores from Pillar_5_Methodology
-    const pillar5 = analysis.Pillar_5_Methodology || {};
-    const relaxScores = pillar5.RELAX_Scores || {};
-    
-    // Calculate average of R, E, L, A, X scores
-    const scores = [
-      relaxScores.R?.Score,
-      relaxScores.E?.Score,
-      relaxScores.L?.Score,
-      relaxScores.A?.Score,
-      relaxScores.X?.Score
-    ].filter(s => typeof s === 'number');
-    
-    if (scores.length > 0) {
-      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-      return Math.round(avg);
-    }
-    
-    // OLD SCHEMA FALLBACK
-    const score = getAnalysisField(
-      analysis,
-      'PILLAR_2_EXPERIENCE_DELIVERED.Overall_Experience_Rating',
-      'Pillar_2_Experience_Delivered.Overall_Experience_Rating',
-      'PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE.Overall_Experience_Rating',
-      'Call_Analysis.PILLAR_2_EXPERIENCE_DELIVERED.C_OVERALL_EXPERIENCE_RATING.Overall_Experience_Rating',
-      'PILLAR_2_EXPERIENCE_DELIVERED.OVERALL_EXPERIENCE.Overall_Experience_Rating',
-      'PILLAR_2.Overall_Experience_Rating',
-      'PILLAR_2.OVERALL_EXPERIENCE.Overall_Experience_Rating'
-    );
-    const numScore = typeof score === 'number' ? score : parseInt(score) || 0;
-    return Math.max(0, Math.min(5, numScore)); // Clamp between 0-5
-  };
-
-  const storePerformanceData = useMemo(() => {
-    const storeMap = {};
-    filteredReports.forEach(report => {
-      const storeName = normalizeStoreName(report.store_name);
-      if (!storeMap[storeName]) {
-        storeMap[storeName] = {
-          storeName,
-          calls: [],
-          avgScore: 0,
-          totalCalls: 0,
-          highIntent: 0,
-          converted: 0
-        };
+  // Process reports with extracted fields
+  const processedReports = useMemo(() => {
+    return reports.map(report => {
+      const analysis = report.analysis || {};
+      const metadata = analysis.MetaData || {};
+      
+      // Extract fields using new schema paths
+      const callObjectiveType = getField(analysis, '1_Call_Objective.Type') || '';
+      const intentRating = getField(analysis, '2_Intent_to_Purchase.Rating') || 'Medium';
+      const storeExp = getField(analysis, '3_Store_Experience.Rating') || 'Medium';
+      const callExp = getField(analysis, '4_Call_Experience.Rating') || 'Medium';
+      const region = metadata.Call_Region || report.region || 'Unknown';
+      const storeName = report.store_name || 'Unknown';
+      
+      // Get consideration value from metadata
+      const considerationValue = metadata.Consideration_Value || 'N/A';
+      
+      // Duration from metadata or report
+      const duration = metadata.Call_Duration || formatDurationSeconds(report.duration);
+      
+      // Home Measurement Hook
+      const homeMeasurementRating = getField(analysis, '10_Invitations.Home_Measurement.Rating') || 'Low';
+      
+      // Determine lead type from call objective or intent
+      let leadType = 'Sales Lead';
+      const objType = callObjectiveType.toLowerCase();
+      const intentLower = intentRating.toLowerCase();
+      if (objType.includes('post') || objType.includes('service') || objType.includes('complaint') || 
+          intentLower.includes('purchased') || intentLower.includes('already')) {
+        leadType = 'Post Purchase';
       }
-      storeMap[storeName].calls.push(report);
-      storeMap[storeName].totalCalls += 1;
-      if (getIntentRating(report) === 'HIGH') storeMap[storeName].highIntent += 1;
-      if (isConvertedValue(report.is_converted)) storeMap[storeName].converted += 1;
+      
+      // Check if already purchased
+      const isPurchased = intentLower.includes('purchased') || intentLower.includes('already') || 
+                          objType.includes('post purchase');
+      
+      // Normalize intent for display
+      let intent = normalizeRating(intentRating);
+      if (isPurchased) {
+        intent = 'N/A';
+      }
+      
+      // Determine measurement hook used (High/Medium = Yes, Low = No)
+      let measurementHookUsed = 'No';
+      if (leadType === 'Post Purchase') {
+        measurementHookUsed = 'N/A';
+      } else if (typeof homeMeasurementRating === 'string') {
+        const rating = homeMeasurementRating.toLowerCase();
+        measurementHookUsed = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      }
+      
+      // Parse call date
+      let callDate = null;
+      const dateStr = report.analyzed_at || report.call_date || '';
+      if (dateStr) {
+        try {
+          if (dateStr.includes('T')) {
+            callDate = new Date(dateStr);
+          } else if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts[0].length === 2) {
+              // DD-MM-YYYY format
+              callDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            } else {
+              callDate = new Date(dateStr);
+            }
+          } else {
+            callDate = new Date(dateStr);
+          }
+          // Validate the date
+          if (isNaN(callDate.getTime())) {
+            callDate = null;
+          }
+        } catch (e) {
+          callDate = null;
+        }
+      }
+      
+      // Format consideration value for display
+      let valueDisplay = considerationValue;
+      let valueBucket = 'low';
+      const valLower = considerationValue.toLowerCase();
+      if (valLower.includes('50k') || valLower.includes('premium') || valLower.includes('king')) {
+        valueBucket = '50k';
+        if (!considerationValue.includes('k')) valueDisplay = '50k+';
+      } else if (valLower.includes('25k') || valLower.includes('queen')) {
+        valueBucket = '25k';
+        if (!considerationValue.includes('k')) valueDisplay = '25k - 50k';
+      } else if (valLower.includes('15k') || valLower.includes('double')) {
+        valueBucket = '15k';
+        if (!considerationValue.includes('k')) valueDisplay = '15k - 25k';
+      } else if (valLower.includes('single') || valLower.includes('budget')) {
+        valueBucket = 'low';
+        if (!considerationValue.includes('k')) valueDisplay = 'Below 15k';
+      }
+      
+      // Extract city from store name or use region
+      let city = '';
+      if (storeName.includes(' ')) {
+        const parts = storeName.split(' ');
+        city = parts[parts.length - 1];
+      } else {
+        city = region !== 'Unknown' ? region : '';
+      }
+      
+      return {
+        ...report,
+        callObjectiveType,
+        intent,
+        intentRaw: intentRating,
+        storeExp: normalizeExperience(storeExp),
+        callExp: normalizeRating(callExp),
+        region,
+        storeName,
+        city,
+        duration,
+        leadType,
+        isPurchased,
+        measurementHookUsed,
+        callDate,
+        valueDisplay,
+        valueBucket
+      };
     });
+  }, [reports]);
 
-    Object.keys(storeMap).forEach(key => {
-      const store = storeMap[key];
-      const scores = store.calls.map(getOverallScore);
-      store.avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b) / scores.length) : 0;
-    });
+  // Get unique regions and stores for filters
+  const regions = useMemo(() => {
+    const uniqueRegions = [...new Set(processedReports.map(r => r.region).filter(r => r && r !== 'Unknown'))];
+    return ['All', ...uniqueRegions.sort()];
+  }, [processedReports]);
 
-    return Object.values(storeMap).sort((a, b) => b.avgScore - a.avgScore);
+  const stores = useMemo(() => {
+    const uniqueStores = [...new Set(processedReports.map(r => r.storeName).filter(Boolean))];
+    return ['All', ...uniqueStores.sort()];
+  }, [processedReports]);
+
+  // Apply filters
+  const filteredReports = useMemo(() => {
+    let result = processedReports;
+
+    // External filter from aggregated dashboard
+    if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
+      result = result.filter(r => filterIds.includes(r.call_id));
+    }
+
+    // Region filter
+    if (selectedRegion !== 'All') {
+      result = result.filter(r => r.region === selectedRegion);
+    }
+
+    // Store filter
+    if (selectedStore !== 'All') {
+      result = result.filter(r => r.storeName === selectedStore);
+    }
+
+    // Consideration value filter
+    if (selectedValue !== 'All') {
+      result = result.filter(r => r.valueBucket === selectedValue);
+    }
+
+    // Time filter
+    if (timeRange !== 'all') {
+      const days = parseInt(timeRange, 10);
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - days);
+      
+      result = result.filter(r => {
+        if (!r.callDate) return false;
+        const reportDate = new Date(r.callDate);
+        if (isNaN(reportDate.getTime())) return false;
+        reportDate.setHours(0, 0, 0, 0);
+        return reportDate >= cutoff;
+      });
+    }
+
+    // Intent filter
+    if (selectedIntent !== 'All') {
+      if (selectedIntent === 'Purchased') {
+        result = result.filter(r => r.isPurchased);
+      } else {
+        result = result.filter(r => r.intent === selectedIntent && !r.isPurchased);
+      }
+    }
+
+    return result;
+  }, [processedReports, filterIds, selectedRegion, selectedStore, selectedValue, timeRange, selectedIntent]);
+
+  // Calculate KPIs
+  const kpis = useMemo(() => {
+    const total = filteredReports.length;
+    const highIntent = filteredReports.filter(r => r.intent === 'High' && !r.isPurchased).length;
+    const salesLeads = filteredReports.filter(r => r.leadType === 'Sales Lead').length;
+    const postPurchase = filteredReports.filter(r => r.leadType === 'Post Purchase' || r.isPurchased).length;
+    
+    return {
+      total,
+      highIntentPercent: total > 0 ? Math.round((highIntent / total) * 100) : 0,
+      salesLeads,
+      postPurchase
+    };
   }, [filteredReports]);
 
-  const topStores = storePerformanceData.slice(0, 10);
-  const remainingStores = storePerformanceData.slice(10);
+  // Pagination
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(start, start + itemsPerPage);
+  }, [filteredReports, currentPage]);
+
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+
+  // Reset filters
+  const handleResetFilters = () => {
+    setSelectedRegion('All');
+    setSelectedStore('All');
+    setSelectedValue('All');
+    setTimeRange('30');
+    setSelectedIntent('All');
+    setCurrentPage(1);
+    // Clear external filter
+    if (filterIds) {
+      navigate('/outbound-calls', { replace: true });
+    }
+  };
+
+  // Helper functions
+  function normalizeRating(val) {
+    if (!val) return 'Medium';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str === 'H') return 'High';
+    if (str.includes('LOW') || str === 'L') return 'Low';
+    if (str.includes('MEDIUM') || str === 'M') return 'Med';
+    return 'Med';
+  }
+
+  function normalizeExperience(val) {
+    if (!val) return 'Avg';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str.includes('GOOD') || str.includes('EXCELLENT')) return 'Good';
+    if (str.includes('LOW') || str.includes('POOR') || str.includes('BAD')) return 'Poor';
+    return 'Avg';
+  }
+
+  function formatDurationSeconds(seconds) {
+    if (!seconds) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function formatDate(date) {
+    if (!date) return { date: 'N/A', time: '' };
+    const d = new Date(date);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const hours = d.getHours();
+    const mins = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return {
+      date: `${month} ${day}`,
+      time: `${hour12.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`
+    };
+  }
+
+  function getIntentDotColor(intent) {
+    if (intent === 'High') return 'bg-emerald-500';
+    if (intent === 'Med' || intent === 'Medium') return 'bg-amber-500';
+    return 'bg-red-500';
+  }
+
+  function getExpColor(exp) {
+    if (exp === 'High' || exp === 'Good') return 'text-emerald-600 font-bold';
+    if (exp === 'Med' || exp === 'Medium' || exp === 'Avg') return 'text-gray-600 font-bold';
+    return 'text-red-600 font-bold';
+  }
+
+  function getCallExpColor(exp) {
+    if (exp === 'High') return 'text-emerald-600 font-bold';
+    if (exp === 'Med' || exp === 'Medium') return 'text-yellow-600 font-bold';
+    return 'text-gray-600 font-bold';
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-gray-300">Loading outbound calls...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading outbound call reports...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-red-400">{error}</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
       </div>
     );
   }
 
-  const analyzedCount = reports.filter(r => r.analysis && !r.analysis.error).length;
-
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+    <div className="min-h-screen bg-gray-50 text-gray-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1800px] mx-auto px-8 py-8">
+        
+        {/* HEADER */}
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <Link 
+              to="/dashboard" 
+              className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              BACK TO DASHBOARD
             </Link>
+            <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Store Walk-in Follow-up
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Central Sales outreach to customers who visited but didn't buy</p>
           </div>
-
-          <div className="flex items-center gap-3">
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportReportsAsCsv(filteredReports, 'store_walkin_calls_report.csv')}
+              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
             <Link
               to="/outbound-calls/upload"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-lg text-purple-300 text-sm font-semibold transition"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload CSV
             </Link>
-
             <Link
               to="/outbound-calls/analytics"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-lg text-amber-200 text-sm font-semibold transition"
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
-              Analytics Dashboard
+              Analytics
             </Link>
-
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-600/30 rounded-lg text-red-400 text-sm font-semibold transition"
+              className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-3 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              Logout
             </button>
           </div>
         </div>
 
-        {/* Title Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-semibold text-gray-100 mb-2" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-            Store Walkin Outbound Calls
-          </h1>
-          <p className="text-sm text-gray-400">Pre-purchase follow-up call analysis • {filteredReports.length} calls</p>
+        {/* KPI SUMMARY ROW */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Leads</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{kpis.total}</p>
+            </div>
+            <div className="p-2 bg-gray-50 text-gray-600 rounded-lg">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">High Intent %</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{kpis.highIntentPercent}%</p>
+            </div>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Sales Leads</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{kpis.salesLeads}</p>
+            </div>
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Post Purchase</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{kpis.postPurchase}</p>
+            </div>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
         </div>
 
-        {/* Store Performance Analysis */}
-        {storePerformanceData.length > 0 && (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
-            <div className="px-8 py-6 border-b border-[#2a2a2a]">
-              <div className="flex items-center gap-4 mb-2">
-                <span className="text-3xl">📊</span>
-                <h2 className="text-2xl font-semibold text-white">Store Performance Analysis</h2>
-              </div>
-              <p className="text-slate-400 text-sm ml-14">Experience Scores & Conversion Metrics</p>
+        {/* External Filter Banner */}
+        {filterIds && (
+          <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+            <div className="text-sm font-semibold">
+              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({filteredReports.length} of {reports.length})
             </div>
-
-            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Stores</p>
-                <p className="text-2xl font-bold text-white">{storePerformanceData.length}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
-                <p className="text-2xl font-bold text-white">{filteredReports.length}</p>
-              </div>
-              {stats && (
-                <>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Conversions</p>
-                    <p className="text-2xl font-bold text-emerald-400">{stats.converted_calls}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Conversion Rate</p>
-                    <p className="text-2xl font-bold text-amber-400">{stats.conversion_rate}%</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Performance</p>
-                    <p className="text-2xl font-bold text-blue-400">{Math.round(stats.avg_agent_score * 20)}/100</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
-                  <tr>
-                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Store Name</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg Score</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">High Intent</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Converted</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(expandedStores ? storePerformanceData : topStores).map((store) => (
-                    <tr key={store.storeName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
-                      <td className="px-6 py-6">
-                        <div className="font-semibold text-white text-base">{store.storeName}</div>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="text-slate-200 font-semibold text-base">{store.totalCalls}</span>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <div
-                          className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm"
-                          style={{ color: store.avgScore >= 4 ? '#10b981' : store.avgScore >= 3 ? '#f59e0b' : '#dc2626' }}
-                          title="Average Overall Score (1–5)"
-                        >
-                          {store.avgScore}/5
-                        </div>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="font-semibold text-emerald-400 text-base">{store.highIntent}</span>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="font-semibold text-amber-400 text-base">{store.converted}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {remainingStores.length > 0 && (
-              <div className="text-center px-8 py-6 bg-[#1a1a1a] border-t border-[#2a2a2a]">
-                <button
-                  onClick={() => setExpandedStores(!expandedStores)}
-                  className={`inline-flex items-center gap-3 px-8 py-3 rounded-lg font-semibold transition transform hover:-translate-y-0.5 ${expandedStores ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white'}`}
-                >
-                  {expandedStores ? 'Show Less' : 'Show More Stores'}
-                  <span className={`text-lg leading-none transition ${expandedStores ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-              </div>
-            )}
+            <button
+              onClick={handleResetFilters}
+              className="text-xs font-bold px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300"
+            >
+              Clear filter
+            </button>
           </div>
         )}
 
-        {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                  <Phone className="w-8 h-8 text-amber-400" />
-                </div>
-                <span className="text-gray-400 text-sm font-medium">Total Calls</span>
-              </div>
-            </div>
-            <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
-          </div>
-
-          <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
-                  <BarChart3 className="w-8 h-8 text-green-400" />
-                </div>
-                <span className="text-gray-400 text-sm font-medium">Analyzed</span>
-              </div>
-            </div>
-            <div className="text-4xl font-serif font-bold text-white">{analyzedCount}</div>
-          </div>
-
-          {stats && (
-            <>
-              <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-emerald-500/30 transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-                      <span className="text-2xl">✓</span>
-                    </div>
-                    <span className="text-gray-400 text-sm font-medium">Conversions</span>
-                  </div>
-                </div>
-                <div className="text-4xl font-serif font-bold text-emerald-400">{stats.converted_calls}</div>
-              </div>
-
-              <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-blue-500/30 transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/15 flex items-center justify-center">
-                      <span className="text-2xl">%</span>
-                    </div>
-                    <span className="text-gray-400 text-sm font-medium">Conversion Rate</span>
-                  </div>
-                </div>
-                <div className="text-4xl font-serif font-bold text-blue-400">{stats.conversion_rate}%</div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Reports Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredReports.length === 0 && (
-            <div className="col-span-full text-center text-gray-400 py-12">
-              <Phone className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-              <p>No outbound calls found</p>
-              <Link
-                to="/outbound-calls/upload"
-                className="mt-4 inline-block px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors text-white"
-              >
-                Upload First CSV
-              </Link>
-            </div>
-          )}
-          {filteredReports.map((report) => {
-            const intent = getIntentRating(report);
-            const score = getOverallScore(report);
-            const analysis = report.analysis || {};
-            // NEW SCHEMA: Extract commitment from Next_Action_Text or Recovery_Verdict
-            const pillar4 = analysis.Pillar_4_Lead_Health || {};
-            const summary = analysis.Summary || {};
-            const commitment = pillar4.AIDA_Stage || summary.Recovery_Verdict || 
-              getAnalysisField(analysis,
-                'Pillar_4_Invitation_to_Convert.Commitment_Obtained',
-                'PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
-                'Call_Analysis.PILLAR_4_INVITATION_TO_CONVERT.Commitment_Obtained',
-                'PILLAR_4.Commitment_Obtained'
-              ) || 'N/A';
+        {/* FILTER STRIP */}
+        {!filterIds && (
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-center mb-8">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Filters:</span>
             
-            return (
-              <Link
-                key={report.call_id}
-                to={`/outbound-calls/${report.call_id}`}
-                className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:border-amber-500/50 transition-all overflow-hidden relative"
+            {/* Region */}
+            <select
+              value={selectedRegion}
+              onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              {regions.map(r => (
+                <option key={r} value={r}>{r === 'All' ? 'Region: All' : r}</option>
+              ))}
+            </select>
+
+            {/* Store */}
+            <select
+              value={selectedStore}
+              onChange={(e) => { setSelectedStore(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 max-w-[200px]"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              {stores.map(s => (
+                <option key={s} value={s}>{s === 'All' ? 'Store: All Stores' : s}</option>
+              ))}
+            </select>
+
+            {/* Consideration Value */}
+            <select
+              value={selectedValue}
+              onChange={(e) => { setSelectedValue(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Consideration Value: All</option>
+              <option value="50k">50k+</option>
+              <option value="25k">25k - 50k</option>
+              <option value="15k">15k - 25k</option>
+              <option value="low">Below 15k</option>
+            </select>
+
+            {/* Purchase Intent */}
+            <select
+              value={selectedIntent}
+              onChange={(e) => { setSelectedIntent(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Purchase Intent: All</option>
+              <option value="High">High</option>
+              <option value="Med">Medium</option>
+              <option value="Low">Low</option>
+              <option value="Purchased">Already Purchased</option>
+            </select>
+
+            {/* Time */}
+            <select
+              value={timeRange}
+              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="7">Time: Last 7 Days</option>
+              <option value="30">Time: Last 30 Days</option>
+              <option value="90">Time: Last 3 Months</option>
+              <option value="all">Time: All Time</option>
+            </select>
+
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-400 font-medium">Showing {filteredReports.length} Results</span>
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-wider"
               >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
 
-                {/* Store Header */}
-                <div className="mb-6 pb-6 border-b border-white/6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg text-gray-100 group-hover:text-amber-400 transition" style={{ fontFamily: "'Fraunces', serif" }}>
-                      {normalizeStoreName(report.store_name)}
-                    </h3>
-                    {isConvertedValue(report.is_converted) && (
-                      <span className="px-3 py-1 bg-emerald-900/30 border border-emerald-600/40 rounded-full text-xs font-semibold text-emerald-300">
-                        ✓ Converted
-                      </span>
-                    )}
-                  </div>
-                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold border ${getIntentColor(intent)}`}>
-                    <span className="w-2 h-2 rounded-full bg-current"></span>
-                    {intent} Intent
-                  </div>
-                </div>
-
-                {/* Call ID */}
-                <div className="mb-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call ID</p>
-                  <p className="font-mono text-sm text-gray-300">{report.call_id}</p>
-                </div>
-
-                {/* Call Info Row */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Date</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <Calendar className="w-3 h-3" />
-                      {report.call_date}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-300">
-                      <Clock className="w-3 h-3" />
-                      {report.duration}s
-                    </div>
-                  </div>
-                </div>
-
-                {/* Score & Commitment */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/6">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Commitment</p>
-                    <p className="text-sm text-gray-300">{commitment}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Score</p>
-                    <p className={`text-2xl font-bold ${score >= 4 ? 'text-emerald-400' : score >= 3 ? 'text-amber-400' : 'text-red-400'}`}>{score}</p>
-                    <p className="text-xs text-gray-500">out of 5</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+        {/* TABLE SECTION */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Consideration<br/>Value</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Purchase<br/>Intent</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Store Visit<br/>Experience</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Measurement<br/>Hook Used?</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paginatedReports.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" className="px-4 py-8 text-center text-gray-400">
+                      No calls match the current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedReports.map((report) => {
+                    const dateInfo = formatDate(report.callDate);
+                    return (
+                      <tr 
+                        key={report.call_id} 
+                        onClick={() => navigate(`/outbound-calls/${report.call_id}`)}
+                        className="hover:bg-gray-50 transition cursor-pointer"
+                      >
+                        {/* Call ID */}
+                        <td className="px-4 py-3 text-left">
+                          <span className="font-mono text-xs font-bold text-gray-500">
+                            {report.call_id ? report.call_id.slice(-8).toUpperCase() : 'N/A'}
+                          </span>
+                        </td>
+                        
+                        {/* Date & Time */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="text-sm font-semibold text-gray-900">{dateInfo.date}</div>
+                          <div className="text-xs text-gray-500">{dateInfo.time}</div>
+                        </td>
+                        
+                        {/* Store Name */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="font-bold text-gray-900">{report.storeName}</div>
+                          <div className="text-xs text-gray-500">{report.city}</div>
+                        </td>
+                        
+                        {/* Duration */}
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-mono text-sm text-gray-600">{report.duration}</span>
+                        </td>
+                        
+                        {/* Lead Type */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase whitespace-nowrap ${
+                            report.leadType === 'Sales Lead' 
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                              : 'bg-blue-100 text-blue-700 border border-blue-200'
+                          }`}>
+                            {report.leadType}
+                          </span>
+                        </td>
+                        
+                        {/* Consideration Value */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${report.valueDisplay === 'N/A' || report.leadType === 'Post Purchase' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.leadType === 'Post Purchase' ? 'N/A' : report.valueDisplay}
+                          </span>
+                        </td>
+                        
+                        {/* Purchase Intent */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center">
+                            <span className={`h-2 w-2 rounded-full mr-2 ${report.isPurchased ? 'bg-red-500' : getIntentDotColor(report.intent)}`}></span>
+                            <span className="font-bold text-gray-700 text-sm">{report.intent}</span>
+                          </div>
+                        </td>
+                        
+                        {/* Store Visit Experience */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${getExpColor(report.storeExp)}`}>
+                            {report.storeExp}
+                          </span>
+                        </td>
+                        
+                        {/* Call Experience */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${getCallExpColor(report.callExp)}`}>
+                            {report.callExp}
+                          </span>
+                        </td>
+                        
+                        {/* Measurement Hook Used */}
+                        <td className="px-4 py-3 text-center">
+                          {report.measurementHookUsed === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center justify-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Yes
+                            </span>
+                          ) : report.measurementHookUsed === 'N/A' ? (
+                            <span className="text-sm font-bold text-gray-400">N/A</span>
+                          ) : (
+                            <span className="text-sm font-bold text-gray-400">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-bold">{filteredReports.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   );
