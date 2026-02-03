@@ -1,8 +1,73 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Phone, MapPin, Calendar, Clock, LogOut, BarChart3, Upload } from 'lucide-react';
+import { ArrowLeft, LogOut, BarChart3, Upload, Download, ShoppingCart, Users, CheckCircle } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
+
+// Helper to safely get nested values
+const getField = (obj, ...paths) => {
+  for (const path of paths) {
+    const keys = path.split('.');
+    let value = obj;
+    for (const key of keys) {
+      if (value && typeof value === 'object') {
+        value = value[key];
+      } else {
+        value = undefined;
+        break;
+      }
+    }
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+};
+
+// Flatten nested JSON objects for CSV export
+const flattenObject = (obj, prefix = '') => {
+  const result = {};
+  Object.entries(obj || {}).forEach(([key, value]) => {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else if (Array.isArray(value)) {
+      result[newKey] = value.join('; ');
+    } else {
+      result[newKey] = value;
+    }
+  });
+  return result;
+};
+
+const toCsvValue = (value) => {
+  if (value === null || value === undefined) return '';
+  const str = String(value).replace(/"/g, '""');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str}"`;
+  }
+  return str;
+};
+
+const exportReportsAsCsv = (reports, filename) => {
+  if (!reports || !reports.length) {
+    alert('No reports to download');
+    return;
+  }
+  const flattened = reports.map(r => flattenObject(r));
+  const headers = Array.from(new Set(flattened.flatMap(item => Object.keys(item))));
+  const rows = [headers.join(',')];
+  flattened.forEach(item => {
+    const row = headers.map(h => toCsvValue(item[h]));
+    rows.push(row.join(','));
+  });
+  const csvContent = rows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 const AbcReportsList = () => {
   const navigate = useNavigate();
@@ -10,20 +75,24 @@ const AbcReportsList = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
 
+  // Filter states
+  const [selectedRegion, setSelectedRegion] = useState('All');
+  const [selectedCartValue, setSelectedCartValue] = useState('All');
+  const [selectedIntent, setSelectedIntent] = useState('All');
+  const [timeRange, setTimeRange] = useState('30');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
   const filterDescription = location.state?.filterDescription;
 
   useEffect(() => {
     fetchReports();
-    fetchStats();
   }, []);
-
-  const visibleReports = useMemo(() => {
-    if (!filterIds || !Array.isArray(filterIds)) return reports;
-    return reports.filter((r) => filterIds.includes(r.call_id));
-  }, [reports, filterIds]);
 
   const fetchReports = async () => {
     try {
@@ -37,709 +106,618 @@ const AbcReportsList = () => {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/abc-calls/stats/overview`);
-      const data = await res.json();
-      setStats(data.stats);
-    } catch (err) {
-      console.error('Failed to load stats', err);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin_email');
     navigate('/');
   };
 
-  const getIntentColor = (intent) => {
-    if (!intent) return 'bg-gray-800 text-gray-400 border-gray-700';
-    const upper = intent.toUpperCase();
-    if (upper.includes('HIGH')) return 'bg-emerald-900/30 text-emerald-300 border-emerald-600/40';
-    if (upper.includes('MEDIUM')) return 'bg-amber-900/30 text-amber-300 border-amber-600/40';
-    return 'bg-red-900/30 text-red-300 border-red-600/40';
-  };
-
-  const [expandedStores, setExpandedStores] = useState(false);
-
-  const ratingToScore = (value, fallback = 75) => {
-    if (value === null || value === undefined) return fallback;
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    if (isNaN(num)) return fallback;
-    return Math.round(num * 20);
-  };
-
-  const priceBucketData = useMemo(() => {
-    // When coming from aggregated matrix/agent clicks with filters applied,
-    // skip heavy performance calculations and summary UI.
-    if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
-      return [];
-    }
-
-    // Define price buckets
-    const buckets = [
-      { label: '₹0 - ₹5,000', min: 0, max: 5000 },
-      { label: '₹5,001 - ₹10,000', min: 5001, max: 10000 },
-      { label: '₹10,001 - ₹15,000', min: 10001, max: 15000 },
-      { label: '₹15,001 - ₹20,000', min: 15001, max: 20000 },
-      { label: '₹20,000+', min: 20001, max: Infinity },
-    ];
-
-    const bucketMap = {};
-    buckets.forEach(bucket => {
-      bucketMap[bucket.label] = {
-        label: bucket.label,
-        calls: [],
+  // Process reports with extracted fields
+  const processedReports = useMemo(() => {
+    return reports.map(report => {
+      const analysis = report.analysis || {};
+      const rawData = report.raw_data || {};
+      const metadata = analysis.MetaData || {};
+      
+      // Extract fields using new schema paths with fallbacks
+      const callObjectiveType = getField(analysis, '1_Call_Objective.Type') || '';
+      const intent = getField(analysis, '2_Intent_to_Purchase.Rating') || 'Medium';
+      const customerExp = getField(analysis, '3_Customer_Experience.Rating') || 'Medium';
+      const region = metadata.Call_Region || report.region || 'Unknown';
+      const customerCity = metadata.Customer_Location || report.city || 'Unknown';
+      
+      // Get cart value from raw_data or metadata
+      const rawCartValue = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
+      const considerationValue = metadata.Consideration_Value || '';
+      
+      // Duration from metadata
+      const duration = metadata.Call_Duration || '00:00';
+      
+      // Invitations
+      const storeVisitRating = getField(analysis, '9_Invitations.Store_Visit.Rating') || 'Low';
+      const videoDemoRating = getField(analysis, '9_Invitations.Video_Demo.Rating') || 'Low';
+      
+      // Determine lead type from call objective
+      let leadType = 'Sales Lead';
+      const objType = callObjectiveType.toLowerCase();
+      if (objType.includes('post') || objType.includes('service') || objType.includes('complaint') || objType.includes('delivery')) {
+        leadType = 'Post-Sales';
+      } else if (objType.includes('recovery')) {
+        leadType = 'Recovery';
+      }
+      
+      // Check if already purchased
+      const isPurchased = objType.includes('already purchased') || objType.includes('post purchase') || rawData.is_Converted === 1;
+      
+      // Determine invited to store (High/Medium = Yes, Low = No)
+      let invitedToStore = 'No';
+      if (typeof storeVisitRating === 'string') {
+        const rating = storeVisitRating.toLowerCase();
+        invitedToStore = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      }
+      
+      // Determine invited for video demo
+      let invitedForVideo = 'No';
+      if (typeof videoDemoRating === 'string') {
+        const rating = videoDemoRating.toLowerCase();
+        invitedForVideo = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      }
+      
+      // Parse call date
+      let callDate = null;
+      const dateStr = report.processed_at || rawData.CallStartDateTime || '';
+      if (dateStr) {
+        try {
+          if (dateStr.includes('T')) {
+            callDate = new Date(dateStr);
+          } else if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts[0].length === 2) {
+              // DD-MM-YYYY format
+              callDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            } else {
+              callDate = new Date(dateStr);
+            }
+          } else {
+            callDate = new Date(dateStr);
+          }
+          // Validate the date is valid
+          if (isNaN(callDate.getTime())) {
+            callDate = null;
+          }
+        } catch (e) {
+          callDate = null;
+        }
+      }
+      
+      // Format cart value for display
+      let cartValueDisplay = 'N/A';
+      if (rawCartValue > 0) {
+        if (rawCartValue >= 50000) cartValueDisplay = '50k+';
+        else if (rawCartValue >= 25000) cartValueDisplay = '25k - 50k';
+        else if (rawCartValue >= 15000) cartValueDisplay = '15k to 25k';
+        else cartValueDisplay = 'Below 15k';
+      } else if (considerationValue) {
+        cartValueDisplay = considerationValue;
+      }
+      
+      // Cart value bucket for filtering
+      let cartValueBucket = 'low';
+      if (rawCartValue >= 50000 || considerationValue.includes('50k')) cartValueBucket = '50k';
+      else if (rawCartValue >= 25000 || considerationValue.includes('25k')) cartValueBucket = '25k';
+      else if (rawCartValue >= 15000 || considerationValue.includes('15k')) cartValueBucket = '15k';
+      
+      return {
+        ...report,
+        callObjectiveType,
+        intent: normalizeRating(intent),
+        customerExp: normalizeRating(customerExp),
+        region,
+        customerCity,
+        duration,
+        leadType,
+        isPurchased,
+        invitedToStore,
+        invitedForVideo,
+        callDate,
+        cartValueDisplay,
+        cartValueBucket,
+        rawCartValue
       };
     });
+  }, [reports]);
 
-    visibleReports.forEach((report) => {
-      const cartValue = report.raw_data?.['Lineitem price'] || report.raw_data?.Lineitem_price || 0;
-      const bucket = buckets.find(b => cartValue >= b.min && cartValue <= b.max);
-      if (bucket && bucketMap[bucket.label]) {
-        bucketMap[bucket.label].calls.push(report);
-      }
-    });
+  // Get unique regions for filter
+  const regions = useMemo(() => {
+    const uniqueRegions = [...new Set(processedReports.map(r => r.region).filter(r => r && r !== 'Unknown'))];
+    return ['All', ...uniqueRegions.sort()];
+  }, [processedReports]);
 
-    const performance = Object.values(bucketMap)
-      .filter(bucket => bucket.calls.length > 0) // Only show buckets with calls
-      .map((bucket) => {
-        const calls = bucket.calls;
-        
-        const processedCalls = calls.map((report) => {
-          const analysis = report.analysis || {};
-          const relax = analysis.RELAX_Framework || {};
-          const skills = analysis.Experience_and_Skills || {};
-          const softSkillsData = skills.Soft_Skills || {};
+  // Apply filters
+  const filteredReports = useMemo(() => {
+    let result = processedReports;
 
-          const reach = relax.R_Reach_Out?.Score;
-          const explore = relax.E_Explore?.Score;
-          const link = relax.L_Link?.Score;
-          const add = relax.A_Add_Value?.Score;
-          const close = relax.X_Express?.Score;
-
-          const rapportScore = ratingToScore(reach, 75);
-          const exploreScore = ratingToScore(explore, 75);
-          const listenScore = ratingToScore(link, 75);
-          const adviseScore = ratingToScore(add, 75);
-          const executeScore = ratingToScore(close, 75);
-
-          const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
-          const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
-          const overallRelax = availableRelax.length
-            ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
-            : 75;
-
-          const empathy = softSkillsData.Empathy_Score || 3;
-          const listening = softSkillsData.Active_Listening_Score || 3;
-          const objection = softSkillsData.Objection_Handling_Score || 3;
-          const softSkillsScore = ratingToScore((empathy + listening + objection) / 3, 75);
-          const productKnowledgeScore = softSkillsScore;
-
-          return {
-            overall: overallRelax,
-            rapport: rapportScore,
-            explore: exploreScore,
-            listen: listenScore,
-            advise: adviseScore,
-            execute: executeScore,
-            productKnowledge: productKnowledgeScore,
-            softSkills: softSkillsScore,
-          };
-        });
-
-        const avgScore = (metric) => {
-          const scores = processedCalls.map(c => c[metric]).filter(v => v !== undefined && v !== null);
-          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-        };
-
-        return {
-          bucketName: bucket.label,
-          totalCalls: calls.length,
-          overallScore: avgScore('overall'),
-          rapport: avgScore('rapport'),
-          explore: avgScore('explore'),
-          listen: avgScore('listen'),
-          advise: avgScore('advise'),
-          execute: avgScore('execute'),
-          productKnowledge: avgScore('productKnowledge'),
-          softSkills: avgScore('softSkills'),
-        };
-      })
-      .sort((a, b) => b.overallScore - a.overallScore);
-
-    return performance;
-  }, [visibleReports, filterIds]);
-
-  const cityPerformanceData = useMemo(() => {
-    // When coming from aggregated matrix/agent clicks with filters applied,
-    // skip heavy agent performance calculations and summary UI.
+    // External filter from aggregated dashboard
     if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
-      return [];
+      result = result.filter(r => filterIds.includes(r.call_id));
     }
-    const agentMap = {};
 
-    visibleReports.forEach((report) => {
-      // Check multiple locations for agent name (prioritize CSV data as source of truth)
-      const agentName = 
-        report.agent_name ||                    // New field (for future uploads)
-        report.raw_data?.AgentName ||           // CSV data (primary source)
-        report.raw_data?.Agent_Name ||          // CSV data (alternative column)
-        report.analysis?.Functional?.Agent_Name || // Gemini analysis (fallback)
-        'Unknown Agent';
+    // Region filter
+    if (selectedRegion !== 'All') {
+      result = result.filter(r => r.region === selectedRegion);
+    }
+
+    // Cart value filter
+    if (selectedCartValue !== 'All') {
+      result = result.filter(r => r.cartValueBucket === selectedCartValue);
+    }
+
+    // Time filter
+    if (timeRange !== 'all') {
+      const days = parseInt(timeRange, 10);
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - days);
       
-      const agentKey = agentName;
-      if (!agentMap[agentKey]) {
-        agentMap[agentKey] = {
-          agentName: agentName,
-          calls: [],
-        };
+      result = result.filter(r => {
+        if (!r.callDate) return false;
+        const reportDate = new Date(r.callDate);
+        // Validate the report date is valid
+        if (isNaN(reportDate.getTime())) return false;
+        reportDate.setHours(0, 0, 0, 0);
+        return reportDate >= cutoff;
+      });
+    }
+
+    // Intent filter
+    if (selectedIntent !== 'All') {
+      if (selectedIntent === 'Purchased') {
+        result = result.filter(r => r.isPurchased);
+      } else {
+        result = result.filter(r => r.intent === selectedIntent && !r.isPurchased);
       }
-      agentMap[agentKey].calls.push(report);
-    });
+    }
 
-    const performance = Object.values(agentMap)
-      .map((agent) => {
-        const calls = agent.calls;
-        
-        const processedCalls = calls.map((report) => {
-          const analysis = report.analysis || {};
-          const relax = analysis.RELAX_Framework || {};
-          const skills = analysis.Experience_and_Skills || {};
-          const softSkillsData = skills.Soft_Skills || {};
+    return result;
+  }, [processedReports, filterIds, selectedRegion, selectedCartValue, timeRange, selectedIntent]);
 
-          const reach = relax.R_Reach_Out?.Score;
-          const explore = relax.E_Explore?.Score;
-          const link = relax.L_Link?.Score;
-          const add = relax.A_Add_Value?.Score;
-          const close = relax.X_Express?.Score;
+  // Calculate KPIs
+  const kpis = useMemo(() => {
+    const total = filteredReports.length;
+    const highIntent = filteredReports.filter(r => r.intent === 'High' && !r.isPurchased).length;
+    const salesLeads = filteredReports.filter(r => r.leadType === 'Sales Lead' || r.leadType === 'Recovery').length;
+    const postPurchase = filteredReports.filter(r => r.leadType === 'Post-Sales' || r.isPurchased).length;
+    
+    return {
+      total,
+      highIntentPercent: total > 0 ? Math.round((highIntent / total) * 100) : 0,
+      salesLeads,
+      postPurchase
+    };
+  }, [filteredReports]);
 
-          const rapportScore = ratingToScore(reach, 75);
-          const exploreScore = ratingToScore(explore, 75);
-          const listenScore = ratingToScore(link, 75);
-          const adviseScore = ratingToScore(add, 75);
-          const executeScore = ratingToScore(close, 75);
+  // Pagination
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(start, start + itemsPerPage);
+  }, [filteredReports, currentPage]);
 
-          const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
-          const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
-          const overallRelax = availableRelax.length
-            ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
-            : 75;
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
 
-          // Calculate soft skills from the new prompt structure
-          const empathy = softSkillsData.Empathy_Score || 3;
-          const listening = softSkillsData.Active_Listening_Score || 3;
-          const objection = softSkillsData.Objection_Handling_Score || 3;
-          const softSkillsScore = ratingToScore((empathy + listening + objection) / 3, 75);
-          const productKnowledgeScore = softSkillsScore; // Using soft skills as proxy
-
-          return {
-            overall: overallRelax,
-            rapport: rapportScore,
-            explore: exploreScore,
-            listen: listenScore,
-            advise: adviseScore,
-            execute: executeScore,
-            productKnowledge: productKnowledgeScore,
-            softSkills: softSkillsScore,
-          };
-        });
-
-        const avgScore = (metric) => {
-          const scores = processedCalls.map(c => c[metric]).filter(v => v !== undefined && v !== null);
-          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-        };
-
-        return {
-          storeName: agent.agentName,
-          agentName: agent.agentName,
-          totalCalls: calls.length,
-          overallScore: avgScore('overall'),
-          rapport: avgScore('rapport'),
-          explore: avgScore('explore'),
-          listen: avgScore('listen'),
-          advise: avgScore('advise'),
-          execute: avgScore('execute'),
-          productKnowledge: avgScore('productKnowledge'),
-          softSkills: avgScore('softSkills'),
-        };
-      })
-      .sort((a, b) => b.overallScore - a.overallScore);
-
-    return performance;
-  }, [visibleReports, filterIds]);
-
-  const topStores = cityPerformanceData.slice(0, 10);
-  const remainingStores = cityPerformanceData.slice(10);
-
-  const getScoreBgColor = (score) => {
-    if (score >= 70) return 'text-emerald-400';
-    if (score >= 50) return 'text-amber-400';
-    return 'text-red-400';
+  // Reset filters
+  const handleResetFilters = () => {
+    setSelectedRegion('All');
+    setSelectedCartValue('All');
+    setTimeRange('30');
+    setSelectedIntent('All');
+    setCurrentPage(1);
+    // Clear external filter
+    if (filterIds) {
+      navigate('/abc-calls', { replace: true });
+    }
   };
+
+  // Helper functions
+  function normalizeRating(val) {
+    if (!val) return 'Medium';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str === 'H') return 'High';
+    if (str.includes('LOW') || str === 'L') return 'Low';
+    return 'Medium';
+  }
+
+  function formatDate(date) {
+    if (!date) return { date: 'N/A', time: '' };
+    const d = new Date(date);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const hours = d.getHours();
+    const mins = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return {
+      date: `${month} ${day}`,
+      time: `${hour12.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${ampm}`
+    };
+  }
+
+  function getIntentDotColor(intent) {
+    if (intent === 'High') return 'bg-emerald-500';
+    if (intent === 'Medium') return 'bg-amber-500';
+    return 'bg-red-500';
+  }
+
+  function getExpColor(exp) {
+    if (exp === 'High') return 'text-emerald-600 font-bold';
+    if (exp === 'Medium') return 'text-yellow-600 font-bold';
+    return 'text-gray-600 font-bold';
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-gray-300">Loading ABC reports...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading ABC call reports...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#08080c] flex items-center justify-center">
-        <div className="text-red-400">{error}</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      <div className="max-w-[1400px] mx-auto px-6 py-10 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 transition">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+    <div className="min-h-screen bg-gray-50 text-gray-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1800px] mx-auto px-8 py-8">
+        
+        {/* HEADER */}
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <Link 
+              to="/dashboard" 
+              className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              BACK TO DASHBOARD
             </Link>
+            <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              ABC Outbound Calls
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Recovery attempts for abandoned website checkouts</p>
           </div>
-
-          <div className="flex items-center gap-3">
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => exportReportsAsCsv(filteredReports, 'abc_calls_report.csv')}
+              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
             <Link
               to="/abc-calls/upload"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-lg text-purple-300 text-sm font-semibold transition"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload CSV
             </Link>
-
             <Link
               to="/abc-calls/analytics"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 rounded-lg text-amber-200 text-sm font-semibold transition"
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
-              Analytics Dashboard
+              Analytics
             </Link>
-
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-600/30 rounded-lg text-red-400 text-sm font-semibold transition"
+              className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 px-3 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              Logout
             </button>
           </div>
         </div>
 
-        {/* Title Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-semibold text-gray-100 mb-2" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-            ABC Cart Recovery Reports
-          </h1>
-          <p className="text-sm text-gray-400">Comprehensive analysis of abandoned cart recovery calls</p>
+        {/* KPI SUMMARY ROW */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Abandoned Carts</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{kpis.total}</p>
+            </div>
+            <div className="p-2 bg-gray-50 text-gray-600 rounded-lg">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">High Intent %</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{kpis.highIntentPercent}%</p>
+            </div>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Sales Leads</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{kpis.salesLeads}</p>
+            </div>
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+            <div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Post Purchase</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{kpis.postPurchase}</p>
+            </div>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
         </div>
 
-        {/* Price Bucket Performance Analysis */}
-        {priceBucketData.length > 0 && (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
-            <div className="px-8 py-6 border-b border-[#2a2a2a]">
-              <div className="flex items-center gap-4 mb-2">
-                <span className="text-3xl">💰</span>
-                <h2 className="text-2xl font-semibold text-white">Price Bucket Performance Analytics</h2>
-              </div>
-              <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores by Cart Value Range</p>
-            </div>
-
-            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Buckets</p>
-                <p className="text-2xl font-bold text-white">{priceBucketData.length}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
-                <p className="text-2xl font-bold text-white">{priceBucketData.reduce((sum, b) => sum + b.totalCalls, 0)}</p>
-              </div>
-              {priceBucketData.length > 0 && (
-                <>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Score</p>
-                    <p className="text-2xl font-bold text-white">{Math.round(priceBucketData.reduce((sum, s) => sum + s.overallScore, 0) / priceBucketData.length)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Top Score</p>
-                    <p className="text-2xl font-bold text-emerald-400">{priceBucketData[0]?.overallScore || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Lowest Score</p>
-                    <p className="text-2xl font-bold text-red-400">{priceBucketData[priceBucketData.length - 1]?.overallScore || 0}</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
-                  <tr>
-                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Price Bucket</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">E</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">A</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">X</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Knowledge</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Soft Skills</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {priceBucketData.map((bucket) => (
-                    <tr key={bucket.bucketName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
-                      <td className="px-6 py-6">
-                        <div className="font-semibold text-white text-base">{bucket.bucketName}</div>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="text-slate-200 font-semibold text-base">{bucket.totalCalls}</span>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm" style={{ color: bucket.overallScore >= 70 ? '#10b981' : bucket.overallScore >= 50 ? '#f59e0b' : '#dc2626' }}>
-                          {bucket.overallScore}
-                        </div>
-                      </td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.rapport}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.explore}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.listen}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.advise}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{bucket.execute}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${bucket.productKnowledge >= 70 ? 'text-emerald-400' : bucket.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{bucket.productKnowledge}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${bucket.softSkills >= 70 ? 'text-emerald-400' : bucket.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{bucket.softSkills}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Agent Performance Analysis */}
-        {cityPerformanceData.length > 0 && (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-12">
-            <div className="px-8 py-6 border-b border-[#2a2a2a]">
-              <div className="flex items-center gap-4 mb-2">
-                <span className="text-3xl">📊</span>
-                <h2 className="text-2xl font-semibold text-white">Agent Performance Analytics</h2>
-              </div>
-              <p className="text-slate-400 text-sm ml-14">RELAX Framework Scores & Key Metrics</p>
-            </div>
-
-            <div className="flex gap-8 px-8 py-6 bg-[#0a0a0a] border-b border-[#2a2a2a] overflow-x-auto">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Agents</p>
-                <p className="text-2xl font-bold text-white">{cityPerformanceData.length}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Calls</p>
-                <p className="text-2xl font-bold text-white">{visibleReports.length}</p>
-              </div>
-              {cityPerformanceData.length > 0 && (
-                <>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Avg Score</p>
-                    <p className="text-2xl font-bold text-white">{Math.round(cityPerformanceData.reduce((sum, s) => sum + s.overallScore, 0) / cityPerformanceData.length)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Top Score</p>
-                    <p className="text-2xl font-bold text-emerald-400">{cityPerformanceData[0]?.overallScore || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Lowest Score</p>
-                    <p className="text-2xl font-bold text-red-400">{cityPerformanceData[cityPerformanceData.length - 1]?.overallScore || 0}</p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
-                  <tr>
-                    <th className="text-left px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Agent Name</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider"># Calls</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Score</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">R</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">E</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">L</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">A</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">X</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Knowledge</th>
-                    <th className="text-center px-6 py-5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Soft Skills</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(expandedStores ? cityPerformanceData : topStores).map((store) => (
-                    <tr key={store.storeName} className="border-b border-[#2a2a2a] hover:bg-[#252525] transition">
-                      <td className="px-6 py-6">
-                        <div className="font-semibold text-white text-base">{store.storeName}</div>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <span className="text-slate-200 font-semibold text-base">{store.totalCalls}</span>
-                      </td>
-                      <td className="text-center px-6 py-6">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white font-bold text-sm" style={{ color: store.overallScore >= 70 ? '#10b981' : store.overallScore >= 50 ? '#f59e0b' : '#dc2626' }}>
-                          {store.overallScore}
-                        </div>
-                      </td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.rapport}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.explore}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.listen}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.advise}</span></td>
-                      <td className="text-center px-6 py-6"><span className="font-semibold text-slate-300 text-base">{store.execute}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.productKnowledge >= 70 ? 'text-emerald-400' : store.productKnowledge >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.productKnowledge}</span></td>
-                      <td className="text-center px-6 py-6"><span className={`font-semibold text-base ${store.softSkills >= 70 ? 'text-emerald-400' : store.softSkills >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{store.softSkills}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {remainingStores.length > 0 && (
-              <div className="text-center px-8 py-6 bg-[#1a1a1a] border-t border-[#2a2a2a]">
-                <button
-                  onClick={() => setExpandedStores(!expandedStores)}
-                  className={`inline-flex items-center gap-3 px-8 py-3 rounded-lg font-semibold transition transform hover:-translate-y-0.5 ${expandedStores ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white' : 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white'}`}
-                >
-                  {expandedStores ? 'Show Less' : 'Show More Agents'}
-                  <span className={`text-lg leading-none transition ${expandedStores ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Stats Cards Row - only for unfiltered view */}
-        {!filterIds && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {/* Total Calls */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-amber-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                    <Phone className="w-8 h-8 text-amber-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Total Calls</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">{reports.length}</div>
-            </div>
-
-            {/* Analyzed */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-green-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-green-500/15 flex items-center justify-center">
-                    <BarChart3 className="w-8 h-8 text-green-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Analyzed</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">
-                {reports.filter(r => r.analysis && !r.analysis.error).length}
-              </div>
-            </div>
-
-            {/* Pending Analysis */}
-            <div className="bg-[#0f0f14] rounded-2xl p-6 border border-white/6 hover:border-orange-500/30 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
-                    <Clock className="w-8 h-8 text-orange-400" />
-                  </div>
-                  <span className="text-gray-400 text-sm font-medium">Pending Analysis</span>
-                </div>
-              </div>
-              <div className="text-4xl font-serif font-bold text-white">
-                {reports.length - reports.filter(r => r.analysis && !r.analysis.error).length}
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* External Filter Banner */}
         {filterIds && (
-          <div className="mb-6 flex items-center justify-between bg-amber-500/10 border border-amber-400/40 text-amber-100 rounded-xl px-4 py-3">
+          <div className="mb-4 flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
             <div className="text-sm font-semibold">
-              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
+              Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({filteredReports.length} of {reports.length})
             </div>
             <button
-              onClick={() => navigate('/abc-calls')}
-              className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
+              onClick={handleResetFilters}
+              className="text-xs font-bold px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300"
             >
               Clear filter
             </button>
           </div>
         )}
 
-        {/* Reports Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleReports.length === 0 && (
-            <div className="col-span-full text-center text-gray-400 py-12">No reports match this filter.</div>
-          )}
-          {visibleReports.map((report) => {
-            const analysis = report.analysis || {};
-            const hasError = analysis.error;
-            const verdict = analysis.The_Verdict || {};
-            const experienceSkills = analysis.Experience_and_Skills || {};
-            const conversionAttempts = analysis.Conversion_Attempts || {};
-            const relaxFramework = analysis.RELAX_Framework || {};
-            const rawData = report.raw_data || {};
+        {/* FILTER STRIP */}
+        {!filterIds && (
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-center mb-8">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Filters:</span>
             
-            // Get cart value
-            const cartValue = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
-            
-            // Get duration - try transcript timestamps or raw call duration
-            let durationSeconds = 0;
-            if (analysis.Transcript_Log && analysis.Transcript_Log.length > 0) {
-              const lastEntry = analysis.Transcript_Log[analysis.Transcript_Log.length - 1];
-              if (lastEntry.Timestamp) {
-                const parts = lastEntry.Timestamp.split(':');
-                durationSeconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
-              }
-            }
-            if (durationSeconds === 0 && rawData.CallStartDateTime) {
-              const timeStr = rawData.CallStartDateTime.toString();
-              const match = timeStr.match(/(\d+):(\d+)/);
-              if (match) {
-                durationSeconds = (parseInt(match[1]) || 0) * 60 + (parseInt(match[2]) || 0);
-              }
-            }
+            {/* Region */}
+            <select
+              value={selectedRegion}
+              onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              {regions.map(r => (
+                <option key={r} value={r}>{r === 'All' ? 'Region: All' : r}</option>
+              ))}
+            </select>
 
-            // Intent to Purchase from The_Verdict.Purchase_Intent
-            const rawIntent = verdict.Purchase_Intent || 'MEDIUM';
-            const intentUpper = rawIntent.toString().toUpperCase();
-            let intentLevel = 'Medium';
-            if (intentUpper.includes('HIGH')) intentLevel = 'High';
-            else if (intentUpper.includes('LOW')) intentLevel = 'Low';
+            {/* Cart Value */}
+            <select
+              value={selectedCartValue}
+              onChange={(e) => { setSelectedCartValue(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Cart Value: All</option>
+              <option value="50k">50k+</option>
+              <option value="25k">25k - 50k</option>
+              <option value="15k">15k - 25k</option>
+              <option value="low">Below 15k</option>
+            </select>
 
-            // Customer Experience from Experience_and_Skills.CSAT_Score
-            const expNum = experienceSkills.CSAT_Score || 3;
-            const csatScore = typeof expNum === 'number' ? expNum : parseFloat(expNum) || 3;
-            let experienceLevel = 'Medium';
-            if (csatScore >= 4) experienceLevel = 'High';
-            else if (csatScore <= 2) experienceLevel = 'Low';
+            {/* Purchase Intent */}
+            <select
+              value={selectedIntent}
+              onChange={(e) => { setSelectedIntent(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Purchase Intent: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+              <option value="Purchased">Already Purchased</option>
+            </select>
 
-            const levelColor = (level) => {
-              if (level === 'High') return 'text-emerald-400';
-              if (level === 'Medium') return 'text-amber-400';
-              return 'text-red-400';
-            };
-            
-            // Call outcome from verdict
-            const callOutcome = verdict.Recovery_Outcome_Headline || 'Cart Recovery';
-            
-            return (
-              <Link
-                key={report.call_id}
-                to={`/abc-calls/${report.call_id}`}
-                className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:border-amber-500/50 transition-all overflow-hidden relative"
+            {/* Time */}
+            <select
+              value={timeRange}
+              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="7">Time: Last 7 Days</option>
+              <option value="30">Time: Last 30 Days</option>
+              <option value="90">Time: Last 3 Months</option>
+              <option value="all">Time: All Time</option>
+            </select>
+
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-400 font-medium">Showing {filteredReports.length} Results</span>
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-wider"
               >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
 
-                {/* Store Header - Using City as "Store" */}
-                <div className="mb-6 pb-6 border-b border-white/6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg text-gray-100 group-hover:text-amber-400 transition" style={{ fontFamily: "'Fraunces', serif" }}>
-                      {report.city || report.raw_data?.Billing_City || 'UNKNOWN CITY'}
-                    </h3>
-                    {(rawData.is_Converted === 1 || verdict.Recovery_Outcome_Headline?.toLowerCase().includes('sale')) && (
-                      <span className="px-3 py-1 bg-emerald-900/30 border border-emerald-600/40 rounded-full text-xs font-semibold text-emerald-300">
-                        ✓ Converted
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <MapPin className="w-3 h-3" />
-                    <span>{report.city || 'Unknown'}, INDIA</span>
-                  </div>
-                </div>
-
-                {/* Call ID */}
-                <div className="mb-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Call ID</p>
-                  <p className="font-mono text-sm text-gray-300">{report.call_id}</p>
-                </div>
-
-                {/* Call Info Row */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Date</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-200">
-                      <Calendar className="w-4 h-4 text-gray-600" />
-                      <span>{report.processed_at ? new Date(report.processed_at).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-200">
-                      <Clock className="w-4 h-4 text-gray-600" />
-                      <span>{Math.floor(durationSeconds / 60)}:{(durationSeconds % 60).toString().padStart(2, '0')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {hasError ? (
-                  <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-xs text-red-300">
-                    ⚠️ Analysis failed or pending
-                  </div>
+        {/* TABLE SECTION */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer City</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Cart Value</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Purchase Intent</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Invited to<br/>Store</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Invited for<br/>Video Demo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paginatedReports.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" className="px-4 py-8 text-center text-gray-400">
+                      No calls match the current filters.
+                    </td>
+                  </tr>
                 ) : (
-                  <>
-                    {/* Intent & Customer Experience Levels */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Intent to Purchase</p>
-                        <p className={`text-sm font-semibold ${levelColor(intentLevel)}`}>{intentLevel}</p>
-                      </div>
-                      <div className="bg-[#16161d] rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Customer Experience</p>
-                        <p className={`text-sm font-semibold ${levelColor(experienceLevel)}`}>
-                          {experienceLevel} <span className="text-gray-400 text-xs">({csatScore}/5)</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Satisfaction Score */}
-                    <div className="bg-[#16161d] rounded-lg p-3 mb-4">
-                      <p className="text-xs text-gray-500 mb-1">Satisfaction Score</p>
-                      <p className="text-lg font-bold text-amber-400">{csatScore}/5</p>
-                    </div>
-
-                    {/* Objective */}
-                    <div className="bg-[#16161d] rounded-lg p-3 mb-4">
-                      <p className="text-xs text-gray-500 mb-1">Objective</p>
-                      <p className="text-sm text-gray-300">{callOutcome}</p>
-                    </div>
-                  </>
+                  paginatedReports.map((report) => {
+                    const dateInfo = formatDate(report.callDate);
+                    return (
+                      <tr 
+                        key={report.call_id} 
+                        onClick={() => navigate(`/abc-calls/${report.call_id}`)}
+                        className="hover:bg-gray-50 transition cursor-pointer"
+                      >
+                        {/* Call ID */}
+                        <td className="px-4 py-3 text-left">
+                          <span className="font-mono text-xs font-bold text-gray-500">
+                            {report.call_id ? report.call_id.slice(-8).toUpperCase() : 'N/A'}
+                          </span>
+                        </td>
+                        
+                        {/* Date & Time */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="text-sm font-semibold text-gray-900">{dateInfo.date}</div>
+                          <div className="text-xs text-gray-500">{dateInfo.time}</div>
+                        </td>
+                        
+                        {/* Customer City */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="font-bold text-gray-900">{report.customerCity}</div>
+                          <div className="text-xs text-gray-500">{report.region !== 'Unknown' ? report.region.slice(0, 2).toUpperCase() : ''}</div>
+                        </td>
+                        
+                        {/* Duration */}
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-mono text-sm text-gray-600">{report.duration}</span>
+                        </td>
+                        
+                        {/* Lead Type */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase whitespace-nowrap ${
+                            report.leadType === 'Sales Lead' 
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                              : report.leadType === 'Recovery'
+                              ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                              : 'bg-blue-100 text-blue-700 border border-blue-200'
+                          }`}>
+                            {report.leadType}
+                          </span>
+                        </td>
+                        
+                        {/* Cart Value */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${report.cartValueDisplay === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.cartValueDisplay}
+                          </span>
+                        </td>
+                        
+                        {/* Purchase Intent */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center">
+                            <span className={`h-2 w-2 rounded-full mr-2 ${report.isPurchased ? 'bg-red-500' : getIntentDotColor(report.intent)}`}></span>
+                            <span className="font-bold text-gray-700 text-sm">{report.isPurchased ? 'N/A' : report.intent}</span>
+                          </div>
+                        </td>
+                        
+                        {/* Call Experience */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${getExpColor(report.customerExp)}`}>
+                            {report.customerExp === 'Medium' ? 'Med' : report.customerExp}
+                          </span>
+                        </td>
+                        
+                        {/* Invited to Store */}
+                        <td className="px-4 py-3 text-center">
+                          {report.invitedToStore === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center justify-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-sm font-bold text-red-400">No</span>
+                          )}
+                        </td>
+                        
+                        {/* Invited for Video Demo */}
+                        <td className="px-4 py-3 text-center">
+                          {report.invitedForVideo === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center justify-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-sm font-bold text-red-400">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
-
-                <div className="mt-6 pt-6 border-t border-white/6 text-right">
-                  <span className="text-xs text-amber-400 group-hover:text-amber-300 font-semibold inline-flex items-center gap-1">
-                    View Report
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-bold">{filteredReports.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   );
