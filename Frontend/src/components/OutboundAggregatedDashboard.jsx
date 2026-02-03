@@ -802,7 +802,10 @@ const OutboundAggregatedDashboard = () => {
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-indigo-500">
+          <div 
+            onClick={() => navigateWithFilter(() => true, 'All walk-in recovery calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-indigo-500 cursor-pointer"
+          >
             <div className="flex justify-between items-start mb-2">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">Total Follow-ups</p>
               <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded">
@@ -813,7 +816,10 @@ const OutboundAggregatedDashboard = () => {
             <p className="text-xs text-gray-400">Leads from {metrics.uniqueStores} Stores</p>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-emerald-500">
+          <div 
+            onClick={() => navigateWithFilter((c) => c.intent === 'High' && !c.isPurchased, 'High intent walk-in recovery calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-emerald-500 cursor-pointer"
+          >
             <div className="flex justify-between items-start mb-2">
               <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Sales Leads (Hot)</p>
               <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
@@ -826,7 +832,10 @@ const OutboundAggregatedDashboard = () => {
             </p>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-orange-500">
+          <div 
+            onClick={() => navigateWithFilter((c) => c.isPurchased, 'Already purchased calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-l-orange-500 cursor-pointer"
+          >
             <div className="flex justify-between items-start mb-2">
               <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">Already Purchased</p>
               <div className="p-1.5 bg-orange-50 rounded-lg text-orange-600">
