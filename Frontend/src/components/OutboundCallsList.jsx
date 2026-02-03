@@ -124,7 +124,36 @@ const OutboundCallsList = () => {
       const intentRating = getField(analysis, '2_Intent_to_Purchase.Rating') || 'Medium';
       const storeExp = getField(analysis, '3_Store_Experience.Rating') || 'Medium';
       const callExp = getField(analysis, '4_Call_Experience.Rating') || 'Medium';
-      const region = metadata.Call_Region || report.region || 'Unknown';
+      
+      // Normalize region: West/Central → West, N/A or unknown → South, standardize to North/South/East/West
+      // First check if MetaData.Call_Region is usable (not N/A, not null, not empty)
+      let regionSource = metadata.Call_Region;
+      if (!regionSource || regionSource === 'N/A' || regionSource.toString().trim() === '') {
+        regionSource = report.region;
+      }
+      
+      let region = 'South'; // Default to South if no valid region
+      if (regionSource && typeof regionSource === 'string') {
+        const regionStr = regionSource.trim();
+        const regionUpper = regionStr.toUpperCase();
+        
+        // Check exact matches first, then substring matches
+        if (regionUpper === 'NORTH' || regionUpper.includes('NORTH')) {
+          region = 'North';
+        } else if (regionUpper === 'SOUTH' || regionUpper.includes('SOUTH')) {
+          region = 'South';
+        } else if (regionUpper === 'EAST' || regionUpper.includes('EAST')) {
+          region = 'East';
+        } else if (regionUpper === 'WEST' || regionUpper.includes('WEST')) {
+          region = 'West';
+        } else if (regionUpper === 'NA' || regionUpper === 'N/A' || regionUpper === 'NONE' || regionUpper === '') {
+          region = 'South';
+        } else {
+          // Unknown region format, default to South
+          region = 'South';
+        }
+      }
+      
       const storeName = report.store_name || 'Unknown';
       
       // Get consideration value from metadata
@@ -241,9 +270,9 @@ const OutboundCallsList = () => {
 
   // Get unique regions and stores for filters
   const regions = useMemo(() => {
-    const uniqueRegions = [...new Set(processedReports.map(r => r.region).filter(r => r && r !== 'Unknown'))];
-    return ['All', ...uniqueRegions.sort()];
-  }, [processedReports]);
+    // Always show all four regions in fixed order
+    return ['All', 'North', 'South', 'East', 'West'];
+  }, []);
 
   const stores = useMemo(() => {
     const uniqueStores = [...new Set(processedReports.map(r => r.storeName).filter(Boolean))];
