@@ -330,6 +330,7 @@ const OutboundAggregatedDashboard = () => {
   // Transform reports to calls with normalized data
   const outboundCalls = useMemo(() => {
     return reports.map(report => {
+      const analysis = report.analysis || {};
       const storeName = report.store_name || 'Unknown Store';
       const city = extractCity(storeName);
       const region = getCityRegion(storeName, city);
@@ -339,11 +340,38 @@ const OutboundAggregatedDashboard = () => {
       const nps = getNpsScore(report);
       const relax = getRelaxScores(report);
       const agentName = getAgentName(report);
-      const isPurchased = isConvertedValue(report.is_converted);
+      
+      // Check if already purchased (customer bought BEFORE this call, not after)
+      const intentRating = String(getIntentRating(report) || '').toLowerCase();
+      const funnelStage = String(getField(analysis, '5_Funnel_Analysis.Stage') || '').toLowerCase();
+      const callObjectiveType = String(getField(analysis, '1_Call_Objective.Type') || '').toLowerCase();
+      const isPurchased = 
+        intentRating.includes('already purchased') || 
+        funnelStage.includes('already purchased') || 
+        callObjectiveType.includes('already purchased');
       
       // Calculate overall score (average of NPS and RELAX)
       const relaxAvg = (relax.R + relax.E + relax.L + relax.A + relax.X) / 5;
       const overallScore = nps > 0 ? ((nps + relaxAvg) / 2).toFixed(1) : relaxAvg.toFixed(1);
+      
+      // Parse call date with fallbacks
+      let callDate = new Date();
+      if (report.call_date) {
+        const parsed = new Date(report.call_date);
+        if (!isNaN(parsed.getTime())) {
+          callDate = parsed;
+        } else if (report.analyzed_at) {
+          const analyzedDate = new Date(report.analyzed_at);
+          if (!isNaN(analyzedDate.getTime())) {
+            callDate = analyzedDate;
+          }
+        }
+      } else if (report.analyzed_at) {
+        const analyzedDate = new Date(report.analyzed_at);
+        if (!isNaN(analyzedDate.getTime())) {
+          callDate = analyzedDate;
+        }
+      }
       
       return {
         ...report,
@@ -358,7 +386,7 @@ const OutboundAggregatedDashboard = () => {
         agentName,
         isPurchased,
         overallScore: parseFloat(overallScore),
-        callDate: report.call_date ? new Date(report.call_date) : new Date()
+        callDate
       };
     });
   }, [reports]);

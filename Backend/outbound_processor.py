@@ -375,8 +375,8 @@ class OutboundCallUploadProcessor:
   "MetaData": {
     "Customer_Name": "String",
     "Customer_Location": "String",
-    "Agent_Name": "String",
-    "Call_Region": "String(for example South, North, East, West as per the location)",
+    "Agent_Name": "String (REQUIRED if available)",
+    "Call_Region": "String(REQUIRED - South/North/East/West as per the location)",
     "Customer_Language": "String",
     "Customer_Gender": "Male | Female | Unknown",
     "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
@@ -407,7 +407,7 @@ class OutboundCallUploadProcessor:
         "Stage": "Awareness | Consideration | Action | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
     "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
-    "Timeline_to_Purchase_Reason": "String (Evidence based)"
+    "Timeline_to_Purchase_Reason": "String (REQUIRED - evidence based reasoning)"
   },
   "6_Product_Intelligence": {
     "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",

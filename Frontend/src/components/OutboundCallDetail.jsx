@@ -76,7 +76,7 @@ const OutboundCallDetail = () => {
   const agentEvaluation = analysis['13_Agent_Evaluation'] || {};
   const agentLearnings = analysis['14_Agent_Learnings'] || [];
   const nextActions = analysis['15_Next_Actions'] || '';
-  const npsData = analysis['16_End_to_End_NPS'] || analysis['16_End_to_end_NPS'] || {};
+  const npsData = analysis['16_End_to_End_NPS'] || {};
   const transcriptLog = analysis.Transcript_Log || '';
 
   // ========== FALLBACK TO OLD PILLAR SCHEMA ==========
@@ -142,9 +142,21 @@ const OutboundCallDetail = () => {
   const relaxA = relaxFramework.A_Add_Value || pillar5Method.RELAX_Scores?.A || {};
   const relaxX = relaxFramework.X_Express_Closing || pillar5Method.RELAX_Scores?.X || {};
 
-  // Agent Evaluation
+  // Agent Evaluation - handle both string and object ratings
   const mainSkills = agentEvaluation.Main_Skills || {};
   const secondaryTraits = agentEvaluation.Secondary_Traits || {};
+  
+  // Extract ratings (handle both {Rating: "High", Reason: "..."} and "High" formats)
+  const getSkillRating = (skill) => {
+    if (!skill) return 'Medium';
+    if (typeof skill === 'string') return skill;
+    return skill.Rating || 'Medium';
+  };
+  
+  const getSkillReason = (skill) => {
+    if (!skill || typeof skill === 'string') return '';
+    return skill.Reason || '';
+  };
 
   // NPS
   const npsScore = npsData.Score !== undefined ? npsData.Score : '';
@@ -292,10 +304,10 @@ const OutboundCallDetail = () => {
   }
 
   // Funnel stages
-  const funnelStages = ['Awareness', 'Consideration', 'Action'];
+  const funnelStages = ['Awareness', 'Consideration', 'Action', 'Purchased'];
   const currentFunnelIndex = funnelStages.findIndex(s => 
     s.toLowerCase() === String(funnelStage).toLowerCase() ||
-    String(funnelStage).toLowerCase().includes(s.toLowerCase())
+    String(funnelStage).toLowerCase().includes(s.toLowerCase().replace('purchased', 'already purchased'))
   );
 
   // Narrow down stages
@@ -640,7 +652,7 @@ const OutboundCallDetail = () => {
             {funnelStages.map((stage, index) => (
               <div
                 key={stage}
-                className={`relative font-bold uppercase text-xs tracking-wider flex items-center justify-center py-2 px-3 border ${
+                className={`relative font-bold uppercase text-xs tracking-wider flex items-center justify-center py-2 px-2 border whitespace-nowrap overflow-hidden ${
                   index === 0 
                     ? 'rounded-l-sm' 
                     : ''
@@ -658,7 +670,7 @@ const OutboundCallDetail = () => {
                     ? 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%)' 
                     : 'polygon(0% 0%, 85% 0%, 100% 50%, 85% 100%, 0% 100%, 15% 50%)',
                   flex: 1,
-                  fontSize: '11px',
+                  fontSize: '10px',
                 }}
               >
                 {stage}
@@ -786,12 +798,14 @@ const OutboundCallDetail = () => {
           <div className="lg:col-span-7 bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
             <div className="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>RELAX Framework</h2>
-              <span className={`text-4xl font-bold ${
-                parseFloat(getRelaxAverageScore()) >= 2.5 ? 'text-emerald-600' : 
-                parseFloat(getRelaxAverageScore()) >= 1.5 ? 'text-amber-600' : 'text-red-600'
-              }`}>
-                {getRelaxAverageScore() !== 'N/A' ? `${getRelaxAverageScore()}/3` : 'N/A'}
-              </span>
+              <div className="text-right">
+                <div className={`text-4xl font-bold ${
+                  parseFloat(getRelaxAverageScore()) >= 2.5 ? 'text-emerald-600' : 
+                  parseFloat(getRelaxAverageScore()) >= 1.5 ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {getRelaxAverageScore() !== 'N/A' ? `${Math.round((parseFloat(getRelaxAverageScore()) / 3) * 100)}%` : 'N/A'}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -838,18 +852,18 @@ const OutboundCallDetail = () => {
             <div className="space-y-4 mb-8">
               <ExpandableDetail 
                 title="Sales Skills" 
-                rating={mainSkills.Sales_Skills?.Rating || mainSkills.Sales_Skills || 'Medium'} 
-                reason={mainSkills.Sales_Skills?.Reason || ''}
+                rating={getSkillRating(mainSkills.Sales_Skills)} 
+                reason={getSkillReason(mainSkills.Sales_Skills)}
               />
               <ExpandableDetail 
                 title="Objection Handling" 
-                rating={secondaryTraits.Objection_Handling?.Rating || secondaryTraits.Objection_Handling || 'Medium'} 
-                reason={secondaryTraits.Objection_Handling?.Reason || ''}
+                rating={getSkillRating(secondaryTraits.Objection_Handling)} 
+                reason={getSkillReason(secondaryTraits.Objection_Handling)}
               />
               <ExpandableDetail 
                 title="Upsell Skills" 
-                rating={mainSkills.Upsell_Revenue_Skills?.Rating || mainSkills.Upsell_Revenue_Skills || 'Medium'} 
-                reason={mainSkills.Upsell_Revenue_Skills?.Reason || ''}
+                rating={getSkillRating(mainSkills.Upsell_Revenue_Skills)} 
+                reason={getSkillReason(mainSkills.Upsell_Revenue_Skills)}
               />
             </div>
 
