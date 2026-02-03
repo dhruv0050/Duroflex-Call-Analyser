@@ -294,7 +294,7 @@ class AbcCallProcessor:
     \"Objective_Phrase\": \"String\"
   },
   \"2_Intent_to_Purchase\": {
-    \"Rating\": \"High | Medium | Low\",
+    \"Rating\": \"High | Medium | Low | Already Purchased\",
     \"Reason\": \"String (Evidence based)\"
   },
   \"3_Store_Experience\": {
@@ -308,7 +308,8 @@ class AbcCallProcessor:
   \"5_Funnel_Analysis\": {
     \"Stage\": \"Awareness | Consideration | Action | Already Purchased\",
     \"Reason\": \"String (State evidence based reasoning for the stage you are defining)\",
-    \"Timeline_to_Purchase\": \"Immediate | Short Term | Long Term | Unknown\"
+    \"Timeline_to_Purchase\": \"Immediate | Short Term | Long Term | Unknown\",
+    \"Timeline_to_Purchase_Reason\": \"String (Evidence based)\"
   },
   \"6_Product_Intelligence\": {
     \"Narrow_Down_Stage\": \"Category | Range | Specific SKU | NA\",

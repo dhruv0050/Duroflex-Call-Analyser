@@ -121,27 +121,36 @@ const CallReportDetail = () => {
     if (!report) return;
 
     const analysis = report.analysis || {};
+    
+    // NEW SCHEMA
+    const metadata = analysis.MetaData || {};
+    const callSummary = analysis.Call_Summary || '';
+    const callObjective = analysis['1_Call_Objective'] || {};
+    const intentToPurchase = analysis['2_Intent_to_Purchase'] || {};
+    const intentToVisit = analysis['2A_Intent_to_Visit'] || {};
+    const customerExperience = analysis['3_Customer_Experience'] || {};
+    const funnelAnalysis = analysis['4_Funnel_Analysis'] || {};
+    const productIntelligence = analysis['5_Product_Intelligence'] || {};
+    const relaxFrameworkNew = analysis['11_RELAX_Framework'] || {};
+    const nextActions = analysis['14_Next_Actions'] || '';
+    const npsScore = analysis['15_End_to_End_NPS'] || {};
+    
+    // LEGACY SCHEMA (fallback)
     const functional = analysis.Functional || {};
     const customer = analysis.Customer_Information || {};
     const agent = analysis.Agent_Areas || {};
     const summary = analysis.Overall_Summary || {};
-    const relax = agent.RELAX_Framework || {};
-    const softSkills = agent.SoftSkills_Etiquette || {};
-    const knowledge = agent.Verbal_Product_Knowledge || {};
-    const invitation = agent.The_Invitation_to_Visit || {};
+    const relax = Object.keys(relaxFrameworkNew).length > 0 ? relaxFrameworkNew : (agent.RELAX_Framework || {});
 
     const headers = [
       'Call_ID', 'Store_Name', 'City', 'State', 'Region', 'Date', 'Duration_Seconds',
-      'Customer_Name', 'Agent_Name', 'Is_Converted',
-      'Call_Objective', 'Interest_Category', 'Specific_Product',
-      'Intent_to_Visit', 'Intent_to_Purchase', 'Customer_Stage_AIDA',
-      'Customer_Satisfaction_Score', 'Barriers_to_Conversion',
-      'R_Reach_Out_Rating', 'E_Explore_Needs_Rating', 'L_Link_Experience_Rating',
-      'A_Add_Value_Rating', 'X_Express_Closing_Rating',
-      'Product_Description_Quality', 'Stock_Availability_Check',
-      'Invitation_Attempted', 'Invitation_Quality',
-      'Tone_and_Patience', 'Hold_Management', 'Language_Fluency',
-      'Call_Synopsis', 'Agent_Performance', 'Next_Action'
+      'Customer_Name', 'Agent_Name', 'Customer_Location', 'Customer_Language', 'Customer_Age_Group',
+      'Call_Objective_Type', 'Product_of_Interest', 'Approx_Order_Value',
+      'Intent_to_Visit_Rating', 'Intent_to_Purchase_Rating', 'Customer_Experience_Rating',
+      'Funnel_Stage', 'Timeline_to_Purchase', 'Purchase_Barrier',
+      'R_Reach_Out_Score', 'E_Explore_Needs_Score', 'L_Link_Product_Score',
+      'A_Add_Value_Score', 'X_Express_Closing_Score',
+      'NPS_Score', 'Call_Summary', 'Next_Actions'
     ];
 
     const row = [
@@ -152,32 +161,28 @@ const CallReportDetail = () => {
       report.region,
       report.call_date,
       report.duration_seconds,
-      functional.Customer_Name || '',
-      functional.Agent_Name || '',
-      report.is_converted ? 'Yes' : 'No',
-      functional.Call_Objective_Theme || '',
-      customer.Interest_Category || '',
-      customer.Specific_Product_Inquiry || '',
-      customer.Intent_to_Visit_Rating || '',
-      customer.Intent_to_Purchase_Rating || '',
-      customer.Customer_Stage_AIDA || '',
-      customer.Customer_Satisfaction_Score || '',
-      customer.Barriers_to_Conversion || '',
-      relax.R_Reach_Out?.Rating || '',
-      relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating || '',
-      relax.L_Link_Experience?.Rating || '',
-      relax.A_Add_Value?.Rating || '',
-      relax.X_Express_Closing?.Rating || '',
-      knowledge.Description_Quality_Rating || '',
-      knowledge.Stock_Availability_Check_Rating || '',
-      invitation.Attempted ? 'Yes' : 'No',
-      invitation.Quality_Rating || '',
-      softSkills.Tone_and_Patience_Rating || '',
-      softSkills.Hold_Management_Rating || '',
-      softSkills.Agent_Language_Fluency_Score || '',
-      (summary.Call_Synopsis || '').replace(/,/g, ';').replace(/\n/g, ' '),
-      (summary.Agent_Performance_Summary || '').replace(/,/g, ';').replace(/\n/g, ' '),
-      summary.Next_Action || ''
+      metadata.Customer_Name || functional.Customer_Name || '',
+      metadata.Agent_Name || functional.Agent_Name || '',
+      metadata.Customer_Location || functional.Store_Location || '',
+      metadata.Customer_Language || functional.Customer_Language || '',
+      metadata.Customer_Age_Group || '',
+      callObjective.Type || functional.Call_Objective_Theme || '',
+      productIntelligence.Product_of_Interest || customer.Interest_Category || '',
+      productIntelligence.Approx_Order_Value || '',
+      intentToVisit.Rating || customer.Intent_to_Visit_Rating || '',
+      intentToPurchase.Rating || customer.Intent_to_Purchase_Rating || '',
+      customerExperience.Rating || customer.Customer_Satisfaction_Score || '',
+      funnelAnalysis.Stage || customer.Customer_Stage_AIDA || '',
+      funnelAnalysis.Timeline_to_Purchase || customer.Timeline_to_Purchase || '',
+      analysis['7_Purchase_Barrier'] || customer.Barriers_to_Conversion || '',
+      relax.R_Reach_Out?.Score || relax.R_Reach_Out?.Rating || '',
+      relax.E_Explore_Needs?.Score || relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating || '',
+      relax.L_Link_Product?.Score || relax.L_Link_Product?.Rating || relax.L_Link_Experience?.Rating || '',
+      relax.A_Add_Value?.Score || relax.A_Add_Value?.Rating || '',
+      relax.X_Express_Closing?.Score || relax.X_Express_Closing?.Rating || '',
+      npsScore.Score || '',
+      (callSummary || summary.Call_Synopsis || '').replace(/,/g, ';').replace(/\n/g, ' '),
+      (nextActions || summary.Next_Action || '').replace(/,/g, ';').replace(/\n/g, ' ')
     ];
 
     const escapeCSVField = (field) => {
@@ -205,8 +210,37 @@ const CallReportDetail = () => {
     if (!report) return;
 
     const analysis = report.analysis || {};
-    const transcript = analysis.Transcript_Log || [];
+    const metadata = analysis.MetaData || {};
     const functional = analysis.Functional || {};
+    
+    // Parse Transcript_Log (can be string or array)
+    const transcriptLog = analysis.Transcript_Log || [];
+    let transcript = [];
+    
+    if (typeof transcriptLog === 'string' && transcriptLog.trim()) {
+      // Parse string transcript
+      const lines = transcriptLog.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        const agentMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Agent:\s*(.+)$/i);
+        const customerMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Customer:\s*(.+)$/i);
+        
+        if (agentMatch) {
+          transcript.push({
+            Timestamp: agentMatch[1] || '',
+            Speaker: 'Agent',
+            Text: agentMatch[2].trim()
+          });
+        } else if (customerMatch) {
+          transcript.push({
+            Timestamp: customerMatch[1] || '',
+            Speaker: 'Customer',
+            Text: customerMatch[2].trim()
+          });
+        }
+      });
+    } else if (Array.isArray(transcriptLog)) {
+      transcript = transcriptLog;
+    }
 
     if (transcript.length === 0) {
       alert('No transcript available for this call');
@@ -219,8 +253,8 @@ const CallReportDetail = () => {
     textContent += `Store: ${report.store_name}\n`;
     textContent += `Date: ${report.call_date}\n`;
     textContent += `Duration: ${Math.floor(report.duration_seconds / 60)}:${(report.duration_seconds % 60).toString().padStart(2, '0')}\n`;
-    textContent += `Customer: ${functional.Customer_Name || 'Unknown'}\n`;
-    textContent += `Agent: ${functional.Agent_Name || 'Unknown'}\n`;
+    textContent += `Customer: ${metadata.Customer_Name || functional.Customer_Name || 'Unknown'}\n`;
+    textContent += `Agent: ${metadata.Agent_Name || functional.Agent_Name || 'Unknown'}\n`;
     textContent += `Location: ${report.city}, ${report.state}\n\n`;
     textContent += `${'='.repeat(80)}\n\n`;
 
@@ -252,12 +286,26 @@ const CallReportDetail = () => {
 
   const getRatingText = (rating) => {
     if (!rating) return 'N/A';
+    const upper = rating.toString().toUpperCase();
+    if (upper.includes('HIGH') || upper === 'H') return 'HIGH';
+    if (upper.includes('MEDIUM') || upper === 'M') return 'MEDIUM';
+    if (upper.includes('LOW') || upper === 'L') return 'LOW';
     if (typeof rating === 'number') {
       if (rating >= 4) return 'HIGH';
       if (rating >= 3) return 'MEDIUM';
       return 'LOW';
     }
     return rating.toString().toUpperCase();
+  };
+  
+  // Convert score abbreviations to full words for RELAX Framework
+  const getFullScoreText = (score) => {
+    if (!score) return 'N/A';
+    const upper = score.toString().toUpperCase();
+    if (upper === 'H' || upper === 'HIGH') return 'High';
+    if (upper === 'M' || upper === 'MEDIUM') return 'Medium';
+    if (upper === 'L' || upper === 'LOW') return 'Low';
+    return score.toString();
   };
 
   const getScoreDotClass = (rating) => {
@@ -268,25 +316,33 @@ const CallReportDetail = () => {
   };
 
   const getRelaxOverallRating = (relax) => {
-    const ratingToScore = (rating) => {
-      const r = getRatingText(rating).toUpperCase();
-      if (r === 'HIGH') return 3;
-      if (r === 'MEDIUM') return 2;
-      if (r === 'LOW') return 1;
+    const ratingToScore = (item) => {
+      // New schema uses Score, old uses Rating
+      const scoreValue = item?.Score || item?.Rating;
+      if (!scoreValue) return 0;
+      
+      const r = getRatingText(scoreValue).toUpperCase();
+      if (r === 'HIGH' || r === 'H') return 3;
+      if (r === 'MEDIUM' || r === 'M') return 2;
+      if (r === 'LOW' || r === 'L') return 1;
+      
+      // If it's a number already
+      if (typeof scoreValue === 'number') return scoreValue;
       return 0;
     };
 
     const scores = [
-      ratingToScore(relax.R_Reach_Out?.Rating),
-      ratingToScore(relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating),
-      ratingToScore(relax.L_Link_Experience?.Rating),
-      ratingToScore(relax.A_Add_Value?.Rating),
-      ratingToScore(relax.X_Express_Closing?.Rating)
+      ratingToScore(relax.R_Reach_Out),
+      ratingToScore(relax.E_Explore_Needs || relax.E_Explore),
+      ratingToScore(relax.L_Link_Product || relax.L_Link_Experience),
+      ratingToScore(relax.A_Add_Value),
+      ratingToScore(relax.X_Express_Closing)
     ].filter(s => s > 0);
     
     if (scores.length === 0) return 'N/A';
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-    return avg.toFixed(2);
+    const percentage = Math.round((avg / 3) * 100);
+    return `${percentage}%`;
   };
 
   const getFunnelStageIndex = (stage) => {
@@ -335,29 +391,84 @@ const CallReportDetail = () => {
     );
   }
 
+  // NEW SCHEMA (AI Studio format - preferred)
+  const metadata = analysis.MetaData || {};
+  const callSummary = analysis.Call_Summary || '';
+  const callObjective = analysis['1_Call_Objective'] || {};
+  const intentToPurchase = analysis['2_Intent_to_Purchase'] || {};
+  const intentToVisit = analysis['2A_Intent_to_Visit'] || {};
+  const customerExperience = analysis['3_Customer_Experience'] || {};
+  const funnelAnalysis = analysis['4_Funnel_Analysis'] || {};
+  const productIntelligence = analysis['5_Product_Intelligence'] || {};
+  const customerNeeds = analysis['6_Customer_Needs'] || {};
+  const purchaseBarrier = analysis['7_Purchase_Barrier'] || '';
+  const decisionMaker = analysis['8_Decision_Maker'] || '';
+  const invitations = analysis['9_Invitations'] || {};
+  const conversionHooks = analysis['10_Conversion_Hooks'] || {};
+  const relaxFrameworkNew = analysis['11_RELAX_Framework'] || {};
+  const agentEvaluation = analysis['12_Agent_Evaluation'] || {};
+  const agentLearnings = analysis['13_Agent_Learnings'] || [];
+  const nextActions = analysis['14_Next_Actions'] || '';
+  const npsScore = analysis['15_End_to_End_NPS'] || {};
+  
+  // Parse Transcript_Log - it's now a string instead of array
+  let transcript = [];
+  const transcriptLog = analysis.Transcript_Log || '';
+  if (typeof transcriptLog === 'string' && transcriptLog.trim()) {
+    // Parse string transcript into array format
+    const lines = transcriptLog.split('\n').filter(line => line.trim());
+    lines.forEach(line => {
+      // Format: "Agent: text" or "Customer: text" or "[timestamp] Speaker: text"
+      const agentMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Agent:\s*(.+)$/i);
+      const customerMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Customer:\s*(.+)$/i);
+      
+      if (agentMatch) {
+        transcript.push({
+          Timestamp: agentMatch[1] || '',
+          Speaker: 'Agent',
+          Text: agentMatch[2].trim()
+        });
+      } else if (customerMatch) {
+        transcript.push({
+          Timestamp: customerMatch[1] || '',
+          Speaker: 'Customer',
+          Text: customerMatch[2].trim()
+        });
+      }
+    });
+  } else if (Array.isArray(transcriptLog)) {
+    // Legacy format - array of objects
+    transcript = transcriptLog;
+  }
+  
+  // LEGACY SCHEMA (fallback for old records)
   const functional = analysis.Functional || {};
   const customer = analysis.Customer_Information || {};
   const agent = analysis.Agent_Areas || {};
   const summary = analysis.Overall_Summary || {};
-  const transcript = analysis.Transcript_Log || [];
-  const relax = agent.RELAX_Framework || {};
   const softSkills = agent.SoftSkills_Etiquette || {};
   const knowledge = agent.Verbal_Product_Knowledge || {};
   const invitation = agent.The_Invitation_to_Visit || {};
   
-  // New prompt schema has Invitations object with Store_Visit and Video_Demo
-  const invitations = analysis['9_Invitations'] || {};
-  const storeVisitInvitation = invitations.Store_Visit || invitation; // Fallback to old schema
+  // Extract agent evaluation from new schema (12_Agent_Evaluation)
+  const mainSkills = agentEvaluation.Main_Skills || {};
+  const secondaryTraits = agentEvaluation.Secondary_Traits || {};
+  
+  // Unified accessors with new schema preference
+  const relax = Object.keys(relaxFrameworkNew).length > 0 ? relaxFrameworkNew : (agent.RELAX_Framework || {});
+  const storeVisitInvitation = invitations.Store_Visit || {};
   const videoDemoInvitation = invitations.Video_Demo || {};
 
-  const funnelStages = ['Awareness', 'Consideration', 'Action'];
-  const currentStageIndex = getFunnelStageIndex(customer.Customer_Stage_AIDA);
+  const funnelStages = ['Awareness', 'Consideration', 'Action', 'Already Purchased'];
+  const currentStageIndex = getFunnelStageIndex(funnelAnalysis.Stage || customer.Customer_Stage_AIDA);
 
   // Map AIDA stage to funnel index
-  const mapAidaToFunnel = () => {
-    const stage = (customer.Customer_Stage_AIDA || '').toLowerCase();
-    if (stage === 'action') return 2;
-    if (stage === 'desire' || stage === 'interest') return 1;
+  const mapAidaToFunnel = (stage) => {
+    const stageStr = (stage || funnelAnalysis.Stage || customer.Customer_Stage_AIDA || '').toLowerCase();
+    if (stageStr.includes('already purchased') || stageStr.includes('purchased')) return 3;
+    if (stageStr === 'action') return 2;
+    if (stageStr === 'consideration' || stageStr === 'desire' || stageStr === 'interest') return 1;
+    if (stageStr === 'awareness') return 0;
     return 0;
   };
 
@@ -397,7 +508,7 @@ const CallReportDetail = () => {
               Store Call Analysis
             </h1>
             <p className="text-base text-gray-500 mt-2">
-              GMB Inbound • {functional.Agent_Name || 'Unknown Agent'} ({functional.Store_Location || report.store_name})
+              GMB Inbound • {metadata.Agent_Name || functional.Agent_Name || 'Unknown Agent'} ({metadata.Customer_Location || functional.Store_Location || report.store_name})
             </p>
           </div>
           
@@ -408,7 +519,7 @@ const CallReportDetail = () => {
                 <div>
                   <span className="font-mono text-sm text-gray-500 tracking-widest uppercase">Customer</span>
                   <h2 className="text-3xl font-semibold text-gray-900 mt-1" style={{ fontFamily: "'Fraunces', serif" }}>
-                    {functional.Customer_Name || 'Unknown'}
+                    {metadata.Customer_Name || functional.Customer_Name || 'Unknown'}
                   </h2>
                 </div>
                 <span className="bg-green-100 text-green-700 text-sm font-bold px-4 py-1.5 rounded-full border border-green-200 uppercase">
@@ -420,13 +531,13 @@ const CallReportDetail = () => {
                 <div>
                   <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
                   <span className="text-gray-900 font-medium text-lg">
-                    {report.city}, {report.state} • {functional.Customer_Language || 'English'}
+                    {report.city}, {report.state} • {metadata.Customer_Language || functional.Customer_Language || 'English'}
                   </span>
                 </div>
                 
                 <div>
                   <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Interest Category</span>
-                  <span className="text-blue-600 text-3xl font-bold">{customer.Interest_Category || 'General'}</span>
+                  <span className="text-blue-600 text-3xl font-bold">{productIntelligence.Product_of_Interest || customer.Interest_Category || 'General'}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 pt-2">
@@ -436,15 +547,15 @@ const CallReportDetail = () => {
                   </div>
                   <div>
                     <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Timeline</span>
-                    <span className="text-lg font-bold text-green-600">{customer.Timeline_to_Purchase || 'Unknown'}</span>
+                    <span className="text-lg font-bold text-green-600">{funnelAnalysis.Timeline_to_Purchase || customer.Timeline_to_Purchase || 'Unknown'}</span>
                   </div>
                 </div>
 
                 <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Quality</span>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${getScoreDotClass(functional.Agent_Audio_Quality_Rating)}`}></span>
-                    <span className="text-base font-bold text-gray-700">{getRatingText(functional.Agent_Audio_Quality_Rating)}</span>
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${getScoreDotClass(metadata.Call_Quality_Overall || functional.Agent_Audio_Quality_Rating)}`}></span>
+                    <span className="text-base font-bold text-gray-700">{getRatingText(metadata.Call_Quality_Overall || functional.Agent_Audio_Quality_Rating)}</span>
                   </div>
                 </div>
               </div>
@@ -455,14 +566,14 @@ const CallReportDetail = () => {
               <div className="mb-5">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-2">Call Objective</span>
                 <h3 className="text-2xl text-gray-900 font-semibold" style={{ fontFamily: "'Fraunces', serif" }}>
-                  {functional.Call_Objective_Theme || 'General Inquiry'} • {customer.Specific_Product_Inquiry || 'Product Inquiry'}
+                  {callObjective.Type || functional.Call_Objective_Theme || 'General Inquiry'} • {callObjective.Objective_Phrase || productIntelligence.Product_of_Interest || customer.Specific_Product_Inquiry || 'Product Inquiry'}
                 </h3>
               </div>
               
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-8">
                 <span className="text-xs font-bold text-blue-700 uppercase tracking-widest block mb-3">Executive Summary</span>
                 <p className="text-lg text-gray-700 leading-relaxed font-medium">
-                  {summary.Call_Synopsis || 'No summary available for this call.'}
+                  {callSummary || summary.Call_Synopsis || 'No summary available for this call.'}
                 </p>
               </div>
             </div>
@@ -481,54 +592,57 @@ const CallReportDetail = () => {
             <InfoCard 
               label="Intent to Purchase" 
               value={
-                customer.Barriers_to_Conversion?.toLowerCase().includes('already purchased') ||
-                customer.Barriers_to_Conversion?.toLowerCase().includes('issue resolved over the phone') ||
-                customer.Barriers_to_Conversion?.toLowerCase().includes('delivery delay') ||
-                customer.Barriers_to_Conversion?.toLowerCase().includes('already placed') ||
-                customer.Intent_to_Purchase_Rating_Reasons?.[0]?.toLowerCase().includes('already placed') ||
-                customer.Intent_to_Purchase_Rating_Reasons?.[0]?.toLowerCase().includes('awaiting delivery')
+                purchaseBarrier?.toLowerCase().includes('already purchased') ||
+                purchaseBarrier?.toLowerCase().includes('issue resolved over the phone') ||
+                purchaseBarrier?.toLowerCase().includes('delivery delay') ||
+                purchaseBarrier?.toLowerCase().includes('already placed') ||
+                intentToPurchase.Reason?.toLowerCase().includes('already placed') ||
+                intentToPurchase.Reason?.toLowerCase().includes('awaiting delivery')
                   ? 'Already Purchased'
-                  : (customer.Intent_to_Purchase_Rating || 'Unknown')
+                  : (getRatingText(intentToPurchase.Rating) || customer.Intent_to_Purchase_Rating || 'Unknown')
               }
-              tooltip={customer.Intent_to_Purchase_Rating_Reasons?.[0] || 'No details available'}
+              tooltip={intentToPurchase.Reason || customer.Intent_to_Purchase_Rating_Reasons?.[0] || 'No details available'}
             />
             <InfoCard 
               label="Customer Experience" 
-              value={getRatingText(customer.Customer_Satisfaction_Score)}
-              tooltip={customer.Customer_Satisfaction_Score_Reasons?.[0] || 'No details available'}
+              value={getRatingText(customerExperience.Rating) || getRatingText(customer.Customer_Satisfaction_Score)}
+              tooltip={customerExperience.Reason || customer.Customer_Satisfaction_Score_Reasons?.[0] || 'No details available'}
             />
             <InfoCard 
               label="Purchase Timeline" 
-              value={customer.Timeline_to_Purchase || 'Unknown'}
+              value={funnelAnalysis.Timeline_to_Purchase || customer.Timeline_to_Purchase || 'Unknown'}
               valueColor="text-blue-600"
-              tooltip="Customer's expected purchase timeframe"
+              tooltip={funnelAnalysis.Timeline_to_Purchase_Reasons?.join(' ') || funnelAnalysis.Reason || customer.Timeline_to_Purchase_Reasons?.[0] || 'Customer\'s expected purchase timeframe'}
             />
             <InfoCard 
               label="Funnel Stage" 
-              value={customer.Customer_Stage_AIDA || 'Awareness'}
+              value={funnelAnalysis.Stage || customer.Customer_Stage_AIDA || 'Awareness'}
               valueColor="text-blue-600"
-              tooltip="Customer's position in the AIDA sales funnel"
+              tooltip={funnelAnalysis.Reason || 'Customer\'s position in the AIDA sales funnel'}
             />
           </div>
 
           {/* Funnel Visual */}
-          <div className="flex items-center gap-1 mb-8">
+          <div className="flex items-center gap-0.5 mb-8 max-w-3xl">
             {funnelStages.map((stage, i) => (
               <div 
                 key={stage}
-                className={`relative flex items-center justify-center py-3 px-6 text-sm font-bold uppercase tracking-wider border
+                className={`relative flex items-center justify-center py-2.5 text-[10px] font-bold uppercase tracking-tight border whitespace-nowrap
                   ${i === 0 ? 'rounded-l-lg' : ''} 
                   ${i === funnelStages.length - 1 ? 'rounded-r-lg' : ''}
-                  ${i <= mapAidaToFunnel() 
+                  ${i <= mapAidaToFunnel(funnelAnalysis.Stage || customer.Customer_Stage_AIDA) 
                     ? 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-600 shadow-md' 
                     : 'bg-gray-100 text-gray-500 border-gray-200'
                   }`}
                 style={{
                   clipPath: i === 0 
-                    ? 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)'
+                    ? 'polygon(0% 0%, 88% 0%, 100% 50%, 88% 100%, 0% 100%)'
                     : i === funnelStages.length - 1
-                    ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 10% 50%)'
-                    : 'polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)'
+                    ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 12% 50%)'
+                    : 'polygon(0% 0%, 88% 0%, 100% 50%, 88% 100%, 0% 100%, 12% 50%)',
+                  width: i === funnelStages.length - 1 ? '160px' : '140px',
+                  paddingLeft: i === 0 ? '12px' : '20px',
+                  paddingRight: i === funnelStages.length - 1 ? '12px' : '8px'
                 }}
               >
                 {stage}
@@ -537,16 +651,16 @@ const CallReportDetail = () => {
           </div>
 
           {/* Barrier Analysis */}
-          {customer.Barriers_to_Conversion && customer.Barriers_to_Conversion !== 'N/A' && (
+          {(purchaseBarrier || customer.Barriers_to_Conversion) && (purchaseBarrier !== 'N/A' && customer.Barriers_to_Conversion !== 'N/A') && (
             <div className="bg-red-50 border-2 border-red-300 rounded-xl p-6">
               <div className="flex items-start gap-4">
                 <span className="text-3xl">🛡️</span>
                 <div className="flex-1">
                   <p className="text-base font-bold text-red-600 uppercase tracking-wider mb-2">
-                    Primary Barrier: {customer.Barriers_to_Conversion}
+                    Primary Barrier: {purchaseBarrier || customer.Barriers_to_Conversion}
                   </p>
                   <p className="text-lg text-gray-700 leading-relaxed">
-                    {customer.Intent_to_Purchase_Rating_Reasons?.join(' ') || 'Customer faced barriers during the call that may affect conversion.'}
+                    {intentToPurchase.Reason || customer.Intent_to_Purchase_Rating_Reasons?.join(' ') || 'Customer faced barriers during the call that may affect conversion.'}
                   </p>
                 </div>
               </div>
@@ -683,67 +797,91 @@ const CallReportDetail = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {(() => {
-              // Define conversion hooks - check if they exist in analysis or use defaults
+              // Define conversion hooks from new schema (10_Conversion_Hooks) or infer from legacy
+              const getHookStatus = (newHook, legacyCheck) => {
+                if (newHook?.Status) {
+                  return {
+                    used: newHook.Status.toLowerCase() === 'yes' || newHook.Status.toLowerCase() === 'mentioned',
+                    assessment: newHook.Comment || 'No comment available.'
+                  };
+                }
+                return legacyCheck;
+              };
+              
               const hooks = [
                 { 
                   key: 'Warranty', 
                   label: 'WARRANTY',
-                  icon: '✓',
-                  // Check various possible locations for warranty mention
-                  used: summary.Call_Synopsis?.toLowerCase().includes('warranty') ||
-                        agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('warranty')) ||
-                        false,
-                  assessment: summary.Call_Synopsis?.toLowerCase().includes('warranty') || agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('warranty'))
-                    ? 'Agent mentioned warranty during the call.'
-                    : 'Agent did not mention warranty during the call.'
+                  ...getHookStatus(
+                    conversionHooks.Brand_Legacy_Warranty,
+                    {
+                      used: callSummary?.toLowerCase().includes('warranty') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('warranty') ||
+                            relax.A_Add_Value?.Reason?.toLowerCase().includes('warranty') ||
+                            relax.A_Add_Value?.Reasons?.some(r => r?.toLowerCase().includes('warranty')) ||
+                            false,
+                      assessment: 'Warranty was ' + ((callSummary?.toLowerCase().includes('warranty') || summary.Call_Synopsis?.toLowerCase().includes('warranty')) ? 'mentioned' : 'not mentioned') + ' during the call.'
+                    }
+                  )
                 },
                 { 
                   key: 'Brochure', 
                   label: 'BROCHURE',
-                  icon: '✓',
-                  used: summary.Call_Synopsis?.toLowerCase().includes('brochure') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('details') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('catalog') ||
-                        false,
-                  assessment: summary.Call_Synopsis?.toLowerCase().includes('brochure') || summary.Call_Synopsis?.toLowerCase().includes('details') || summary.Call_Synopsis?.toLowerCase().includes('catalog')
-                    ? 'Agent offered brochure or catalog during the call.'
-                    : 'Agent did not mention brochure during the call.'
+                  ...getHookStatus(
+                    conversionHooks.Product_Brochure,
+                    {
+                      used: callSummary?.toLowerCase().includes('brochure') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('brochure') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('details') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('catalog') ||
+                            false,
+                      assessment: 'Product brochure was ' + ((callSummary?.toLowerCase().includes('brochure') || summary.Call_Synopsis?.toLowerCase().includes('brochure')) ? 'offered' : 'not offered') + ' during the call.'
+                    }
+                  )
                 },
                 { 
                   key: 'Measurement', 
                   label: 'MEASUREMENT',
-                  icon: '✗',
-                  used: summary.Call_Synopsis?.toLowerCase().includes('measurement') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('measure') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('size') ||
-                        false,
-                  assessment: summary.Call_Synopsis?.toLowerCase().includes('measurement') || summary.Call_Synopsis?.toLowerCase().includes('measure') || summary.Call_Synopsis?.toLowerCase().includes('size')
-                    ? 'Agent discussed measurement services during the call.'
-                    : 'Agent did not mention measurement services during the call.'
+                  ...getHookStatus(
+                    conversionHooks.Mattress_Measurement,
+                    {
+                      used: callSummary?.toLowerCase().includes('measurement') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('measurement') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('measure') ||
+                            false,
+                      assessment: 'Mattress measurement service was ' + ((callSummary?.toLowerCase().includes('measurement') || summary.Call_Synopsis?.toLowerCase().includes('measurement')) ? 'discussed' : 'not discussed') + '.'
+                    }
+                  )
                 },
                 { 
                   key: 'Sleep_Trial', 
                   label: 'SLEEP TRIAL',
-                  icon: '✗',
-                  used: summary.Call_Synopsis?.toLowerCase().includes('trial') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('sleep trial') ||
-                        false,
-                  assessment: summary.Call_Synopsis?.toLowerCase().includes('trial') || summary.Call_Synopsis?.toLowerCase().includes('sleep trial')
-                    ? 'Agent mentioned sleep trial during the call.'
-                    : 'Agent did not mention sleep trial during the call.'
+                  ...getHookStatus(
+                    conversionHooks.Sleep_Trial,
+                    {
+                      used: callSummary?.toLowerCase().includes('trial') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('trial') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('sleep trial') ||
+                            false,
+                      assessment: 'Sleep trial was ' + ((callSummary?.toLowerCase().includes('trial') || summary.Call_Synopsis?.toLowerCase().includes('trial')) ? 'mentioned' : 'not mentioned') + '.'
+                    }
+                  )
                 },
                 { 
                   key: 'Offers', 
                   label: 'OFFERS',
-                  icon: '✓',
-                  used: summary.Call_Synopsis?.toLowerCase().includes('offer') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('discount') ||
-                        summary.Call_Synopsis?.toLowerCase().includes('promotion') ||
-                        agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('offer')) ||
-                        false,
-                  assessment: summary.Call_Synopsis?.toLowerCase().includes('offer') || summary.Call_Synopsis?.toLowerCase().includes('discount') || summary.Call_Synopsis?.toLowerCase().includes('promotion') || agent.RELAX_Framework?.A_Add_Value?.Reasons?.some(r => r.toLowerCase().includes('offer'))
-                    ? 'Agent mentioned offers or discounts during the call.'
-                    : 'Agent did not mention offers during the call.'
+                  ...getHookStatus(
+                    conversionHooks.Offers_Discounts_EMI,
+                    {
+                      used: callSummary?.toLowerCase().includes('offer') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('offer') ||
+                            summary.Call_Synopsis?.toLowerCase().includes('discount') ||
+                            relax.A_Add_Value?.Reason?.toLowerCase().includes('offer') ||
+                            relax.A_Add_Value?.Reasons?.some(r => r?.toLowerCase().includes('offer')) ||
+                            false,
+                      assessment: 'Offers or discounts were ' + ((callSummary?.toLowerCase().includes('offer') || summary.Call_Synopsis?.toLowerCase().includes('offer')) ? 'mentioned' : 'not mentioned') + '.'
+                    }
+                  )
                 }
               ];
 
@@ -800,11 +938,18 @@ const CallReportDetail = () => {
                 <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-4">Narrow Down Stage</p>
                 <div className="flex items-center gap-1">
                   {(() => {
-                    // Determine which stage to highlight based on specificity
+                    // Determine which stage to highlight based on specificity (new schema has Narrow_Down_Stage)
                     let currentStage = 0; // Default: Category
-                    const specificProduct = customer.Specific_Product_Inquiry || 'General';
+                    const narrowDownStage = (productIntelligence.Narrow_Down_Stage || '').toLowerCase();
+                    const specificProduct = productIntelligence.Product_of_Interest || customer.Specific_Product_Inquiry || 'General';
                     
-                    if (specificProduct !== 'General' && specificProduct.toLowerCase().includes('specific')) {
+                    if (narrowDownStage === 'specific sku' || narrowDownStage === 'sku') {
+                      currentStage = 2;
+                    } else if (narrowDownStage === 'range' || narrowDownStage === 'product range') {
+                      currentStage = 1;
+                    } else if (narrowDownStage === 'category') {
+                      currentStage = 0;
+                    } else if (specificProduct !== 'General' && specificProduct.toLowerCase().includes('specific')) {
                       currentStage = 2; // Specific SKU
                     } else if (specificProduct !== 'General') {
                       currentStage = 1; // Range
@@ -851,15 +996,24 @@ const CallReportDetail = () => {
               <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
                 <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Product of Interest</p>
                 <span className="text-lg font-semibold text-gray-900">
-                  {customer.Interest_Category || 'General'} / {customer.Specific_Product_Inquiry || 'Not specified'}
+                  {productIntelligence.Product_of_Interest || customer.Interest_Category || 'General'} {productIntelligence.Product_of_Interest && customer.Specific_Product_Inquiry && '/'} {customer.Specific_Product_Inquiry || ''}
                 </span>
               </div>
+              
+              {productIntelligence.Approx_Order_Value && (
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
+                  <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Approx. Order Value</p>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {productIntelligence.Approx_Order_Value}
+                  </span>
+                </div>
+              )}
 
               <div className="bg-gray-50 border border-gray-300 rounded-lg p-5">
                 <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-2">Decision Maker</p>
                 <span className="text-lg font-semibold text-gray-900">
-                  {functional.Customer_Name && functional.Customer_Name !== 'Unknown' && functional.Customer_Name !== 'Not mentioned'
-                    ? `${functional.Customer_Name} (Caller)`
+                  {decisionMaker || (metadata.Customer_Name || functional.Customer_Name) && (metadata.Customer_Name || functional.Customer_Name) !== 'Unknown' && (metadata.Customer_Name || functional.Customer_Name) !== 'Not mentioned'
+                    ? `${metadata.Customer_Name || functional.Customer_Name} (Caller)`
                     : 'Sole Decision Maker (Caller)'}
                 </span>
               </div>
@@ -875,23 +1029,29 @@ const CallReportDetail = () => {
             </div>
 
             <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 space-y-5">
+              {/* Customer Needs Description (new schema) */}
+              {customerNeeds.Description && (
+                <div>
+                  <span className="text-blue-600 font-bold text-base">Customer Needs:</span>
+                  <p className="text-gray-800 text-base mt-1">{customerNeeds.Description}</p>
+                </div>
+              )}
+              
               {/* For Whom */}
-              {customer.Primary_Questions_Asked && customer.Primary_Questions_Asked.length > 0 && (
+              {(customer.Primary_Questions_Asked?.length > 0 || metadata.Customer_Name || functional.Customer_Name) && (
                 <div>
                   <span className="text-blue-600 font-bold text-base">For Whom:</span>
                   <span className="text-gray-800 text-base ml-2">
-                    {functional.Customer_Name && functional.Customer_Name !== 'Unknown' && functional.Customer_Name !== 'Not mentioned'
-                      ? functional.Customer_Name
-                      : 'Self'}
+                    {metadata.Customer_Name || functional.Customer_Name || 'Self'}
                   </span>
                 </div>
               )}
 
-              {/* Medical Condition / Context (from barriers or questions) */}
-              {customer.Barriers_to_Conversion && customer.Barriers_to_Conversion !== 'N/A' && (
+              {/* Medical Condition / Context (from barriers or purchase barrier) */}
+              {(purchaseBarrier || customer.Barriers_to_Conversion) && (purchaseBarrier !== 'N/A' && customer.Barriers_to_Conversion !== 'N/A') && (
                 <div>
                   <span className="text-blue-600 font-bold text-base">Primary Concern:</span>
-                  <span className="text-gray-800 text-base ml-2">{customer.Barriers_to_Conversion}</span>
+                  <span className="text-gray-800 text-base ml-2">{purchaseBarrier || customer.Barriers_to_Conversion}</span>
                 </div>
               )}
 
@@ -906,19 +1066,21 @@ const CallReportDetail = () => {
               )}
 
               {/* Timeline */}
-              {customer.Timeline_to_Purchase && (
+              {(funnelAnalysis.Timeline_to_Purchase || customer.Timeline_to_Purchase) && (
                 <div>
                   <span className="text-blue-600 font-bold text-base">Purchase Timeline:</span>
-                  <span className="text-gray-800 text-base ml-2">{customer.Timeline_to_Purchase}</span>
+                  <span className="text-gray-800 text-base ml-2">{funnelAnalysis.Timeline_to_Purchase || customer.Timeline_to_Purchase}</span>
                 </div>
               )}
 
               {/* Key Constraint */}
-              {(customer.Intent_to_Purchase_Rating_Reasons || customer.Intent_to_Visit_Rating_Reasons) && (
+              {(intentToPurchase.Reason || intentToVisit.Reason || customer.Intent_to_Purchase_Rating_Reasons || customer.Intent_to_Visit_Rating_Reasons) && (
                 <div>
                   <span className="text-blue-600 font-bold text-base">Key Constraint:</span>
                   <span className="text-gray-800 text-base ml-2">
-                    {customer.Intent_to_Purchase_Rating_Reasons?.[0] || 
+                    {intentToPurchase.Reason || 
+                     intentToVisit.Reason ||
+                     customer.Intent_to_Purchase_Rating_Reasons?.[0] || 
                      customer.Intent_to_Visit_Rating_Reasons?.[0] || 
                      'None specified'}
                   </span>
@@ -938,10 +1100,14 @@ const CallReportDetail = () => {
                 RELAX Framework
               </h2>
               <span className={`text-4xl font-bold ${
-                parseFloat(getRelaxOverallRating(relax)) >= 0.75 ? 'text-green-600' : 
-                parseFloat(getRelaxOverallRating(relax)) >= 0.50 ? 'text-yellow-600' : 'text-red-600'
+                (() => {
+                  const rating = getRelaxOverallRating(relax);
+                  if (rating === 'N/A') return 'text-gray-600';
+                  const percent = parseInt(rating);
+                  return percent >= 67 ? 'text-green-600' : percent >= 50 ? 'text-yellow-600' : 'text-red-600';
+                })()
               }`}>
-                {getRelaxOverallRating(relax) !== 'N/A' ? `${getRelaxOverallRating(relax)}/3` : 'N/A'}
+                {getRelaxOverallRating(relax)}
               </span>
             </div>
 
@@ -949,7 +1115,7 @@ const CallReportDetail = () => {
               {[
                 { key: 'R', title: 'R — Reach Out', subtitle: 'Greeting & Brand', data: relax.R_Reach_Out },
                 { key: 'E', title: 'E — Explore Needs', subtitle: 'Discovery', data: relax.E_Explore_Needs || relax.E_Explore },
-                { key: 'L', title: 'L — Link Product', subtitle: 'Link to Needs', data: relax.L_Link_Experience },
+                { key: 'L', title: 'L — Link Product', subtitle: 'Link to Needs', data: relax.L_Link_Product || relax.L_Link_Experience },
                 { key: 'A', title: 'A — Add Value', subtitle: 'Offers/Accessories', data: relax.A_Add_Value },
                 { key: 'X', title: 'X — Express Closing', subtitle: 'Next Steps', data: relax.X_Express_Closing },
               ].map((item) => (
@@ -957,13 +1123,17 @@ const CallReportDetail = () => {
                   key={item.key}
                   title={item.title}
                   subtitle={item.subtitle}
-                  rating={getRatingText(item.data?.Rating)}
+                  rating={getFullScoreText(item.data?.Score || item.data?.Rating)}
                 >
                   <strong className={`text-sm uppercase block mb-1 ${
-                    (item.data?.Rating || 0) >= 4 ? 'text-green-700' :
-                    (item.data?.Rating || 0) >= 3 ? 'text-yellow-700' : 'text-red-700'
+                    (() => {
+                      const score = getRatingText(item.data?.Score || item.data?.Rating).toUpperCase();
+                      if (score === 'HIGH' || score === 'H') return 'text-green-700';
+                      if (score === 'MEDIUM' || score === 'M') return 'text-yellow-700';
+                      return 'text-red-700';
+                    })()
                   }`}>Reason:</strong>
-                  {item.data?.Reasons?.join(' ') || 'No details available.'}
+                  {item.data?.Reason || item.data?.Reasons?.join(' ') || 'No details available.'}
                 </ExpandableCard>
               ))}
             </div>
@@ -977,46 +1147,53 @@ const CallReportDetail = () => {
               </h2>
             </div>
 
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Product Knowledge</h3>
+            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Product Knowledge & Sales Skills</h3>
             <div className="space-y-4 mb-8">
               <ExpandableCard
-                title="Description Quality"
-                rating={getRatingText(knowledge.Description_Quality_Rating)}
+                title="Product Knowledge"
+                rating={mainSkills.Product_Knowledge || knowledge.Description_Quality_Rating || 'N/A'}
               >
-                {knowledge.Description_Quality_Reason || 'No assessment available.'}
+                {mainSkills.Product_Knowledge || knowledge.Description_Quality_Reason || 'No assessment available.'}
               </ExpandableCard>
 
               <ExpandableCard
-                title="Stock Availability Check"
-                rating={getRatingText(knowledge.Stock_Availability_Check_Rating)}
+                title="Sales Skills"
+                rating={mainSkills.Sales_Skills || knowledge.Stock_Availability_Check_Rating || 'N/A'}
               >
-                {knowledge.Stock_Availability_Check_Reason || 'No assessment available.'}
+                {mainSkills.Sales_Skills || knowledge.Stock_Availability_Check_Reason || 'No assessment available.'}
+              </ExpandableCard>
+              
+              <ExpandableCard
+                title="Upsell & Revenue Skills"
+                rating={mainSkills.Upsell_Revenue_Skills || 'N/A'}
+              >
+                {mainSkills.Upsell_Revenue_Skills || 'No assessment available.'}
               </ExpandableCard>
             </div>
 
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pt-4 border-t border-gray-200">
-              Soft Skills & Etiquette
+              Soft Skills & Traits
             </h3>
             <div className="space-y-4">
               <ExpandableCard
-                title="Tone & Patience"
-                rating={getRatingText(softSkills.Tone_and_Patience_Rating)}
+                title="Need Discovery"
+                rating={secondaryTraits.Need_Discovery || softSkills.Tone_and_Patience_Rating || 'N/A'}
               >
-                {softSkills.Soft_Skills_Reasons?.[0] || 'No details available.'}
+                {secondaryTraits.Need_Discovery || softSkills.Soft_Skills_Reasons?.[0] || 'No details available.'}
               </ExpandableCard>
 
               <ExpandableCard
-                title="Hold Management"
-                rating={getRatingText(softSkills.Hold_Management_Rating)}
+                title="Objection Handling"
+                rating={secondaryTraits.Objection_Handling || softSkills.Hold_Management_Rating || 'N/A'}
               >
-                {softSkills.Soft_Skills_Reasons?.[1] || 'No details available.'}
+                {secondaryTraits.Objection_Handling || softSkills.Soft_Skills_Reasons?.[1] || 'No details available.'}
               </ExpandableCard>
 
               <ExpandableCard
-                title="Language Fluency"
-                rating={getRatingText(softSkills.Agent_Language_Fluency_Score)}
+                title="Agent Nature"
+                rating={secondaryTraits.Agent_Nature || softSkills.Agent_Language_Fluency_Score || 'N/A'}
               >
-                {softSkills.Soft_Skills_Reasons?.[2] || 'No details available.'}
+                {secondaryTraits.Agent_Nature || softSkills.Soft_Skills_Reasons?.[2] || 'No details available.'}
               </ExpandableCard>
             </div>
           </div>
@@ -1026,7 +1203,7 @@ const CallReportDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
           
           {/* Agent Learnings / Improvement Areas */}
-          {agent.Top_3_Improvement_Areas && agent.Top_3_Improvement_Areas.length > 0 && (
+          {(agentLearnings.length > 0 || agent.Top_3_Improvement_Areas?.length > 0) && (
             <div className="bg-white border-2 border-gray-200 rounded-2xl p-8 shadow-lg">
               <div className="mb-8 border-b-2 border-gray-200 pb-4">
                 <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
@@ -1035,7 +1212,7 @@ const CallReportDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {agent.Top_3_Improvement_Areas.map((area, i) => (
+                {(agentLearnings.length > 0 ? agentLearnings : agent.Top_3_Improvement_Areas).map((area, i) => (
                   <ExpandableCard
                     key={i}
                     title={`${i + 1}. ${area.split(':')[0] || area.substring(0, 40)}`}
@@ -1060,7 +1237,7 @@ const CallReportDetail = () => {
             <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6 mb-8">
               <p className="text-sm text-blue-700 font-bold uppercase tracking-wider mb-4">Next Actions</p>
               <p className="text-lg text-gray-700 leading-relaxed font-semibold">
-                {summary.Next_Action || 'No specific next action defined.'}
+                {nextActions || summary.Next_Action || 'No specific next action defined.'}
               </p>
             </div>
 
@@ -1068,7 +1245,10 @@ const CallReportDetail = () => {
               <p className="text-sm text-green-700 font-bold uppercase tracking-wider mb-4">NPS Estimation</p>
               <div className="text-6xl font-bold text-green-700 mb-4">
                 {(() => {
-                  const score = customer.Customer_Satisfaction_Score || 3;
+                  // New schema has direct NPS score, legacy uses Customer_Satisfaction_Score
+                  if (npsScore.Score) return npsScore.Score;
+                  
+                  const score = customerExperience.Rating || customer.Customer_Satisfaction_Score || 3;
                   // Convert 1-5 scale to NPS scale (0-10): multiply by 2
                   const nps = Math.min(10, Math.round(score * 2));
                   return nps;
@@ -1076,15 +1256,18 @@ const CallReportDetail = () => {
               </div>
               <p className="text-base font-bold text-green-700 uppercase tracking-wide mb-4">
                 {(() => {
-                  const score = customer.Customer_Satisfaction_Score || 3;
-                  const nps = Math.min(10, Math.round(score * 2));
-                  if (nps >= 9) return 'PROMOTER';
-                  if (nps >= 7) return 'PASSIVE / PROMOTER';
+                  const npsValue = npsScore.Score || (() => {
+                    const score = customerExperience.Rating || customer.Customer_Satisfaction_Score || 3;
+                    return Math.min(10, Math.round(score * 2));
+                  })();
+                  
+                  if (npsValue >= 9) return 'PROMOTER';
+                  if (npsValue >= 7) return 'PASSIVE / PROMOTER';
                   return 'PASSIVE / DETRACTOR';
                 })()}
               </p>
               <p className="text-base text-gray-700 italic leading-relaxed">
-                "{summary.Agent_Performance_Summary || 'No performance summary available.'}"
+                "{npsScore.Comment || callSummary || summary.Agent_Performance_Summary || 'No performance summary available.'}"
               </p>
             </div>
           </div>

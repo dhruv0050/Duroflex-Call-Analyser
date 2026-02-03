@@ -13,6 +13,60 @@ from typing import Optional, Dict, Tuple, Any
 from datetime import datetime
 
 
+def _detect_audio_filetype(audio_data: bytes, source_url: Optional[str] = None) -> Tuple[str, str]:
+    """Best-effort detection for temp file suffix + mime_type for Gemini upload.
+
+    We previously forced .mp3 + audio/mp3 even when the source was a .wav URL.
+    That can cause partial/incorrect decoding and lower-quality analysis.
+    """
+    data = audio_data or b""
+
+    # Signature sniffing (preferred)
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return ".wav", "audio/wav"
+    if len(data) >= 3 and data[:3] == b"ID3":
+        return ".mp3", "audio/mpeg"
+    if len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
+        # MP3 frame sync
+        return ".mp3", "audio/mpeg"
+    if len(data) >= 4 and data[:4] == b"OggS":
+        return ".ogg", "audio/ogg"
+    if len(data) >= 4 and data[:4] == b"fLaC":
+        return ".flac", "audio/flac"
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        # Likely mp4/m4a container
+        return ".m4a", "audio/mp4"
+
+    # URL-based fallback
+    url = (source_url or "").lower()
+    for ext, mime in (
+        (".wav", "audio/wav"),
+        (".mp3", "audio/mpeg"),
+        (".ogg", "audio/ogg"),
+        (".flac", "audio/flac"),
+        (".m4a", "audio/mp4"),
+        (".mp4", "audio/mp4"),
+    ):
+        if url.endswith(ext):
+            return ext, mime
+
+    # Safe default
+    return ".mp3", "audio/mpeg"
+
+
+def _safe_fill_prompt_template(prompt_template: str, values: Dict[str, Any]) -> str:
+    """Replace known {tokens} without using str.format().
+
+    The prompt contains a JSON schema with many braces which would break str.format().
+    """
+    prompt = prompt_template
+    for key, value in (values or {}).items():
+        token = "{" + str(key) + "}"
+        if token in prompt:
+            prompt = prompt.replace(token, str(value))
+    return prompt
+
+
 class AudioDownloader:
     """Downloads and validates audio files from URLs"""
 
@@ -103,14 +157,24 @@ class GeminiAudioAnalyzer:
 
         try:
             # 1. Save bytes to temporary file
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            source_url = None
+            if isinstance(row_data, dict):
+                source_url = (
+                    row_data.get("Recording URL")
+                    or row_data.get("CallAudio")
+                    or row_data.get("audio_url")
+                    or row_data.get("recording_url")
+                )
+            suffix, mime_type = _detect_audio_filetype(audio_data, source_url=source_url)
+
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
                 temp_file.write(audio_data)
                 temp_path = temp_file.name
 
             print(f"[GEMINI] Uploading audio to Gemini storage...")
 
             # 2. Upload to Gemini File API
-            uploaded_file = genai.upload_file(temp_path, mime_type="audio/mp3")
+            uploaded_file = genai.upload_file(temp_path, mime_type=mime_type)
 
             # Wait for processing
             while uploaded_file.state.name == "PROCESSING":
@@ -120,29 +184,22 @@ class GeminiAudioAnalyzer:
             if uploaded_file.state.name == "FAILED":
                 return None, "Gemini file processing failed"
 
-            # 3. Format prompt with row data ONLY if the template expects it.
-            # The newer prompt includes braces like {INPUT_AUDIO_FILE}; avoid .format() on that.
-            format_tokens = (
-                "{store_name}",
-                "{locality}",
-                "{city}",
-                "{state}",
-                "{region}",
-                "{call_date}",
-                "{duration}",
+            # 3. Inject row context into the prompt without using str.format()
+            # (the schema JSON braces would break .format).
+            prompt = _safe_fill_prompt_template(
+                prompt_template,
+                {
+                    "store_name": (row_data or {}).get("Store Name", "Unknown"),
+                    "locality": (row_data or {}).get("Locality", "Unknown"),
+                    "city": (row_data or {}).get("City", "Unknown"),
+                    "state": (row_data or {}).get("State", "Unknown"),
+                    "region": (row_data or {}).get("Region", "Unknown"),
+                    "call_date": (row_data or {}).get("Date", "Unknown"),
+                    "duration": (row_data or {}).get("Duration", "Unknown"),
+                    "recording_url": source_url or "",
+                    "INPUT_AUDIO_FILE": source_url or "Uploaded audio",
+                },
             )
-            if any(token in prompt_template for token in format_tokens):
-                prompt = prompt_template.format(
-                    store_name=row_data.get('Store Name', 'Unknown'),
-                    locality=row_data.get('Locality', 'Unknown'),
-                    city=row_data.get('City', 'Unknown'),
-                    state=row_data.get('State', 'Unknown'),
-                    region=row_data.get('Region', 'Unknown'),
-                    call_date=row_data.get('Date', 'Unknown'),
-                    duration=row_data.get('Duration', 'Unknown')
-                )
-            else:
-                prompt = prompt_template
 
             print(f"[GEMINI] Analyzing audio...")
 
@@ -204,13 +261,14 @@ class GeminiAudioAnalyzer:
         uploaded_file = None
 
         try:
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            suffix, mime_type = _detect_audio_filetype(audio_data, source_url=None)
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
                 temp_file.write(audio_data)
                 temp_path = temp_file.name
 
             print(f"[GEMINI] Uploading audio to Gemini storage...")
 
-            uploaded_file = genai.upload_file(temp_path, mime_type="audio/mp3")
+            uploaded_file = genai.upload_file(temp_path, mime_type=mime_type)
 
             while uploaded_file.state.name == "PROCESSING":
                 time.sleep(1)
@@ -310,7 +368,17 @@ Task: Analyze the provided Audio Recording of an Inbound Call from a customer wh
 Goal: Extract high-fidelity sales intelligence by listening to the dialogue, tone, and vocal sentiment to evaluate how effectively the agent converts the inquiry into a confirmed Store Visit.
 
 INPUT DATA
-Audio Source: {INPUT_AUDIO_FILE} (Note: Analyze the raw audio for tone, pace, and background environment)
+    Audio Source: {INPUT_AUDIO_FILE} (Note: Analyze the raw audio for tone, pace, and background environment)
+
+    CALL CONTEXT (from upload metadata; may be imperfect)
+    - Store Name: {store_name}
+    - Locality: {locality}
+    - City: {city}
+    - State: {state}
+    - Region: {region}
+    - Call Date: {call_date}
+    - Duration (seconds): {duration}
+    - Recording URL: {recording_url}
 
 INSTRUCTIONS
 Aural Observation: Do not rely on text alone. Listen for the "GMB Intent"—is the caller in a hurry or driving? Listen for the agent's tone; is it welcoming and professional, or dismissive?
@@ -319,6 +387,10 @@ Environmental Context: Note any background noise (store music, other customers, 
 Conversion Audit: Pay close attention to the "Closing" phase. Did the agent's voice sound confident when giving directions or offering the Sleep Trial?
 Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler.
 Transcript Requirement: Provide the entire conversation transcript in English.
+
+    IMPORTANT DEFINITIONS (to reduce ambiguity)
+    - Treat "Sleep Trial" as mentioned if the agent tells the customer they can *try/lie down/test* the mattress in-store.
+    - If the customer states exact size/specs (e.g., 6-inch King, dimensions), you should treat them as late-stage and rate intent accordingly.
 
 OUTPUT SCHEMA (JSON)
 {
@@ -342,11 +414,11 @@ OUTPUT SCHEMA (JSON)
         "Objective_Phrase": "String (e.g. 'Checking opening hours', 'Stock inquiry')"
     },
     "2_Intent_to_Purchase": {
-        "Rating": "High | Medium | Low",
+        "Rating": "High | Medium | Low | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "2A_Intent_to_Visit": {
-        "Rating": "High | Medium | Low",
+        "Rating": "High | Medium | Low | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "3_Customer_Experience": {
@@ -354,9 +426,12 @@ OUTPUT SCHEMA (JSON)
         "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
     },
     "4_Funnel_Analysis": {
-        "Stage": "Awareness | Consideration | Action",
+        "Stage": "Awareness | Consideration | Action | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
-        "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown"
+        "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
+        "Timeline_to_Purchase_Reasons": [
+            "String (Evidence-based reason )"
+        ]
     },
     "5_Product_Intelligence": {
         "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",

@@ -166,6 +166,7 @@ const AbcAggregatedDashboard = () => {
     return allCalls.map((report) => {
       const analysis = report.analysis || {};
       const metaData = analysis.MetaData || {};
+      const callObjective = analysis['1_Call_Objective'] || {};
       const intentData = analysis['2_Intent_to_Purchase'] || {};
       const storeExpData = analysis['3_Store_Experience'] || {};
       const callExpData = analysis['4_Call_Experience'] || {};
@@ -179,8 +180,14 @@ const AbcAggregatedDashboard = () => {
       const callExp = normalizeExperience(callExpData.Rating);
 
       // Check if already purchased
+      const callObjectiveType = String(callObjective.Type || '').toLowerCase();
       const funnelStage = String(funnelData.Stage || '').toLowerCase();
-      const isAlreadyPurchased = funnelStage.includes('purchased') || funnelStage.includes('action');
+      const isConverted = rawData.is_Converted === 1 || rawData.is_Converted === '1';
+      const isAlreadyPurchased = 
+        callObjectiveType.includes('post-purchase') || 
+        callObjectiveType.includes('post purchase') ||
+        funnelStage.includes('purchased') || 
+        isConverted;
 
       const rawPrice = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
       const cartAmount = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;

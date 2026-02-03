@@ -1,16 +1,25 @@
-"""
-Call Upload Processing Service
-Orchestrates CSV upload → Gemini analysis → Flattening → MongoDB storage
+"""Call Upload Processing Service (GMB / Inbound Calls)
+
+This module is intentionally self-contained (prompt + downloader + Gemini analyzer + CSV orchestration)
+to match the "processor + service" structure used for ABC calls.
+
+Key behavior:
+- Uses the same prompt text you use in AI Studio.
+- Stores ONLY the raw AI Studio-style schema under `analysis` (no legacy normalization, no `analysis_v2`).
 """
 
 import json
-import uuid
-import time
-import pandas as pd
 import math
-from typing import Optional, Dict, List, Tuple, Any
+import os
+import tempfile
+import time
+import uuid
 from datetime import datetime
-from audio_processor import AudioDownloader, GeminiAudioAnalyzer, PromptTemplate
+from typing import Any, Dict, List, Optional, Tuple
+
+import pandas as pd
+import requests
+import google.generativeai as genai
 
 
 def sanitize_nan(obj):
@@ -24,137 +33,369 @@ def sanitize_nan(obj):
     return obj
 
 
-def _gmb_hml_to_1_5(value: Any, default: int = 3) -> int:
-    """Convert High/Medium/Low or H/M/L to a 1-5 score."""
-    if value is None:
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        if value is None:
+            return default
+        if isinstance(value, float) and math.isnan(value):
+            return default
+        return int(float(str(value).strip()))
+    except Exception:
         return default
-    text = str(value).strip().upper()
-    if text in {"H", "HIGH"}:
-        return 5
-    if text in {"M", "MED", "MEDIUM"}:
-        return 3
-    if text in {"L", "LOW"}:
-        return 1
-    return default
 
 
-def _gmb_rating_to_upper_hml(value: Any, default: str = "MEDIUM") -> str:
-    """Convert High/Medium/Low (any case) to HIGH/MEDIUM/LOW."""
-    if value is None:
-        return default
-    text = str(value).strip().upper()
-    if "HIGH" in text or text == "H":
-        return "HIGH"
-    if "LOW" in text or text == "L":
-        return "LOW"
-    if "MED" in text or text == "M":
-        return "MEDIUM"
-    return default
+def _detect_audio_filetype(audio_data: bytes, source_url: Optional[str] = None) -> Tuple[str, str]:
+    """Best-effort detection for temp file suffix + mime_type for Gemini upload."""
+    data = audio_data or b""
+
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return ".wav", "audio/wav"
+    if len(data) >= 3 and data[:3] == b"ID3":
+        return ".mp3", "audio/mpeg"
+    if len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
+        return ".mp3", "audio/mpeg"
+    if len(data) >= 4 and data[:4] == b"OggS":
+        return ".ogg", "audio/ogg"
+    if len(data) >= 4 and data[:4] == b"fLaC":
+        return ".flac", "audio/flac"
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return ".m4a", "audio/mp4"
+
+    url = (source_url or "").lower()
+    for ext, mime in (
+        (".wav", "audio/wav"),
+        (".mp3", "audio/mpeg"),
+        (".ogg", "audio/ogg"),
+        (".flac", "audio/flac"),
+        (".m4a", "audio/mp4"),
+        (".mp4", "audio/mp4"),
+    ):
+        if url.endswith(ext):
+            return ext, mime
+
+    return ".mp3", "audio/mpeg"
 
 
-def normalize_gmb_analysis_v2_to_legacy(analysis_v2: Dict[str, Any], row_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Map the new GMB prompt schema into the legacy analysis keys used by the UI."""
-    meta = analysis_v2.get("MetaData", {}) if isinstance(analysis_v2, dict) else {}
-    call_obj = analysis_v2.get("1_Call_Objective", {}) if isinstance(analysis_v2, dict) else {}
-    intent_purchase = analysis_v2.get("2_Intent_to_Purchase", {}) if isinstance(analysis_v2, dict) else {}
-    cust_exp = analysis_v2.get("3_Customer_Experience", {}) if isinstance(analysis_v2, dict) else {}
-    funnel = analysis_v2.get("4_Funnel_Analysis", {}) if isinstance(analysis_v2, dict) else {}
-    product = analysis_v2.get("5_Product_Intelligence", {}) if isinstance(analysis_v2, dict) else {}
-    needs = analysis_v2.get("6_Customer_Needs", {}) if isinstance(analysis_v2, dict) else {}
-    invites = analysis_v2.get("9_Invitations", {}) if isinstance(analysis_v2, dict) else {}
-    relax = analysis_v2.get("11_RELAX_Framework", {}) if isinstance(analysis_v2, dict) else {}
-    agent_eval = analysis_v2.get("12_Agent_Evaluation", {}) if isinstance(analysis_v2, dict) else {}
-    learnings = analysis_v2.get("13_Agent_Learnings", []) if isinstance(analysis_v2, dict) else []
+def _safe_fill_prompt_template(prompt_template: str, values: Dict[str, Any]) -> str:
+    """Replace known {tokens} without using str.format()."""
+    prompt = prompt_template
+    for key, value in (values or {}).items():
+        token = "{" + str(key) + "}"
+        if token in prompt:
+            prompt = prompt.replace(token, str(value))
+    return prompt
 
-    # Basic legacy mapping
-    legacy: Dict[str, Any] = {
-        "Functional": {
-            "Call_ID": "",
-            "Call_Time": "Not mentioned",
-            "Customer_Name": meta.get("Customer_Name", ""),
-            "Agent_Name": "",
-            "Store_Location": f"{row_data.get('Locality', 'Unknown')}, {row_data.get('City', 'Unknown')}",
-            "Customer_Language": meta.get("Customer_Language", ""),
-            "Agent_Audio_Quality_Rating": _gmb_hml_to_1_5(meta.get("Call_Quality_Overall"), default=3),
-            "Call_Objective_Theme": call_obj.get("Objective_Phrase", ""),
+
+class AudioDownloader:
+    """Downloads and validates audio files from URLs."""
+
+    def __init__(self, timeout: int = 60):
+        self.timeout = timeout
+
+    def download(self, url: str) -> Tuple[Optional[bytes], Optional[str]]:
+        try:
+            if not url or not isinstance(url, str):
+                return None, "Invalid URL provided"
+
+            print(f"[AUDIO] Downloading: {url[:80]}...")
+            response = requests.get(url, timeout=self.timeout, allow_redirects=True)
+            response.raise_for_status()
+
+            audio_data = response.content
+            if len(audio_data) < 1000:
+                return None, "Audio file too small (<1KB)"
+
+            print(f"[AUDIO] Downloaded {len(audio_data):,} bytes")
+            return audio_data, None
+        except requests.exceptions.Timeout:
+            return None, "Download timeout (60s exceeded)"
+        except requests.exceptions.ConnectionError:
+            return None, "Connection error - unable to reach URL"
+        except requests.exceptions.HTTPError as e:
+            return None, f"HTTP Error {getattr(e.response, 'status_code', 'unknown')}"
+        except Exception as e:
+            return None, f"Download failed: {str(e)}"
+
+
+class GeminiAudioAnalyzer:
+    """Analyzes audio calls using Gemini API."""
+
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+        self.model_name = model
+        self.api_key = api_key
+
+        genai.configure(api_key=api_key)
+
+        generation_config = genai.GenerationConfig(
+            temperature=0.1,
+            top_p=0.95,
+            max_output_tokens=8192,
+            response_mime_type="application/json",
+        )
+
+        self.model = genai.GenerativeModel(
+            model_name=model,
+            generation_config=generation_config,
+        )
+
+        print(f"[GEMINI] Initialized: {model}")
+
+    def analyze(self, audio_data: bytes, row_data: Dict[str, Any], prompt_template: str) -> Tuple[Optional[Dict], Optional[str]]:
+        temp_path = None
+        uploaded_file = None
+
+        try:
+            source_url = None
+            if isinstance(row_data, dict):
+                source_url = (
+                    row_data.get("Recording URL")
+                    or row_data.get("CallAudio")
+                    or row_data.get("audio_url")
+                    or row_data.get("recording_url")
+                )
+
+            suffix, mime_type = _detect_audio_filetype(audio_data, source_url=source_url)
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
+                temp_file.write(audio_data)
+                temp_path = temp_file.name
+
+            print("[GEMINI] Uploading audio to Gemini storage...")
+            uploaded_file = genai.upload_file(temp_path, mime_type=mime_type)
+
+            while uploaded_file.state.name == "PROCESSING":
+                time.sleep(1)
+                uploaded_file = genai.get_file(uploaded_file.name)
+
+            if uploaded_file.state.name == "FAILED":
+                return None, "Gemini file processing failed"
+
+            prompt = _safe_fill_prompt_template(
+                prompt_template,
+                {
+                    "store_name": (row_data or {}).get("Store Name", "Unknown"),
+                    "locality": (row_data or {}).get("Locality", "Unknown"),
+                    "city": (row_data or {}).get("City", "Unknown"),
+                    "state": (row_data or {}).get("State", "Unknown"),
+                    "region": (row_data or {}).get("Region", "Unknown"),
+                    "call_date": (row_data or {}).get("Date", "Unknown"),
+                    "duration": (row_data or {}).get("Duration", "Unknown"),
+                    "recording_url": source_url or "",
+                    "INPUT_AUDIO_FILE": source_url or "Uploaded audio",
+                },
+            )
+
+            print("[GEMINI] Analyzing audio...")
+            response = self.model.generate_content([prompt, uploaded_file])
+
+            if not response.text:
+                return None, "Empty response from Gemini"
+
+            json_text = response.text.strip()
+            if json_text.startswith("```"):
+                json_text = json_text.split("```", 2)[1]
+                if json_text.startswith("json"):
+                    json_text = json_text[4:]
+            json_text = json_text.strip()
+
+            analysis = json.loads(json_text)
+            print("[GEMINI] Analysis complete")
+            return analysis, None
+
+        except json.JSONDecodeError as e:
+            raw_text = None
+            try:
+                raw_text = response.text
+            except Exception:
+                raw_text = None
+            return {"parse_error": str(e), "raw_response": raw_text}, None
+        except Exception as e:
+            return None, f"Analysis error: {str(e)}"
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+            if uploaded_file:
+                try:
+                    genai.delete_file(uploaded_file.name)
+                except Exception:
+                    pass
+
+    def analyze_with_retry(
+        self,
+        audio_data: bytes,
+        row_data: Dict[str, Any],
+        prompt_template: str,
+        max_retries: int = 3,
+        retry_delay: int = 5,
+    ) -> Tuple[Optional[Dict], Optional[str]]:
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            result, error = self.analyze(audio_data, row_data, prompt_template)
+            if result is not None:
+                return result, None
+            last_error = error
+            print(f"[GEMINI] Attempt {attempt}/{max_retries} failed: {error}")
+            if attempt < max_retries:
+                time.sleep(retry_delay * attempt)
+        return None, f"All {max_retries} attempts failed: {last_error}"
+
+
+class PromptTemplate:
+    """Manages Gemini analysis prompt templates for GMB calls."""
+
+    @staticmethod
+    def get_audio_call_prompt() -> str:
+        """
+        Get the prompt template for audio call analysis.
+        Keep this aligned with the frontend/backend JSON contract.
+        """
+        return '''
+Role: You are an Expert Retail Sales Auditor for Duroflex.
+Task: Analyze the provided Audio Recording of an Inbound Call from a customer who found the store via Google (GMB).
+Goal: Extract high-fidelity sales intelligence by listening to the dialogue, tone, and vocal sentiment to evaluate how effectively the agent converts the inquiry into a confirmed Store Visit.
+
+INPUT DATA
+    Audio Source: {INPUT_AUDIO_FILE} (Note: Analyze the raw audio for tone, pace, and background environment)
+
+    CALL CONTEXT (from upload metadata; may be imperfect)
+    - Store Name: {store_name}
+    - Locality: {locality}
+    - City: {city}
+    - State: {state}
+    - Region: {region}
+    - Call Date: {call_date}
+    - Duration (seconds): {duration}
+    - Recording URL: {recording_url}
+
+INSTRUCTIONS
+Aural Observation: Do not rely on text alone. Listen for the "GMB Intent"—is the caller in a hurry or driving? Listen for the agent's tone; is it welcoming and professional, or dismissive?
+Sentiment & Tone Inference: Use vocal pitch and response latency to determine Customer_Enthusiasm and Customer_Age_Group. Detect if the customer sounds frustrated by specific friction points (e.g., location clarity).
+Environmental Context: Note any background noise (store music, other customers, traffic) that might impact the Audio_Quality or the agent's focus.
+Conversion Audit: Pay close attention to the "Closing" phase. Did the agent's voice sound confident when giving directions or offering the Sleep Trial?
+Strict JSON: Output ONLY a valid JSON object matching the schema. No conversational filler.
+Transcript Requirement: Provide the entire conversation transcript in English.
+
+    IMPORTANT DEFINITIONS (to reduce ambiguity)
+    - Treat "Sleep Trial" as mentioned if the agent tells the customer they can *try/lie down/test* the mattress in-store.
+    - If the customer states exact size/specs (e.g., 6-inch King, dimensions), you should treat them as late-stage and rate intent accordingly.
+
+OUTPUT SCHEMA (JSON)
+{
+    "MetaData": {
+        "Customer_Name": "String",
+        "Customer_Location": "String(in case of mixed language give top2 used mostly)",
+        "Call_Region": "String(for example South, North, East, West as per the location)",
+        "Agent_Name": "String",
+        "Customer_Language": "String",
+        "Customer_Gender": "Male | Female | Unknown",
+        "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
+        "Consideration_Value": "String (e.g. 'Budget Range' or 'Premium')",
+        "Call_Quality_Overall": "High | Medium | Low",
+        "Call_Duration": "String",
+        "Connected_to_Customer": true,
+        "Customer_Enthusiasm": "High | Medium | Low"
+    },
+    "Call_Summary": "String (Max 100 words - Crisp synopsis)",
+    "1_Call_Objective": {
+        "Type": "Sales Call | Service Call",
+        "Objective_Phrase": "String (e.g. 'Checking opening hours', 'Stock inquiry')"
+    },
+    "2_Intent_to_Purchase": {
+        "Rating": "High | Medium | Low | Already Purchased",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
+    },
+    "2A_Intent_to_Visit": {
+        "Rating": "High | Medium | Low | Already Purchased",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
+    },
+    "3_Customer_Experience": {
+        "Rating": "High | Medium | Low",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
+    },
+    "4_Funnel_Analysis": {
+        "Stage": "Awareness | Consideration | Action | Already Purchased",
+        "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
+        "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
+        "Timeline_to_Purchase_Reasons": [
+            "String (Evidence-based reason )"
+        ]
+    },
+    "5_Product_Intelligence": {
+        "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",
+        "Product_of_Interest": "String",
+        "Approx_Order_Value": "String (or NA)"
+    },
+    "6_Customer_Needs": {
+        "Description": "String (for example : For Whom: 63-year-old Father (76kg weight)\n\nMedical Condition: Spinal cord bulge / Back pain\n\nRequirement: Needs firm orthopedic support. Customer specifically asked about 6-inch vs 8-inch options.\n\nKey Constraint: Remote purchase; relies heavily on Agent's assurance regarding warranty.)"
+    },
+    "7_Purchase_Barrier": "String (e.g. Distance, Price, Availability)",
+    "8_Decision_Maker": "Caller | Spouse | Joint | Unknown",
+    "9_Invitations": {
+        "Store_Visit": {
+            "Rating": "High | Medium | Low",
+            "Reason": "String (Did agent give a compelling reason to visit?)"
         },
-        "Customer_Information": {
-            "Interest_Category": product.get("Product_of_Interest", "") or "",
-            "Specific_Product_Inquiry": product.get("Product_of_Interest", "") or "General",
-            "Primary_Questions_Asked": [],
-            "Timeline_to_Purchase": funnel.get("Timeline_to_Purchase", "Unknown"),
-            "Customer_Stage_AIDA": funnel.get("Stage", "Awareness"),
-            "Intent_to_Visit_Rating": _gmb_rating_to_upper_hml(invites.get("Store_Visit", {}).get("Rating")),
-            "Intent_to_Visit_Rating_Reasons": [invites.get("Store_Visit", {}).get("Reason", "") or ""],
-            "Intent_to_Purchase_Rating": _gmb_rating_to_upper_hml(intent_purchase.get("Rating")),
-            "Intent_to_Purchase_Rating_Reasons": [intent_purchase.get("Reason", "") or ""],
-            "Barriers_to_Conversion": analysis_v2.get("7_Purchase_Barrier", "") if isinstance(analysis_v2, dict) else "",
-            "Customer_Satisfaction_Score": _gmb_hml_to_1_5(cust_exp.get("Rating"), default=3),
-            "Customer_Satisfaction_Score_Reasons": [cust_exp.get("Reason", "") or ""],
+        "Video_Demo": {
+            "Rating": "High | Medium | Low",
+            "Reason": "String (Did agent give a compelling reason to watch the video demo?)"
+        }
+    },
+    "10_Conversion_Hooks": {
+        "Offers_Discounts_EMI": {"Status": "Yes | No", "Comment": "String"},
+        "Product_Brochure": {"Status": "Yes | No", "Comment": "String"},
+        "Mattress_Measurement": {"Status": "Yes | No", "Comment": "String"},
+        "Brand_Legacy_Warranty": {"Status": "Yes | No", "Comment": "String"},
+        "Sleep_Trial": {"Status": "Yes | No", "Comment": "String"}
+    },
+    "11_RELAX_Framework": {
+        "R_Reach_Out": {
+            "Score": "H/M/L",
+            "Reason": "Greeting & Brand Name usage"
         },
-        "Agent_Areas": {
-            "Verbal_Product_Knowledge": {
-                "Description_Quality_Rating": 0,
-                "Description_Quality_Reason": "",
-                "Stock_Availability_Check_Rating": 0,
-                "Stock_Availability_Check_Reason": "",
-            },
-            "The_Invitation_to_Visit": {
-                "Attempted": bool(invites.get("Store_Visit", {}).get("Reason") or invites.get("Store_Visit", {}).get("Rating")),
-                "Quality_Rating": _gmb_hml_to_1_5(invites.get("Store_Visit", {}).get("Rating"), default=3),
-                "Reasons": [invites.get("Store_Visit", {}).get("Reason", "") or ""],
-            },
-            "RELAX_Framework": {
-                "R_Reach_Out": {"Rating": _gmb_hml_to_1_5(relax.get("R_Reach_Out", {}).get("Score"), default=3), "Reasons": [relax.get("R_Reach_Out", {}).get("Reason", "") or ""]},
-                "E_Explore_Needs": {"Rating": _gmb_hml_to_1_5(relax.get("E_Explore_Needs", {}).get("Score"), default=3), "Reasons": [relax.get("E_Explore_Needs", {}).get("Reason", "") or ""]},
-                "L_Link_Experience": {"Rating": _gmb_hml_to_1_5(relax.get("L_Link_Product", {}).get("Score"), default=3), "Reasons": [relax.get("L_Link_Product", {}).get("Reason", "") or ""]},
-                "A_Add_Value": {"Rating": _gmb_hml_to_1_5(relax.get("A_Add_Value", {}).get("Score"), default=3), "Reasons": [relax.get("A_Add_Value", {}).get("Reason", "") or ""]},
-                "X_Express_Closing": {"Rating": _gmb_hml_to_1_5(relax.get("X_Express_Closing", {}).get("Score"), default=3), "Reasons": [relax.get("X_Express_Closing", {}).get("Reason", "") or ""]},
-            },
-            "SoftSkills_Etiquette": {
-                "Tone_and_Patience_Rating": _gmb_hml_to_1_5(cust_exp.get("Rating"), default=3),
-                "Hold_Management_Rating": 0,
-                "Agent_Language_Fluency_Score": 0,
-                "Soft_Skills_Reasons": [cust_exp.get("Reason", "") or ""],
-            },
-            "Top_3_Improvement_Areas": [x for x in learnings if isinstance(x, str) and x.strip()][:3],
+        "E_Explore_Needs": {
+            "Score": "H/M/L",
+            "Reason": "Discovery of user needs"
         },
-        "Overall_Summary": {
-            "Call_Synopsis": analysis_v2.get("Call_Summary", "") if isinstance(analysis_v2, dict) else "",
-            "Agent_Performance_Summary": "",
-            "Next_Action": analysis_v2.get("14_Next_Actions", "") if isinstance(analysis_v2, dict) else "",
+        "L_Link_Product": {
+            "Score": "H/M/L",
+            "Reason": "Linking need to Product"
         },
-        # Legacy UI expects list; keep transcript accessible without breaking.
-        "Transcript_Log": [
-            {
-                "Speaker": "",
-                "Text": analysis_v2.get("Transcript_Log", "") if isinstance(analysis_v2, dict) else "",
-                "Timestamp": "",
-            }
-        ],
-    }
-
-    # Normalize funnel stage to AIDA-ish labels used elsewhere
-    stage = str(legacy["Customer_Information"].get("Customer_Stage_AIDA", "Awareness") or "Awareness").strip().lower()
-    if stage == "consideration":
-        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Interest"
-    elif stage == "action":
-        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Action"
-    else:
-        legacy["Customer_Information"]["Customer_Stage_AIDA"] = "Awareness"
-
-    # Normalize timeline strings to legacy buckets
-    timeline = str(legacy["Customer_Information"].get("Timeline_to_Purchase", "Unknown") or "Unknown").strip().lower()
-    if timeline == "immediate":
-        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Short"
-    elif timeline == "short term":
-        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Medium"
-    elif timeline == "long term":
-        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Long"
-    else:
-        legacy["Customer_Information"]["Timeline_to_Purchase"] = "Unknown"
-
-    return legacy
+        "A_Add_Value": {
+            "Score": "H/M/L",
+            "Reason": "Mentioning offers/financing/accessories"
+        },
+        "X_Express_Closing": {
+            "Score": "H/M/L",
+            "Reason": "Next steps/Location Sharing"
+        }
+    },
+    "12_Agent_Evaluation": {
+        "Main_Skills": {
+            "Product_Knowledge": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Sales_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Upsell_Revenue_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
+        },
+        "Secondary_Traits": {
+            "Need_Discovery": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Objection_Handling": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Agent_Nature": "Proactive | Responsive | Passive","Reason": "String (Evidence-based)"}
+        }
+    },
+    "13_Agent_Learnings": [
+        "String (Feedback 1)",
+        "String (Feedback 2)",
+        "String (Feedback 3)"
+    ],
+    "14_Next_Actions": "String (e.g. Send WhatsApp Location, Save Number)",
+    "15_End_to_End_NPS": {
+        "Score": "Integer (0-10)",
+        "Comment": "String (Inferred sentiment)"
+    },
+    "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
+}
+'''
 
 
 class CSVValidator:
@@ -366,12 +607,6 @@ class CallUploadProcessor:
                 job.add_error(row_num, store_name, f"Analysis: {gemini_error}")
                 return None, gemini_error
 
-            analysis_v2 = None
-            # If the new schema is returned, store it separately and keep a legacy-compatible view.
-            if isinstance(analysis, dict) and ("MetaData" in analysis or "2_Intent_to_Purchase" in analysis):
-                analysis_v2 = analysis
-                analysis = normalize_gmb_analysis_v2_to_legacy(analysis_v2, row_data=row_data)
-
             # 3. Create call record with metadata
             call_id = self.create_call_id(store_name, row_data.get('Date', ''), url)
 
@@ -383,10 +618,9 @@ class CallUploadProcessor:
                 "state": row_data.get('State', 'Unknown'),
                 "region": row_data.get('Region', 'Unknown'),
                 "call_date": row_data.get('Date', 'Unknown'),
-                "duration_seconds": int(row_data.get('Duration', 0)),
+                "duration_seconds": _safe_int(row_data.get('Duration', 0), default=0),
                 "recording_url": url,
                 "analysis": analysis,
-                **({"analysis_v2": analysis_v2} if analysis_v2 else {}),
                 "flattened_data": CallDataFlattener.flatten_call_analysis(analysis),
                 "upload_timestamp": datetime.now().isoformat(),
             }

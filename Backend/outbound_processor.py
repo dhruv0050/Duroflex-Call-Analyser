@@ -392,7 +392,7 @@ class OutboundCallUploadProcessor:
     "Objective_Phrase": "String"
   },
   "2_Intent_to_Purchase": {
-    "Rating": "High | Medium | Low",
+    "Rating": "High | Medium | Low | Already Purchased",
     "Reason": "String (Evidence based)"
   },
   "3_Store_Experience": {
@@ -404,9 +404,10 @@ class OutboundCallUploadProcessor:
     "Reason": "String (How well did the agent handle the feedback?)"
   },
   "5_Funnel_Analysis": {
-        "Stage": "Awareness | Consideration | Action",
+        "Stage": "Awareness | Consideration | Action | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
-    "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown"
+    "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
+    "Timeline_to_Purchase_Reason": "String (Evidence based)"
   },
   "6_Product_Intelligence": {
     "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",
@@ -489,10 +490,10 @@ class OutboundCallUploadProcessor:
             "Call Summary: Crisp and simple in few sentences (less than 150 words)\n\n"
             "Features:\n"
             "1. Sales Lead or Already Purchased, Call Objective Phrase\n"
-            "2. Intent to Purchase (High/Med/Low) - State Why in few words <Important Aspect>\n"
+            "2. Intent to Purchase (High/Med/Low/Already Purchased) - State Why in few words <Important Aspect>\n"
             "3. Customer Experience at Store  (High/Med/Low) - (How happy were they with the store visit?) State Why in few words <Important Aspect>\n"
             "4. Customer Experience on Call (High/Med/Low) - State Why in few words <Important Aspect>\n"
-            "4. Customer Funnel Stage (Awareness, Consideration, Action) - include Reason (evidence-based) and Timeline to purchase\n"
+            "4. Customer Funnel Stage (Awareness, Consideration, Action, Already Purchased) - include Reason (evidence-based) and Timeline to purchase\n"
             "5. Product Narrow Down stage (Category, Range, SKU), Product of Interest, Order Value (Approximate, if low confidence say NA)\n"
             "6. Customer's Need Description (What? For Whom? Why? Constraints?)\n"
             "7. Purchase Barrier at Store, Purchase Barrier on Call\n"
