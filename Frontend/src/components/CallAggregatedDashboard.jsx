@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, TrendingUp, Users, Phone, ChevronDown, Filter, Store, BarChart3, AlertCircle, ThumbsUp, ArrowLeft, Download, Upload } from 'lucide-react';
+import { Download, Upload, Home, DollarSign, Wrench } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -57,19 +57,22 @@ const exportReportsAsCsv = (reports, filename) => {
 
 const CallAggregatedDashboard = () => {
   const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState('last30');
-  const [view, setView] = useState('overall');
-  const [selectedRegion, setSelectedRegion] = useState('South');
-  const [selectedCity, setSelectedCity] = useState('Bangalore');
+  const [timeRange, setTimeRange] = useState('30');
+  const [selectedRegion, setSelectedRegion] = useState('Overall');
   const [selectedIntent, setSelectedIntent] = useState('All');
   const [selectedExperience, setSelectedExperience] = useState('All');
-  const [selectedStore, setSelectedStore] = useState('');
-  const [storePeriod, setStorePeriod] = useState('week');
   const [allCalls, setAllCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const handleDownloadReports = () => {
-    exportReportsAsCsv(allCalls, 'audio_reports.csv');
+    exportReportsAsCsv(allCalls, 'gmb_call_reports.csv');
+  };
+
+  const resetFilters = () => {
+    setTimeRange('30');
+    setSelectedRegion('Overall');
+    setSelectedIntent('All');
+    setSelectedExperience('All');
   };
 
   const navigateWithFilter = (predicate, description) => {
@@ -85,7 +88,7 @@ const CallAggregatedDashboard = () => {
         const json = await res.json();
         setAllCalls(json.reports || []);
       } catch (err) {
-        console.error('Error fetching audio calls:', err);
+        console.error('Error fetching GMB calls:', err);
       } finally {
         setLoading(false);
       }
@@ -94,171 +97,179 @@ const CallAggregatedDashboard = () => {
     fetchAllData();
   }, []);
 
-  const normalizeIntent = (rating) => {
-    const val = (rating || 'Medium').toString().toUpperCase();
-    if (val.includes('HIGH')) return 'High';
-    if (val.includes('MEDIUM')) return 'Medium';
-    if (val.includes('LOW')) return 'Low';
+  // Helper functions for new schema
+  const normalizeRating = (rating) => {
+    if (!rating) return 'Medium';
+    const val = rating.toString().toUpperCase();
+    if (val === 'H' || val.includes('HIGH')) return 'High';
+    if (val === 'M' || val.includes('MEDIUM')) return 'Medium';
+    if (val === 'L' || val.includes('LOW')) return 'Low';
     return 'Medium';
   };
 
-  const normalizeExperience = (score) => {
-    if (score === undefined || score === null || score === '') return 'Medium';
-    if (typeof score === 'string') {
-      const val = score.toUpperCase();
-      if (val.includes('HIGH') || val.includes('5')) return 'High';
-      if (val.includes('MEDIUM') || val.includes('3')) return 'Medium';
-      if (val.includes('LOW') || val.includes('1')) return 'Low';
-      const num = parseFloat(score);
-      if (!Number.isNaN(num)) {
-        if (num >= 4) return 'High';
-        if (num >= 3) return 'Medium';
-        return 'Low';
-      }
-      return 'Medium';
+  const scoreToNumeric = (score) => {
+    // Convert H/M/L to 1-10 scale for display
+    if (!score) return 5;
+    const val = score.toString().toUpperCase();
+    if (val === 'H' || val.includes('HIGH')) return 9;
+    if (val === 'M' || val.includes('MEDIUM')) return 6;
+    if (val === 'L' || val.includes('LOW')) return 3;
+    const num = parseFloat(score);
+    return !isNaN(num) ? num : 5;
+  };
+
+  const determineCallType = (analysis) => {
+    // Check funnel stage for Already Purchased
+    const funnelStage = analysis?.['4_Funnel_Analysis']?.Stage || '';
+    
+    if (funnelStage.toLowerCase().includes('already purchased') || 
+        funnelStage.toLowerCase().includes('purchased')) {
+      return 'Already Purchased';
     }
-    if (typeof score === 'number') {
-      if (score >= 4) return 'High';
-      if (score >= 3) return 'Medium';
-      return 'Low';
+    
+    // Check call objective type
+    const callObjective = analysis?.['1_Call_Objective']?.Type || '';
+    if (callObjective.toLowerCase().includes('service') || 
+        callObjective.toLowerCase().includes('support') ||
+        callObjective.toLowerCase().includes('complaint') ||
+        callObjective.toLowerCase().includes('post purchase') ||
+        callObjective.toLowerCase().includes('post-purchase')) {
+      return 'Already Purchased';
     }
-    return 'Medium';
+    
+    return 'Sales';
   };
 
-  const deriveType = (objective) => {
-    const text = (objective || '').toLowerCase();
-    const serviceKeywords = ['service', 'support', 'issue', 'complaint', 'warranty', 'return'];
-    const isService = serviceKeywords.some((k) => text.includes(k));
-    return isService ? 'Service' : 'Sales';
-  };
-
-  const ratingToScore = (value, fallback = 75) => {
-    if (value === undefined || value === null || value === '') return fallback;
-    const num = parseFloat(value);
-    if (Number.isNaN(num)) return fallback;
-    return Math.round(num * 20); // assume 1-5 scale
-  };
-
-  const audioCalls = useMemo(() => {
+  // Process calls with new schema mapping
+  const processedCalls = useMemo(() => {
     if (!allCalls.length) return [];
 
     return allCalls.map((report) => {
       const analysis = report.analysis || {};
-      const functional = analysis.Functional || {};
-      const customer = analysis.Customer_Information || {};
-      const agent = analysis.Agent_Areas || {};
-      const relax = agent.RELAX_Framework || {};
-      const soft = agent.SoftSkills_Etiquette || {};
-      const knowledge = agent.Verbal_Product_Knowledge || {};
+      const metadata = analysis.MetaData || {};
+      const relax = analysis['11_RELAX_Framework'] || {};
+      const nps = analysis['15_End_to_End_NPS'] || {};
 
-      const reach = relax.R_Reach_Out?.Rating;
-      const explore = relax.E_Explore_Needs?.Rating || relax.E_Explore?.Rating;
-      const link = relax.L_Link_Experience?.Rating;
-      const add = relax.A_Add_Value?.Rating;
-      const close = relax.X_Express_Closing?.Rating;
+      // Extract RELAX scores (H/M/L format)
+      const rScore = scoreToNumeric(relax.R_Reach_Out?.Score);
+      const eScore = scoreToNumeric(relax.E_Explore_Needs?.Score);
+      const lScore = scoreToNumeric(relax.L_Link_Product?.Score);
+      const aScore = scoreToNumeric(relax.A_Add_Value?.Score);
+      const xScore = scoreToNumeric(relax.X_Express_Closing?.Score);
 
-      const rapportScore = ratingToScore(reach, 75);
-      const exploreScore = ratingToScore(explore, 75);
-      const listenScore = ratingToScore(link, 75);
-      const adviseScore = ratingToScore(add, 75);
-      const executeScore = ratingToScore(close, 75);
+      // Calculate overall RELAX score
+      const relaxScores = [rScore, eScore, lScore, aScore, xScore];
+      const overallRelax = relaxScores.reduce((a, b) => a + b, 0) / relaxScores.length;
 
-      const relaxScores = [rapportScore, exploreScore, listenScore, adviseScore, executeScore];
-      const availableRelax = relaxScores.filter((s) => s !== undefined && s !== null);
-      const overallRelax = availableRelax.length
-        ? Math.round(availableRelax.reduce((a, b) => a + b, 0) / availableRelax.length)
-        : 75;
+      // NPS Score
+      const npsScore = parseFloat(nps.Score) || 5;
 
-      const productKnowledgeScore = ratingToScore(
-        knowledge.Description_Quality_Rating || knowledge.Technical_Knowledge_Rating,
-        75
-      );
+      // Customer Experience from new schema
+      const cxRating = normalizeRating(analysis['3_Customer_Experience']?.Rating);
+      const cxScore = scoreToNumeric(analysis['3_Customer_Experience']?.Rating);
 
-      const softSkillsScore = (() => {
-        const parts = [
-          ratingToScore(soft.Tone_and_Patience_Rating, null),
-          ratingToScore(soft.Hold_Management_Rating, null),
-          ratingToScore(soft.Agent_Language_Fluency_Score, null)
-        ].filter((s) => s !== null);
-        if (!parts.length) return 75;
-        return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
-      })();
+      // Intent to Purchase
+      const intentRating = normalizeRating(analysis['2_Intent_to_Purchase']?.Rating);
 
-      const intent = normalizeIntent(
-        customer.Intent_to_Purchase_Rating || customer.Intent_to_Visit_Rating || customer.Purchase_Intent_Rating
-      );
-      const experience = normalizeExperience(customer.Customer_Satisfaction_Score);
+      // Determine call type
+      const callType = determineCallType(analysis);
+
+      // Price bucket from Consideration_Value
+      const considerationValue = metadata.Consideration_Value || '';
+      let priceBucket = 'Mid-Range';
+      if (considerationValue.toLowerCase().includes('premium') || considerationValue.toLowerCase().includes('high')) {
+        priceBucket = 'Premium';
+      } else if (considerationValue.toLowerCase().includes('budget') || considerationValue.toLowerCase().includes('low')) {
+        priceBucket = 'Budget';
+      }
 
       return {
         id: report.call_id,
         store: report.store_name || 'Unknown Store',
         city: report.city || 'Unknown',
-        region: report.region || 'Unknown',
-        type: deriveType(functional.Call_Objective_Theme),
-        intent,
-        experience,
+        region: metadata.Call_Region || report.region || 'Unknown',
+        callType,
+        intent: intentRating,
+        experience: cxRating,
+        priceBucket,
         scores: {
-          overall: overallRelax,
-          rapport: rapportScore,
-          explore: exploreScore,
-          listen: listenScore,
-          advise: adviseScore,
-          execute: executeScore,
-          productKnowledge: productKnowledgeScore,
-          softSkills: softSkillsScore,
+          overall: parseFloat(overallRelax.toFixed(1)),
+          nps: npsScore,
+          cx: cxScore,
+          r: rScore,
+          e: eScore,
+          l: lScore,
+          a: aScore,
+          x: xScore,
         },
       };
     });
   }, [allCalls]);
 
+  // Get unique regions
+  const regions = useMemo(() => {
+    const uniqueRegions = [...new Set(processedCalls.map(call => call.region).filter(Boolean))].filter(r => r !== 'Unknown');
+    return ['Overall', ...uniqueRegions];
+  }, [processedCalls]);
+
+  // Filter calls
   const filteredCalls = useMemo(() => {
-    let filtered = [...audioCalls];
+    let filtered = [...processedCalls];
     
-    // Apply time range filter
-    if (timeRange === 'last7') {
-      filtered = filtered.slice(-7);
-    } else if (timeRange === 'last30') {
-      filtered = filtered.slice(-30);
-    } else if (timeRange === 'last90') {
-      filtered = filtered.slice(-90);
-    } else if (timeRange === 'ytd') {
-      // For YTD, just take all available calls (simplified implementation)
-      filtered = filtered;
+    // Time range filter (simplified - using last N records)
+    const days = parseInt(timeRange);
+    if (days && filtered.length > days) {
+      filtered = filtered.slice(-days);
     }
     
-    // Apply view-based filters
-    if (view === 'region') {
+    // Region filter
+    if (selectedRegion !== 'Overall') {
       filtered = filtered.filter((call) => call.region === selectedRegion);
-    } else if (view === 'city') {
-      filtered = filtered.filter((call) => call.city === selectedCity);
     }
 
-    // Apply intent filter (Intent to Purchase)
+    // Intent filter (includes "Already Purchased" option)
     if (selectedIntent !== 'All') {
-      filtered = filtered.filter((call) => call.intent === selectedIntent);
+      if (selectedIntent === 'Purchased') {
+        filtered = filtered.filter((call) => call.callType === 'Already Purchased');
+      } else {
+        filtered = filtered.filter((call) => call.intent === selectedIntent && call.callType !== 'Already Purchased');
+      }
     }
 
-    // Apply customer experience filter
+    // Experience filter
     if (selectedExperience !== 'All') {
       filtered = filtered.filter((call) => call.experience === selectedExperience);
     }
     
     return filtered;
-  }, [audioCalls, view, selectedRegion, selectedCity, timeRange, selectedIntent]);
+  }, [processedCalls, timeRange, selectedRegion, selectedIntent, selectedExperience]);
 
+  // Calculate metrics
   const metrics = useMemo(() => {
     const total = filteredCalls.length;
-    const salesCalls = filteredCalls.filter((c) => c.type === 'Sales').length;
-    const serviceCalls = filteredCalls.filter((c) => c.type === 'Service').length;
+    const salesCalls = filteredCalls.filter((c) => c.callType === 'Sales').length;
+    const alreadyPurchasedCalls = filteredCalls.filter((c) => c.callType === 'Already Purchased').length;
 
+    // Intent x Experience Matrix (for Sales calls only)
     const matrix = {};
     ['High', 'Medium', 'Low'].forEach((intent) => {
       matrix[intent] = {};
       ['High', 'Medium', 'Low'].forEach((exp) => {
-        matrix[intent][exp] = filteredCalls.filter((c) => c.intent === intent && c.experience === exp).length;
+        matrix[intent][exp] = filteredCalls.filter(
+          (c) => c.intent === intent && c.experience === exp && c.callType === 'Sales'
+        ).length;
       });
     });
 
+    // Already Purchased x Experience Matrix
+    matrix['Already Purchased'] = {};
+    ['High', 'Medium', 'Low'].forEach((exp) => {
+      matrix['Already Purchased'][exp] = filteredCalls.filter(
+        (c) => c.callType === 'Already Purchased' && c.experience === exp
+      ).length;
+    });
+
+    // Store Performance
     const storeMetrics = {};
     filteredCalls.forEach((call) => {
       if (!storeMetrics[call.store]) {
@@ -276,309 +287,112 @@ const CallAggregatedDashboard = () => {
       .map((store) => {
         const calls = store.calls;
         const avgScore = (metric) =>
-          calls.length ? Math.round(calls.reduce((sum, c) => sum + c.scores[metric], 0) / calls.length) : 0;
+          calls.length ? parseFloat((calls.reduce((sum, c) => sum + c.scores[metric], 0) / calls.length).toFixed(1)) : 0;
 
         return {
           storeName: store.storeName,
           city: store.city,
           region: store.region,
           totalCalls: calls.length,
-          overallScore: avgScore('overall'),
-          rapport: avgScore('rapport'),
-          explore: avgScore('explore'),
-          listen: avgScore('listen'),
-          advise: avgScore('advise'),
-          execute: avgScore('execute'),
-          productKnowledge: avgScore('productKnowledge'),
-          softSkills: avgScore('softSkills'),
+          overall: avgScore('overall'),
+          nps: avgScore('nps'),
+          cx: avgScore('cx'),
+          r: avgScore('r'),
+          e: avgScore('e'),
+          l: avgScore('l'),
+          a: avgScore('a'),
+          x: avgScore('x'),
         };
       })
-      .sort((a, b) => b.totalCalls - a.totalCalls);
+      .sort((a, b) => b.overall - a.overall);
+
+    // Price Bucket Performance
+    const priceBuckets = {};
+    ['Premium', 'Mid-Range', 'Budget'].forEach((bucket) => {
+      const bucketCalls = filteredCalls.filter((c) => c.priceBucket === bucket);
+      if (bucketCalls.length > 0) {
+        const avgScore = (metric) =>
+          parseFloat((bucketCalls.reduce((sum, c) => sum + c.scores[metric], 0) / bucketCalls.length).toFixed(1));
+        priceBuckets[bucket] = {
+          totalCalls: bucketCalls.length,
+          overall: avgScore('overall'),
+          nps: avgScore('nps'),
+          cx: avgScore('cx'),
+          r: avgScore('r'),
+          e: avgScore('e'),
+          l: avgScore('l'),
+          a: avgScore('a'),
+          x: avgScore('x'),
+        };
+      } else {
+        priceBuckets[bucket] = {
+          totalCalls: 0,
+          overall: 0,
+          nps: 0,
+          cx: 0,
+          r: 0,
+          e: 0,
+          l: 0,
+          a: 0,
+          x: 0,
+        };
+      }
+    });
 
     return {
       total,
       salesCalls,
-      serviceCalls,
+      alreadyPurchasedCalls,
       matrix,
       storePerformance,
+      priceBuckets,
     };
   }, [filteredCalls]);
 
-  const getScoreColor = (score) => {
-    if (score >= 85) return 'text-emerald-600';
-    if (score >= 70) return 'text-amber-600';
-    return 'text-rose-600';
+  // Score pill styling
+  const getScorePillClass = (score) => {
+    if (score >= 7) return 'bg-green-100 text-green-700 border-green-300';
+    if (score >= 5) return 'bg-yellow-100 text-yellow-700 border-yellow-400';
+    return 'bg-red-100 text-red-700 border-red-300';
   };
 
-  const getScoreBg = (score) => {
-    if (score >= 85) return 'bg-emerald-50';
-    if (score >= 70) return 'bg-amber-50';
-    return 'bg-rose-50';
-  };
-
-  const intents = ['High', 'Medium', 'Low'];
-  const experiences = ['High', 'Medium', 'Low'];
-
-  const matrixPalette = {
+  // Matrix cell colors (matching reference)
+  const matrixColors = {
     High: {
-      High: 'from-[#059669] to-[#047857]',
-      Medium: 'from-[#10b981] to-[#059669]',
-      Low: 'from-[#dc2626] to-[#b91c1c]',
+      High: 'bg-[#3b8766]',      // Teal dark
+      Medium: 'bg-[#5ab589]',   // Teal light
+      Low: 'bg-[#b9362a]',      // Red dark
     },
     Medium: {
-      High: 'from-[#84cc16] to-[#65a30d]',
-      Medium: 'from-[#eab308] to-[#ca8a04]',
-      Low: 'from-[#f97316] to-[#ea580c]',
+      High: 'bg-[#8cc63f]',     // Lime
+      Medium: 'bg-[#dcb336]',   // Mustard
+      Low: 'bg-[#d97029]',      // Orange
     },
     Low: {
-      High: 'from-[#eab308] to-[#ca8a04]',
-      Medium: 'from-[#d97706] to-[#92400e]',
-      Low: 'from-[#b91c1c] to-[#7f1d1d]',
+      High: 'bg-[#dcb336]',     // Gold
+      Medium: 'bg-[#9e682e]',   // Brown
+      Low: 'bg-[#852b26]',      // Maroon
+    },
+    'Already Purchased': {
+      High: 'bg-[#8cc63f]',     // Lime
+      Medium: 'bg-[#dcb336]',   // Mustard
+      Low: 'bg-[#d97029]',      // Orange
     },
   };
-
-  const matrixLabels = {
-    High: { High: 'The Goal', Medium: 'Nurture', Low: 'CRITICAL RISK' },
-    Medium: { High: 'Upsell', Medium: 'Neutral/Baseline', Low: 'Needs Attention' },
-    Low: { High: 'Over-servicing?', Medium: 'Low Priority', Low: 'Inefficiency' },
-  };
-
-  const matrixLegend = [
-    {
-      title: 'Dark Green',
-      desc: 'The Goal - High intent, excellent experience',
-      gradient: 'from-[#059669] to-[#047857]',
-      border: 'border-[#059669]',
-    },
-    {
-      title: 'Light Green',
-      desc: 'Nurture - High intent, room to improve experience',
-      gradient: 'from-[#10b981] to-[#059669]',
-      border: 'border-[#10b981]',
-    },
-    {
-      title: 'Bright Red',
-      desc: 'CRITICAL RISK - High intent, poor experience',
-      gradient: 'from-[#dc2626] to-[#b91c1c]',
-      border: 'border-[#dc2626]',
-    },
-    {
-      title: 'Yellow-Green',
-      desc: 'Upsell - Medium intent with great experience',
-      gradient: 'from-[#84cc16] to-[#65a30d]',
-      border: 'border-[#84cc16]',
-    },
-    {
-      title: 'Yellow',
-      desc: 'Neutral/Baseline - Average performance',
-      gradient: 'from-[#eab308] to-[#ca8a04]',
-      border: 'border-[#eab308]',
-    },
-    {
-      title: 'Orange',
-      desc: 'Needs Attention - Medium intent, poor experience',
-      gradient: 'from-[#f97316] to-[#ea580c]',
-      border: 'border-[#f97316]',
-    },
-    {
-      title: 'Orange-Grey',
-      desc: 'Low Priority - Low intent, medium experience',
-      gradient: 'from-[#d97706] to-[#92400e]',
-      border: 'border-[#d97706]',
-    },
-    {
-      title: 'Muted Red',
-      desc: 'Inefficiency - Low intent, poor experience',
-      gradient: 'from-[#b91c1c] to-[#7f1d1d]',
-      border: 'border-[#b91c1c]',
-    },
-  ];
-
-  const storeAnalysis = useMemo(() => {
-    if (!selectedStore || !metrics.storePerformance.length) {
-      const firstStore = metrics.storePerformance[0]?.storeName;
-      if (firstStore && selectedStore === '') {
-        setSelectedStore(firstStore);
-      }
-      return null;
-    }
-
-    const storeCalls = audioCalls.filter((c) => c.store === selectedStore);
-    const periods = [];
-    const now = new Date();
-
-    if (storePeriod === 'day') {
-      for (let i = 6; i >= 0; i -= 1) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        const dayCalls = storeCalls.slice(i * Math.ceil(storeCalls.length / 7), (i + 1) * Math.ceil(storeCalls.length / 7));
-
-        periods.push({
-          label: `${dayName} ${dateStr}`,
-          calls: dayCalls,
-          count: dayCalls.length,
-        });
-      }
-    } else {
-      for (let i = 3; i >= 0; i -= 1) {
-        const weekEnd = new Date(now);
-        weekEnd.setDate(weekEnd.getDate() - i * 7);
-        const weekStart = new Date(weekEnd);
-        weekStart.setDate(weekStart.getDate() - 6);
-
-        const weekLabel = `Week ${4 - i}`;
-        const dateRange = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-
-        const weekCalls = storeCalls.slice(i * Math.ceil(storeCalls.length / 4), (i + 1) * Math.ceil(storeCalls.length / 4));
-
-        periods.push({
-          label: weekLabel,
-          dateRange,
-          calls: weekCalls,
-          count: weekCalls.length,
-        });
-      }
-    }
-
-    const temporalData = periods.map((period) => {
-      if (period.count === 0) {
-        return {
-          ...period,
-          overallScore: 0,
-          rapport: 0,
-          explore: 0,
-          listen: 0,
-          advise: 0,
-          execute: 0,
-          productKnowledge: 0,
-          softSkills: 0,
-        };
-      }
-
-      const avgScore = (metric) => Math.round(period.calls.reduce((sum, c) => sum + c.scores[metric], 0) / period.count);
-
-      return {
-        ...period,
-        overallScore: avgScore('overall'),
-        rapport: avgScore('rapport'),
-        explore: avgScore('explore'),
-        listen: avgScore('listen'),
-        advise: avgScore('advise'),
-        execute: avgScore('execute'),
-        productKnowledge: avgScore('productKnowledge'),
-        softSkills: avgScore('softSkills'),
-      };
-    });
-
-    const storeData = metrics.storePerformance.find((s) => s.storeName === selectedStore);
-    const avgOverall = storeData?.overallScore || 0;
-    const totalStoreCalls = storeCalls.length;
-
-    const scores = {
-      'Rapport Building': storeData?.rapport || 0,
-      Exploration: storeData?.explore || 0,
-      'Active Listening': storeData?.listen || 0,
-      Advisory: storeData?.advise || 0,
-      Execution: storeData?.execute || 0,
-      'Product Knowledge': storeData?.productKnowledge || 0,
-      'Soft Skills': storeData?.softSkills || 0,
-    };
-
-    const sortedScores = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-    const strengths = sortedScores.slice(0, 2);
-    const weaknesses = sortedScores.slice(-2).reverse();
-
-    const highExpCalls = storeCalls.filter((c) => c.experience === 'High').length;
-    const medExpCalls = storeCalls.filter((c) => c.experience === 'Medium').length;
-    const lowExpCalls = storeCalls.filter((c) => c.experience === 'Low').length;
-    const expPercentage = totalStoreCalls ? Math.round((highExpCalls / totalStoreCalls) * 100) : 0;
-
-    const highIntentCalls = storeCalls.filter((c) => c.intent === 'High').length;
-    const conversionPotential = totalStoreCalls ? Math.round((highIntentCalls / totalStoreCalls) * 100) : 0;
-
-    const recentPeriods = temporalData.slice(-3);
-    const trend = recentPeriods.length >= 2
-      ? recentPeriods[recentPeriods.length - 1].overallScore - recentPeriods[0].overallScore
-      : 0;
-
-    const performanceSummary = avgOverall >= 85
-      ? `${selectedStore} demonstrates excellent performance with an overall score of ${avgOverall}. The team consistently delivers high-quality customer interactions across all touchpoints.`
-      : avgOverall >= 70
-        ? `${selectedStore} shows good performance with an overall score of ${avgOverall}. Fundamentals are strong with room for optimization in specific areas.`
-        : `${selectedStore} has an overall score of ${avgOverall}, indicating significant opportunities for improvement. Focused training and process refinement are recommended.`;
-
-    const trendAnalysis = trend > 5
-      ? ` Recent trends show positive momentum with a ${trend}-point improvement.`
-      : trend < -5
-        ? ` Recent performance has declined by ${Math.abs(trend)} points, requiring attention.`
-        : ' Performance has remained stable in recent periods.';
-
-    const improvementAreas = weaknesses.length > 0
-      ? `Primary focus areas include ${weaknesses[0][0]} (${weaknesses[0][1]}/100) and ${weaknesses[1][0]} (${weaknesses[1][1]}/100). `
-        + `${weaknesses[0][1] < 70 ? `${weaknesses[0][0]} needs targeted coaching and playbook reinforcement.` : 'Incremental improvements here will lift overall performance.'}`
-      : 'Performance metrics are balanced. Focus on maintaining consistency and exploring advanced techniques.';
-
-    const customerExpSummary = expPercentage >= 60
-      ? `Customer experience is strong with ${expPercentage}% of interactions rated high quality. ${conversionPotential}% of calls show high purchase intent, representing solid conversion opportunities.`
-      : expPercentage >= 40
-        ? `Customer experience is moderate with ${expPercentage}% high-quality interactions. Elevating the ${medExpCalls + lowExpCalls} medium/low experience calls will lift satisfaction scores.`
-        : `Customer experience needs improvement with only ${expPercentage}% high-quality interactions. ${highIntentCalls > 0 ? `Despite ${conversionPotential}% high-intent calls, experience gaps may be impacting conversions.` : 'Low intent signals suggest the need for better qualification and engagement strategies.'}`;
-
-    return {
-      temporalData,
-      analysis: {
-        performanceSummary: performanceSummary + trendAnalysis,
-        improvementAreas,
-        customerExpSummary,
-        strengths: strengths.map((s) => ({ name: s[0], score: s[1] })),
-        weaknesses: weaknesses.map((s) => ({ name: s[0], score: s[1] })),
-        totalCalls: totalStoreCalls,
-        avgScore: avgOverall,
-        expBreakdown: { high: highExpCalls, medium: medExpCalls, low: lowExpCalls },
-      },
-    };
-  }, [selectedStore, storePeriod, audioCalls, metrics.storePerformance]);
-
-  const regions = useMemo(() => {
-    const uniqueRegions = [...new Set(audioCalls.map(call => call.region).filter(Boolean))].filter(r => r !== 'Unknown');
-    return uniqueRegions.length > 0 ? uniqueRegions : ['South', 'West', 'North', 'East'];
-  }, [audioCalls]);
-
-  const cities = useMemo(() => {
-    const uniqueCities = [...new Set(audioCalls.map(call => call.city).filter(Boolean))];
-    return uniqueCities.length > 0 ? uniqueCities : ['Bangalore', 'Mumbai', 'Hyderabad', 'Chennai', 'Delhi'];
-  }, [audioCalls]);
-
-  // Ensure selected city is valid when switching to city view
-  useEffect(() => {
-    if (view === 'city' && !cities.includes(selectedCity)) {
-      setSelectedCity(cities[0] || 'Bangalore');
-    }
-  }, [view, cities, selectedCity]);
-
-  // Ensure selected region is valid when switching to region view
-  useEffect(() => {
-    if (view === 'region' && !regions.includes(selectedRegion)) {
-      setSelectedRegion(regions[0] || 'South');
-    }
-  }, [view, regions, selectedRegion]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-gray-600">Loading call analytics...</div>
       </div>
     );
   }
 
-  if (!audioCalls.length) {
+  if (!processedCalls.length) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">No audio call data available for aggregated view.</p>
+          <p className="text-gray-600 mb-4">No call data available for aggregated view.</p>
           <Link to="/GmbCalls" className="text-blue-600 hover:text-blue-700 font-semibold">
             ← Back to Call Reports
           </Link>
@@ -588,39 +402,29 @@ const CallAggregatedDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#08080c] text-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Grain texture overlay */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")"
-      }}></div>
-
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#0f0f14] to-[#16161d] border-b border-white/6 shadow-2xl relative z-10">
-        <div className="max-w-[1600px] mx-auto px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/GmbCalls" className="p-2 hover:bg-white/5 rounded-lg transition">
-                <ArrowLeft className="w-5 h-5 text-gray-400" />
-              </Link>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight mb-1" style={{ fontFamily: "'Fraunces', serif", letterSpacing: '-0.02em' }}>
-                  GMB Call Analytics
-                </h1>
-                {/* <p className="text-gray-400 text-sm">Aggregated insights across recorded calls</p> */}
-              </div>
+    <div className="min-h-screen bg-gray-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="max-w-[1600px] mx-auto px-8 py-8">
+        
+        {/* HEADER & FILTERS */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Analytics Dashboard
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">Real-time intelligence across all sales channels</p>
             </div>
-
-            <div className="flex items-center gap-3">
+            <div className="flex gap-3 mt-4 md:mt-0">
               <button
                 onClick={handleDownloadReports}
-                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm shadow-lg transition"
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Download All Reports
+                Export Report
               </button>
               <Link
                 to="/GmbCalls/upload"
-                className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg font-semibold text-sm transition"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />
                 Upload CSV
@@ -628,680 +432,385 @@ const CallAggregatedDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-6">
-            <div className="flex flex-wrap items-center gap-3 bg-[#111116] border border-amber-400/60 rounded-xl px-4 py-3">
-              {/* View toggles */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setView('overall')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                    view === 'overall'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg'
-                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                  }`}
-                >
-                  Overall Overview
-                </button>
-                <button
-                  onClick={() => setView('region')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                    view === 'region'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg'
-                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                  }`}
-                >
-                  Region-wise
-                </button>
-                <button
-                  onClick={() => setView('city')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                    view === 'city'
-                      ? 'bg-amber-500 text-gray-900 shadow-lg'
-                      : 'text-gray-400 hover:text-gray-100 hover:bg-white/5'
-                  }`}
-                >
-                  City-wise
-                </button>
-              </div>
-
-              {/* Region filter */}
-              {view === 'region' && (
-                <div className="flex items-center gap-2 pl-4 border-l border-white/10">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  {regions.map((region) => (
-                    <button
-                      key={region}
-                      onClick={() => setSelectedRegion(region)}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                        selectedRegion === region
-                          ? 'bg-amber-500 text-gray-900'
-                          : 'bg-[#16161d] text-gray-400 hover:bg-white/5 hover:text-gray-100'
-                      }`}
-                    >
-                      {region}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* City filter */}
-              {view === 'city' && (
-                <div className="flex items-center gap-3 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                  <Filter className="w-4 h-4 text-gray-500" />
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                    style={{ colorScheme: 'dark' }}
-                  >
-                    {cities.map((city) => (
-                      <option key={city} value={city} className="bg-[#1a1a1f] text-gray-200">
-                        {city}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                </div>
-              )}
-
-              {/* Time range filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value)}
-                  className="bg-transparent text-sm font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  <option value="last7" className="bg-[#1a1a1f] text-gray-200">Last 7 Days</option>
-                  <option value="last30" className="bg-[#1a1a1f] text-gray-200">Last 30 Days</option>
-                  <option value="last90" className="bg-[#1a1a1f] text-gray-200">Last 90 Days</option>
-                  <option value="ytd" className="bg-[#1a1a1f] text-gray-200">Year to Date</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
-
-              {/* Intent to Purchase Filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <span className="text-xs text-gray-400">Intent to Purchase</span>
-                <select
-                  value={selectedIntent}
-                  onChange={(e) => setSelectedIntent(e.target.value)}
-                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  {['All','High','Medium','Low'].map((opt) => (
-                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
-
-              {/* Customer Experience Filter */}
-              <div className="flex items-center gap-2 pl-4 border-l border-white/10 bg-[#16161d] rounded-lg px-4 py-2">
-                <span className="text-xs text-gray-400">Customer Experience</span>
-                <select
-                  value={selectedExperience}
-                  onChange={(e) => setSelectedExperience(e.target.value)}
-                  className="bg-transparent font-medium cursor-pointer outline-none text-gray-200"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  {['All','High','Medium','Low'].map((opt) => (
-                    <option key={opt} value={opt} className="bg-[#1a1a1f] text-gray-200">
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </div>
+          {/* FILTER STRIP */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Filters:</span>
             </div>
-          </div>
-        </div>
-      </div>
+            
+            {/* Region */}
+            <select
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+              }}
+            >
+              {regions.map((region) => (
+                <option key={region} value={region}>Region: {region}</option>
+              ))}
+            </select>
 
-      <div className="max-w-[1600px] mx-auto px-8 py-8 relative z-10">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-          <div
-            onClick={() => navigateWithFilter(() => true, 'All calls (current filters)')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-indigo-900/20 rounded-lg">
-                <Phone className="w-6 h-6 text-indigo-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-gray-100">{metrics.total.toLocaleString()}</p>
-                <p className="text-sm text-gray-400 mt-1">Total Calls Analyzed</p>
-              </div>
-            </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Avg. per store</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.storePerformance.length ? Math.round(metrics.total / metrics.storePerformance.length) : 0}
-                </span>
-              </div>
-            </div>
-          </div>
+            {/* Intent */}
+            <select
+              value={selectedIntent}
+              onChange={(e) => setSelectedIntent(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+              }}
+            >
+              <option value="All">Intent: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+              <option value="Purchased">Already Purchased</option>
+            </select>
 
-          <div
-            onClick={() => navigateWithFilter((c) => c.type === 'Sales', 'Sales calls')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-emerald-900/20 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-emerald-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-emerald-400">{metrics.salesCalls}</p>
-                <p className="text-sm text-gray-400 mt-1">Sales Calls</p>
-              </div>
-            </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Sales Ratio</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.total ? Math.round((metrics.salesCalls / metrics.total) * 100) : 0}%
-                </span>
-              </div>
-            </div>
-          </div>
+            {/* Customer Experience */}
+            <select
+              value={selectedExperience}
+              onChange={(e) => setSelectedExperience(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+              }}
+            >
+              <option value="All">Experience: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
 
-          <div
-            onClick={() => navigateWithFilter((c) => c.type === 'Service', 'Service calls')}
-            className="bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:shadow-md transition-shadow relative overflow-hidden cursor-pointer"
-          >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-transparent"></div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-900/20 rounded-lg">
-                <Users className="w-6 h-6 text-blue-400" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-blue-400">{metrics.serviceCalls}</p>
-                <p className="text-sm text-gray-400 mt-1">Service Calls</p>
-              </div>
-            </div>
-            <div className="pt-4 border-t border-white/6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Service Ratio</span>
-                <span className="font-semibold text-gray-100">
-                  {metrics.total ? Math.round((metrics.serviceCalls / metrics.total) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+            {/* Time */}
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+              }}
+            >
+              <option value="7">Time: Last 7 Days</option>
+              <option value="30">Time: Last 30 Days</option>
+              <option value="90">Time: Last 3 Months</option>
+            </select>
+
+            {/* Reset */}
+            <button
+              onClick={resetFilters}
+              className="text-sm text-red-500 hover:text-red-700 font-semibold ml-auto"
+            >
+              Reset Filters
+            </button>
           </div>
         </div>
 
-        {/* Intent x Customer Experience Matrix */}
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 sm:p-8 mb-8">
+        {/* KPI CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {/* Total Calls */}
+          <div
+            onClick={() => navigateWithFilter(() => true, 'All calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 border-l-4 border-l-indigo-500 shadow-sm hover:shadow-md transition cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">Total Calls</p>
+              <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded">
+                +{Math.round((metrics.total / Math.max(1, processedCalls.length)) * 100)}%
+              </span>
+            </div>
+            <h3 className="text-4xl font-bold text-gray-900 mb-1">{metrics.total}</h3>
+            <p className="text-xs text-gray-400">
+              Avg {metrics.storePerformance.length ? (metrics.total / metrics.storePerformance.length).toFixed(1) : 0} per store
+            </p>
+          </div>
+
+          {/* Sales Leads */}
+          <div
+            onClick={() => navigateWithFilter((c) => c.callType === 'Sales', 'Sales calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Sales Leads</p>
+              <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <h3 className="text-4xl font-bold text-emerald-600">{metrics.salesCalls}</h3>
+            <p className="text-xs text-gray-400">
+              {metrics.total ? Math.round((metrics.salesCalls / metrics.total) * 100) : 0}% of Total Volume
+            </p>
+          </div>
+
+          {/* Already Purchased */}
+          <div
+            onClick={() => navigateWithFilter((c) => c.callType === 'Already Purchased', 'Already Purchased calls')}
+            className="bg-white border border-gray-200 rounded-xl p-6 border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-sm font-bold text-blue-700 uppercase tracking-wide">Already Purchased</p>
+              <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600">
+                <Wrench className="w-4 h-4" />
+              </div>
+            </div>
+            <h3 className="text-4xl font-bold text-blue-600">{metrics.alreadyPurchasedCalls}</h3>
+            <p className="text-xs text-gray-400">
+              {metrics.total ? Math.round((metrics.alreadyPurchasedCalls / metrics.total) * 100) : 0}% of Total Volume
+            </p>
+          </div>
+        </div>
+
+        {/* MATRIX SECTION */}
+        <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-xl shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
-              🎯
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold text-white">Purchase Intent × Customer Experience</h2>
-              <p className="text-sm text-slate-400">Click a cell to drill into matching calls</p>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+              Purchase Intent × Experience Matrix
+            </h2>
+            <div className="h-px bg-gray-300 flex-1 ml-4"></div>
           </div>
 
-          <div className="rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-4 sm:p-6 overflow-x-auto">
-            <div className="min-w-[900px] grid grid-cols-[170px_repeat(3,minmax(0,1fr))] gap-4">
+          <div className="overflow-x-auto pb-4">
+            <div className="min-w-[1000px] grid grid-cols-[140px_repeat(3,minmax(0,1fr))] gap-4">
+              {/* Headers */}
               <div></div>
-              {experiences.map((exp) => (
-                <div key={`header-${exp}`} className="text-center font-semibold text-base text-slate-100 py-3">
-                  {exp} Experience
-                </div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">High Experience</div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">Medium Experience</div>
+              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">Low Experience</div>
+
+              {/* Row 1: High Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">High Intent</div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`high-${exp}`}
+                  onClick={() => navigateWithFilter((c) => c.intent === 'High' && c.experience === exp && c.callType === 'Sales', `High intent × ${exp} experience`)}
+                  className={`${matrixColors.High[exp]} rounded-2xl p-6 text-center text-white cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center`}
+                >
+                  <div className="text-5xl font-bold mb-1">{metrics.matrix.High[exp]}</div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">Calls</div>
+                </button>
               ))}
 
-              {intents.map((intent) => (
-                <React.Fragment key={intent}>
-                  <div className="flex items-center justify-end pr-4 text-right text-base font-semibold text-slate-100">
-                    {intent} Intent
-                  </div>
-                  {experiences.map((exp) => (
-                    <button
-                      key={`${intent}-${exp}`}
-                      type="button"
-                      onClick={() => navigateWithFilter((c) => c.intent === intent && c.experience === exp, `${intent} intent × ${exp} experience`)}
-                      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${matrixPalette[intent][exp]} p-6 sm:p-7 text-center transition transform hover:-translate-y-1 hover:scale-[1.02] shadow-[0_12px_40px_rgba(0,0,0,0.35)]`}
-                    >
-                      <div className="text-4xl font-bold tracking-tight text-white drop-shadow-sm">{metrics.matrix[intent][exp]}</div>
-                      <div className="text-sm font-medium text-white/80">calls</div>
-                      <div className="mt-3 inline-flex rounded-md bg-black/20 px-3 py-1 text-xs font-semibold text-white/90">
-                        {matrixLabels[intent][exp]}
-                      </div>
-                    </button>
-                  ))}
-                </React.Fragment>
+              {/* Row 2: Medium Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Medium Intent</div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`medium-${exp}`}
+                  onClick={() => navigateWithFilter((c) => c.intent === 'Medium' && c.experience === exp && c.callType === 'Sales', `Medium intent × ${exp} experience`)}
+                  className={`${matrixColors.Medium[exp]} rounded-2xl p-6 text-center text-white cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center`}
+                >
+                  <div className="text-5xl font-bold mb-1">{metrics.matrix.Medium[exp]}</div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">Calls</div>
+                </button>
               ))}
-            </div>
-          </div>
 
-          <div className="mt-7 rounded-2xl border border-[#2a2a2a] bg-[#0f0f14] p-6">
-            <h3 className="text-lg font-semibold text-slate-100 mb-4">Color Legend & Interpretation</h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {matrixLegend.map((item) => (
-                <div key={item.title} className="flex items-center gap-3 rounded-xl bg-[#0a0a0a] p-4">
-                  <div className={`h-12 w-12 rounded-lg border-2 ${item.border} bg-gradient-to-br ${item.gradient}`}></div>
-                  <div className="space-y-1 text-left">
-                    <p className="text-sm font-semibold text-slate-100">{item.title}</p>
-                    <p className="text-xs text-slate-400 leading-snug">{item.desc}</p>
-                  </div>
-                </div>
+              {/* Row 3: Low Intent */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Low Intent</div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`low-${exp}`}
+                  onClick={() => navigateWithFilter((c) => c.intent === 'Low' && c.experience === exp && c.callType === 'Sales', `Low intent × ${exp} experience`)}
+                  className={`${matrixColors.Low[exp]} rounded-2xl p-6 text-center text-white cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center`}
+                >
+                  <div className="text-5xl font-bold mb-1">{metrics.matrix.Low[exp]}</div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">Calls</div>
+                </button>
+              ))}
+
+              {/* Row 4: Already Purchased */}
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Already Purchased</div>
+              {['High', 'Medium', 'Low'].map((exp) => (
+                <button
+                  key={`purchased-${exp}`}
+                  onClick={() => navigateWithFilter((c) => c.callType === 'Already Purchased' && c.experience === exp, `Already Purchased × ${exp} experience`)}
+                  className={`${matrixColors['Already Purchased'][exp]} rounded-2xl p-6 text-center text-white cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg min-h-[140px] flex flex-col items-center justify-center`}
+                >
+                  <div className="text-5xl font-bold mb-1">{metrics.matrix['Already Purchased'][exp]}</div>
+                  <div className="text-sm uppercase tracking-wide opacity-90 font-semibold">Calls</div>
+                </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Store Performance Table */}
-        <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden mb-8">
-          <div className="p-8 border-b border-white/6">
-            <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
-              <TrendingUp className="w-6 h-6 text-amber-400" />
-              Store Performance Analysis
-            </h2>
-            <p className="text-sm text-gray-400 mt-1">RELAX Framework Scores & Key Metrics</p>
+        {/* STORE PERFORMANCE TABLE */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Home className="w-6 h-6 text-amber-500" />
+              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Store Performance Matrix
+              </h2>
+            </div>
+            <p className="text-sm text-gray-500 mt-1 ml-9">Comprehensive Performance Metrics by Store (Weighted Score)</p>
           </div>
-
+          
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#16161d] border-b border-white/6">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-8 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Store Name
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    # Calls
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Overall Score
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-l border-white/6">
-                    R
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                    E
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                    L
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                    A
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-r border-white/6">
-                    X
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Product Knowledge
-                  </th>
-                  <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Soft Skills
-                  </th>
+                  <th className="p-4 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">Store Name</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-800 uppercase tracking-wider bg-gray-100 border-l border-r border-gray-200">Overall Score</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider"># Calls</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">NPS</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">CX Score</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider border-l border-gray-200">R</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">E</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">L</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">A</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-amber-600 uppercase tracking-wider">X</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/6">
+              <tbody className="divide-y divide-gray-100">
                 {metrics.storePerformance.map((store) => (
                   <tr
                     key={store.storeName}
-                    onClick={() => navigateWithFilter((c) => c.store === store.storeName, `${store.storeName} store calls`)}
-                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                    onClick={() => navigateWithFilter((c) => c.store === store.storeName, `${store.storeName} calls`)}
+                    className="hover:bg-gray-50 transition cursor-pointer"
                   >
-                    <td className="px-8 py-5">
-                      <div>
-                        <div className="font-semibold text-gray-100">{store.storeName}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{store.city}, {store.region}</div>
-                      </div>
+                    <td className="p-4">
+                      <div className="font-bold text-gray-900">{store.storeName}</div>
+                      <div className="text-xs text-gray-500">{store.city}</div>
                     </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#16161d] text-gray-300">
-                        {store.totalCalls}
+                    <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
+                      <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(store.overall)}`}>
+                        {store.overall}
                       </span>
                     </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreBg(store.overallScore)} ${getScoreColor(store.overallScore)}`}>
-                        {store.overallScore}
-                      </span>
+                    <td className="p-4 text-center">
+                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{store.totalCalls}</span>
                     </td>
-                    <td className="px-4 py-5 text-center border-l border-white/6">
-                      <span className="font-semibold text-gray-300">{store.rapport}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="font-semibold text-gray-300">{store.explore}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="font-semibold text-gray-300">{store.listen}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className="font-semibold text-gray-300">{store.advise}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center border-r border-white/6">
-                      <span className="font-semibold text-gray-300">{store.execute}</span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`font-semibold ${getScoreColor(store.productKnowledge)}`}>
-                        {store.productKnowledge}
-                      </span>
-                    </td>
-                    <td className="px-4 py-5 text-center">
-                      <span className={`font-semibold ${getScoreColor(store.softSkills)}`}>
-                        {store.softSkills}
-                      </span>
-                    </td>
+                    <td className="p-4 text-center text-gray-900 font-bold">{store.nps}</td>
+                    <td className="p-4 text-center text-gray-900">{store.cx}</td>
+                    <td className="p-4 text-center border-l border-gray-100 text-gray-600">{store.r}</td>
+                    <td className="p-4 text-center text-gray-600">{store.e}</td>
+                    <td className="p-4 text-center text-gray-600">{store.l}</td>
+                    <td className="p-4 text-center text-gray-600">{store.a}</td>
+                    <td className="p-4 text-center text-gray-600">{store.x}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
 
-          <div className="px-8 py-4 bg-[#16161d] border-t border-white/6">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <div>
-                <span className="font-semibold">RELAX Framework:</span>
-                <span className="ml-2">R = Rapport | E = Explore | L = Listen | A = Advise | X = Execute</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <span>85+ Excellent</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                  <span>70-84 Good</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500"></div>
-                  <span>&lt;70 Needs Improvement</span>
-                </div>
-              </div>
+        {/* PRICE BUCKET TABLE */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-6 h-6 text-green-600" />
+              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Price Bucket Performance
+              </h2>
             </div>
+            <p className="text-sm text-gray-500 mt-1 ml-9">Correlation between Product Value and Sales Experience</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-4 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">Price Segment</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-800 uppercase tracking-wider bg-gray-100 border-l border-r border-gray-200">Overall Score</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider"># Calls</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">NPS</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">CX Score</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border-l border-gray-200">R</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">E</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">L</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">A</th>
+                  <th className="p-4 border-b border-gray-200 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">X</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {/* Premium */}
+                <tr className="hover:bg-gray-50 transition">
+                  <td className="p-4">
+                    <div className="font-bold text-gray-900">Premium (&gt;50k)</div>
+                    <div className="text-xs text-green-600 font-bold">High Focus</div>
+                  </td>
+                  <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets.Premium.overall)}`}>
+                      {metrics.priceBuckets.Premium.overall}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets.Premium.totalCalls}</span>
+                  </td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets.Premium.nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets.Premium.cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets.Premium.r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.x}</td>
+                </tr>
+
+                {/* Mid-Range */}
+                <tr className="hover:bg-gray-50 transition">
+                  <td className="p-4">
+                    <div className="font-bold text-gray-900">Mid-Range (20k-50k)</div>
+                  </td>
+                  <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['Mid-Range'].overall)}`}>
+                      {metrics.priceBuckets['Mid-Range'].overall}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['Mid-Range'].totalCalls}</span>
+                  </td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['Mid-Range'].nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['Mid-Range'].cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['Mid-Range'].r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].x}</td>
+                </tr>
+
+                {/* Budget */}
+                <tr className="hover:bg-gray-50 transition">
+                  <td className="p-4">
+                    <div className="font-bold text-gray-900">Budget (&lt;20k)</div>
+                  </td>
+                  <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets.Budget.overall)}`}>
+                      {metrics.priceBuckets.Budget.overall}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets.Budget.totalCalls}</span>
+                  </td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets.Budget.nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets.Budget.cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets.Budget.r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.x}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Store-wise Deep Dive */}
-        {storeAnalysis && metrics.storePerformance.length > 0 && (
-          <div className="bg-[#0f0f14] border border-white/6 rounded-2xl overflow-hidden">
-            <div className="p-8 border-b border-white/6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-3" style={{ fontFamily: "'Fraunces', serif" }}>
-                    <Store className="w-6 h-6 text-amber-400" />
-                    Store-wise Deep Dive
-                  </h2>
-                  <p className="text-sm text-gray-400 mt-1">Temporal performance trends and detailed analytics</p>
-                </div>
+        {/* Footer */}
+        <div className="text-center text-gray-400 text-sm mt-8 pb-8">
+          Duroflex Analytics • Powered by AI Analysis
+        </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-3 bg-[#16161d] rounded-lg px-4 py-2.5 border border-white/6">
-                    <Store className="w-4 h-4 text-gray-500" />
-                    <select
-                      value={selectedStore}
-                      onChange={(e) => setSelectedStore(e.target.value)}
-                      className="bg-transparent font-medium text-sm cursor-pointer outline-none text-gray-200 min-w-[200px]"
-                      style={{ colorScheme: 'dark' }}
-                    >
-                      {metrics.storePerformance.map((store) => (
-                        <option key={store.storeName} value={store.storeName} className="bg-[#1a1a1f] text-gray-200">
-                          {store.storeName}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </div>
-
-                  <div className="flex items-center bg-[#16161d] border border-white/6 rounded-lg p-1">
-                    <button
-                      onClick={() => setStorePeriod('day')}
-                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                        storePeriod === 'day'
-                          ? 'bg-amber-500 text-gray-900 shadow-sm'
-                          : 'text-gray-400 hover:text-gray-100'
-                      }`}
-                    >
-                      Daily
-                    </button>
-                    <button
-                      onClick={() => setStorePeriod('week')}
-                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                        storePeriod === 'week'
-                          ? 'bg-amber-500 text-gray-900 shadow-sm'
-                          : 'text-gray-400 hover:text-gray-100'
-                      }`}
-                    >
-                      Weekly
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 border-b border-white/6">
-              <div className="flex items-center gap-2 mb-6">
-                <BarChart3 className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-semibold text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>
-                  Performance Over Time
-                </h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[#16161d]">
-                    <tr>
-                      <th className="text-left px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        {storePeriod === 'day' ? 'Day' : 'Week'}
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        # Calls
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Overall Score
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-l border-white/6">
-                        R
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                        E
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                        L
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                        A
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-amber-400 uppercase tracking-wider border-r border-white/6">
-                        X
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Product Knowledge
-                      </th>
-                      <th className="text-center px-4 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Soft Skills
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/6">
-                    {storeAnalysis.temporalData.map((period, idx) => (
-                      <tr key={idx} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4">
-                          <div>
-                            <div className="font-semibold text-gray-100">{period.label}</div>
-                            {period.dateRange && <div className="text-xs text-gray-400 mt-0.5">{period.dateRange}</div>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#16161d] text-gray-300">
-                            {period.count}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          {period.count > 0 ? (
-                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${getScoreBg(period.overallScore)} ${getScoreColor(period.overallScore)}`}>
-                              {period.overallScore}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-center border-l border-white/6">
-                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {period.count > 0 ? period.rapport : '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {period.count > 0 ? period.explore : '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {period.count > 0 ? period.listen : '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {period.count > 0 ? period.advise : '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center border-r border-white/6">
-                          <span className={`font-semibold ${period.count > 0 ? 'text-gray-300' : 'text-gray-500'}`}>
-                            {period.count > 0 ? period.execute : '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          {period.count > 0 ? (
-                            <span className={`font-semibold ${getScoreColor(period.productKnowledge)}`}>
-                              {period.productKnowledge}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          {period.count > 0 ? (
-                            <span className={`font-semibold ${getScoreColor(period.softSkills)}`}>
-                              {period.softSkills}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* AI-Powered Insights */}
-            <div className="p-8 bg-gradient-to-br from-[#0f0f14] to-[#16161d]">
-              <div className="flex items-center gap-2 mb-6">
-                <TrendingUp className="w-5 h-5 text-amber-400" />
-                <h3 className="text-lg font-semibold text-gray-100" style={{ fontFamily: "'Fraunces', serif" }}>
-                  AI-Powered Insights & Recommendations
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-3 gap-6">
-                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2 bg-blue-900/20 rounded-lg">
-                      <BarChart3 className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-100 mb-1">Store Performance Summary</h4>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getScoreBg(storeAnalysis.analysis.avgScore)} ${getScoreColor(storeAnalysis.analysis.avgScore)}`}>
-                          {storeAnalysis.analysis.avgScore}/100
-                        </span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-400">{storeAnalysis.analysis.totalCalls} calls analyzed</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.performanceSummary}</p>
-                  <div className="mt-4 pt-4 border-t border-white/6">
-                    <div className="text-xs font-semibold text-gray-400 mb-2">Top Strengths:</div>
-                    <div className="flex flex-col gap-1">
-                      {storeAnalysis.analysis.strengths.map((strength, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-300">{strength.name}</span>
-                          <span className={`font-bold ${getScoreColor(strength.score)}`}>{strength.score}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2 bg-amber-900/20 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-100 mb-1">Improvement Areas</h4>
-                      <div className="text-xs text-gray-400">Priority focus recommendations</div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.improvementAreas}</p>
-                  <div className="mt-4 pt-4 border-t border-white/6">
-                    <div className="text-xs font-semibold text-gray-400 mb-2">Development Priorities:</div>
-                    <div className="flex flex-col gap-1">
-                      {storeAnalysis.analysis.weaknesses.map((weakness, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-300">{weakness.name}</span>
-                          <span className={`font-bold ${getScoreColor(weakness.score)}`}>{weakness.score}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#16161d] border border-white/6 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2 bg-emerald-900/20 rounded-lg">
-                      <ThumbsUp className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-100 mb-1">Customer Experience Summary</h4>
-                      <div className="text-xs text-gray-400">Interaction quality & satisfaction</div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{storeAnalysis.analysis.customerExpSummary}</p>
-                  <div className="mt-4 pt-4 border-t border-white/6">
-                    <div className="text-xs font-semibold text-gray-400 mb-2">Experience Breakdown:</div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                          <span className="text-gray-300">High Quality</span>
-                        </div>
-                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.high}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                          <span className="text-gray-300">Medium Quality</span>
-                        </div>
-                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.medium}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-rose-500"></div>
-                          <span className="text-gray-300">Low Quality</span>
-                        </div>
-                        <span className="font-bold text-gray-100">{storeAnalysis.analysis.expBreakdown.low}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
