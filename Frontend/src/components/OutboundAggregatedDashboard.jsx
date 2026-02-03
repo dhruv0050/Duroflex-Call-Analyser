@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Phone, Users, LogOut, Upload, ArrowLeft, Download, CheckCircle, Building2 } from 'lucide-react';
+import { Phone, Users, LogOut, Upload, ArrowLeft, Download, CheckCircle, Building2, ArrowRight } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -638,16 +638,18 @@ const OutboundAggregatedDashboard = () => {
         {/* HEADER & FILTERS */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <div className="flex items-center gap-4">
-              <Link to="/outbound-calls" className="p-2 hover:bg-gray-100 rounded-lg transition">
-                <ArrowLeft className="w-5 h-5 text-gray-500" />
+            <div>
+              <Link 
+                to="/outbound-calls" 
+                className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
+              >
+                GO TO ANALYSED CALLS
+                <ArrowRight className="w-3 h-3" />
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
-                  Walk-in Recovery Analytics
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">Central Sales Follow-up on Store Walk-outs</p>
-              </div>
+              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
+                Walk-in Recovery Analytics
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">Central Sales Follow-up on Store Walk-outs</p>
             </div>
             <div className="flex gap-3 mt-4 md:mt-0">
               <button

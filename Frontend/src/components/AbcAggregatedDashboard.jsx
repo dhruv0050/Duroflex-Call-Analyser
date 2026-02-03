@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Upload, Users, TrendingUp, Building2, CheckCircle2 } from 'lucide-react';
+import { Download, Upload, Users, TrendingUp, Building2, CheckCircle2, ArrowRight } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -468,6 +468,13 @@ const AbcAggregatedDashboard = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
+              <Link 
+                to="/abc-calls" 
+                className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
+              >
+                GO TO ANALYSED CALLS
+                <ArrowRight className="w-3 h-3" />
+              </Link>
               <h1
                 className="text-3xl font-bold text-gray-900"
                 style={{ fontFamily: "'Fraunces', serif" }}
