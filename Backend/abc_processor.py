@@ -275,91 +275,110 @@ class AbcCallProcessor:
         # Keep the output schema in a non-f-string so curly braces don't get interpreted
         # by Python's f-string formatter.
         output_schema = """{
-  \"MetaData\": {
-    \"Customer_Name\": \"String\",
-    \"Customer_Location\": \"String\",
-    \"Call_Region\": \"String(for example South, North, East, West as per the location)\",
-    \"Customer_Language\": \"String\",
-    \"Customer_Gender\": \"Male | Female | Unknown\",
-    \"Customer_Age_Group\": \"Young Adult | Middle Aged | Senior | Unknown\",
-    \"Consideration_Value\": \"String (e.g. 'Premium Range' or 'Budget')\",
-    \"Call_Quality_Overall\": \"High | Medium | Low\",
-    \"Call_Duration\": \"String\",
-    \"Connected_to_Customer\": true,
-    \"Customer_Enthusiasm\": \"High | Medium | Low\"
+  "MetaData": {
+    "Customer_Name": "String",
+    "Customer_Location": "String",
+    "Customer_Language": "String",
+    "Call_Region": "String (North/South/East/West)",
+    "Customer_Gender": "Male | Female | Unknown",
+    "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
+    "Consideration_Value": "String ('Below 15k', '15k to 25k', '25k to 50k', '50k+')",
+    "Call_Quality_Overall": "High | Medium | Low",
+    "Call_Duration": "String",
+    "Connected_to_Customer": true,
+    "Customer_Enthusiasm": "High | Medium | Low"
   },
-  \"Call_Summary\": \"String (Max 150 words - Focus on the store feedback and call outcome)\",
-  \"1_Call_Objective\": {
-    \"Type\": \"Store Walk-in Recovery | Post-Purchase Check\",
-    \"Objective_Phrase\": \"String\"
+  "Call_Summary": "String (Max 150 words - Focus on why they abandoned and the outcome)",
+  "1_Call_Objective": {
+    "Type": "Sales Lead (Recovery) | Already Purchased | Service Query",
+    "Objective_Phrase": "String"
   },
-  \"2_Intent_to_Purchase\": {
-    \"Rating\": \"High | Medium | Low | Already Purchased\",
-    \"Reason\": \"String (Evidence based)\"
+  "2_Intent_to_Purchase": {
+    "Rating": "High | Medium | Low | Already Purchased",
+    "Reason": "String (REQUIRED - evidence-based reasoning for the rating)"
   },
-  \"3_Store_Experience\": {
-    \"Rating\": \"High | Medium | Low\",
-    \"Reason\": \"String (Why did they leave without buying? Staff/Stock/Price?)\"
+  "3_Customer_Experience": {
+    "Rating": "High | Medium | Low",
+    "Reason": "String"
   },
-  \"4_Call_Experience\": {
-    \"Rating\": \"High | Medium | Low\",
-    \"Reason\": \"String (How well did the agent handle the feedback?)\"
+  "4_Funnel_Analysis": {
+    "Stage": "Awareness | Consideration | Action | Already Purchased",
+    "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
+    "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
+    "Timeline_to_Purchase_Reason": "String (REQUIRED - evidence-based reason)"
   },
-  \"5_Funnel_Analysis\": {
-    \"Stage\": \"Awareness | Consideration | Action | Already Purchased\",
-    \"Reason\": \"String (State evidence based reasoning for the stage you are defining)\",
-    \"Timeline_to_Purchase\": \"Immediate | Short Term | Long Term | Unknown\",
-    \"Timeline_to_Purchase_Reason\": \"String (Evidence based)\"
+  "5_Product_Intelligence": {
+    "Narrow_Down_Stage": "Category | Range | Specific SKU | NA",
+    "Product_of_Interest": "String (What was in the cart?)",
+    "Approx_Order_Value": "String (or NA)"
   },
-  \"6_Product_Intelligence\": {
-    \"Narrow_Down_Stage\": \"Category | Range | Specific SKU | NA\",
-    \"Product_of_Interest\": \"String\",
-    \"Approx_Order_Value\": \"String (or NA)\"
+  "6_Customer_Needs": {
+    "Description": "String (Who is it for? Key pain points? Constraints?)"
   },
-  \"7_Customer_Needs\": {
-    \"Description\": \"String (Who is it for? Key pain points? Constraints?)\"
-  },
-  \"8_Purchase_Barriers\": {
-    \"At_Store\": \"String (Why they walked out?)\",
-    \"On_Call\": \"String (Why they aren't buying now?)\"
-  },
-  \"9_Decision_Maker\": \"Caller | Spouse | Joint | Unknown\",
-  \"10_Invitations\": {
-    \"Home_Measurement\": {
-      \"Rating\": \"High | Medium | Low\",
-      \"Reason\": \"String (Did agent suggest sending a technician?)\"
-    }
-  },
-  \"11_Conversion_Hooks\": {
-    \"Offers_Discounts_EMI\": {\"Status\": \"Yes | No\", \"Comment\": \"String (Did they offer a 'Manager's Discount'?)\"},
-    \"Product_Brochure\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
-    \"Mattress_Measurement\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
-    \"Brand_Legacy_Warranty\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"},
-    \"Sleep_Trial\": {\"Status\": \"Yes | No\", \"Comment\": \"String\"}
-  },
-  \"12_RELAX_Framework\": {
-    \"R_Reach_Out\": {\"Score\": \"H/M/L\", \"Reason\": \"Context setting (Mentioning the store visit)\"},
-    \"E_Explore_Needs\": {\"Score\": \"H/M/L\", \"Reason\": \"Probing for walk-out reason\"},
-    \"L_Link_Product\": {\"Score\": \"H/M/L\", \"Reason\": \"Re-affirming store demo experience\"},
-    \"A_Add_Value\": {\"Score\": \"H/M/L\", \"Reason\": \"Offering Home Measure/Discount\"},
-    \"X_Express_Closing\": {\"Score\": \"H/M/L\", \"Reason\": \"Next steps/Appointment Setting\"}
-  },
-  \"13_Agent_Evaluation\": {
-    \"Main_Skills\": {
-      \"Product_Knowledge\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
-      \"Sales_Skills\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
-      \"Upsell_Revenue_Skills\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"}
+  "7_Purchase_Barrier": "String (CRITICAL: Why did they abandon? e.g. Payment Failure, Price, Shipping Cost, Just Browsing)",
+  "8_Decision_Maker": "Caller | Spouse | Joint | Unknown",
+  "9_Invitations": {
+    "Store_Visit": {
+      "Rating": "High | Medium | Low",
+      "Reason": "String (Did agent suggest 'Touch & Feel' to build trust?)"
     },
-    \"Secondary_Traits\": {
-      \"Need_Discovery\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
-      \"Objection_Handling\": {\"Rating\": \"High | Medium | Low\", \"Reason\": \"String (Evidence-based)\"},
-      \"Agent_Nature\": \"Proactive | Responsive | Passive\"
+    "Video_Demo": {
+      "Rating": "High | Medium | Low",
+      "Reason": "String"
     }
   },
-  \"14_Agent_Learnings\": [\"String (Feedback 1)\", \"String (Feedback 2)\", \"String (Feedback 3)\"],
-  \"15_Next_Actions\": \"String (e.g. Schedule Technician Visit, Send Brochure)\",
-  \"16_End_to_end_NPS\": {\"Score\": \"Integer (0-10)\", \"Comment\": \"String (For the Call Experience)\"},
-  \"Transcript_Log\": \"String (Full Transcript with proper definition of what is said by Agent and Customer)\"
+  "10_Conversion_Hooks": {
+    "Offers_Discounts_EMI": {"Status": "Yes | No", "Comment": "String (Did they offer a 'Recovery Code'?)"},
+    "Product_Brochure": {"Status": "Yes | No", "Comment": "String"},
+    "Mattress_Measurement": {"Status": "Yes | No", "Comment": "String"},
+    "Brand_Legacy_Warranty": {"Status": "Yes | No", "Comment": "String"},
+    "Sleep_Trial": {"Status": "Yes | No", "Comment": "String"}
+  },
+  "11_RELAX_Framework": {
+    "R_Reach_Out": {
+      "Score": "H/M/L",
+      "Reason": "Context setting (Mentioning the cart items)"
+    },
+    "E_Explore_Needs": {
+      "Score": "H/M/L",
+      "Reason": "Probing for abandonment reason"
+    },
+    "L_Link_Product": {
+      "Score": "H/M/L",
+      "Reason": "Re-affirming product benefits"
+    },
+    "A_Add_Value": {
+      "Score": "H/M/L",
+      "Reason": "Offering assistance/discounts to close"
+    },
+    "X_Express_Closing": {
+      "Score": "H/M/L",
+      "Reason": "Sending Payment Link/Store Location"
+    }
+  },
+  "12_Agent_Evaluation": {
+    "Main_Skills": {
+      "Product_Knowledge": "High | Medium | Low",
+      "Sales_Skills": "High | Medium | Low",
+      "Upsell_Revenue_Skills": "High | Medium | Low"
+    },
+    "Secondary_Traits": {
+      "Need_Discovery": "High | Medium | Low",
+      "Objection_Handling": "High | Medium | Low",
+      "Agent_Nature": "Proactive | Responsive | Passive"
+    }
+  },
+  "13_Agent_Learnings": [
+    "String (Feedback 1)",
+    "String (Feedback 2)",
+    "String (Feedback 3)"
+  ],
+  "14_Next_Actions": "String (e.g. WhatsApp Payment Link sent, Follow up tomorrow)",
+  "15_End_to_End_NPS": {
+    "Score": "Integer (0-10)",
+    "Comment": "String (Inferred sentiment)"
+  },
+  "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
 }"""
         
         full_prompt = f"""Role: You are an Expert Cart Recovery Specialist & Auditor for Duroflex.

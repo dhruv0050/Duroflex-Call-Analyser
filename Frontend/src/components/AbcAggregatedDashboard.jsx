@@ -168,26 +168,23 @@ const AbcAggregatedDashboard = () => {
       const metaData = analysis.MetaData || {};
       const callObjective = analysis['1_Call_Objective'] || {};
       const intentData = analysis['2_Intent_to_Purchase'] || {};
-      const storeExpData = analysis['3_Store_Experience'] || {};
-      const callExpData = analysis['4_Call_Experience'] || {};
-      const funnelData = analysis['5_Funnel_Analysis'] || {};
-      const relaxData = analysis['12_RELAX_Framework'] || {};
-      const npsData = analysis['16_End_to_end_NPS'] || {};
+      const customerExpData = analysis['3_Customer_Experience'] || {}; // Fixed: was 3_Store_Experience
+      const funnelData = analysis['4_Funnel_Analysis'] || {}; // Fixed: was 5_Funnel_Analysis
+      const relaxData = analysis['11_RELAX_Framework'] || {}; // Fixed: was 12_RELAX_Framework
+      const npsData = analysis['15_End_to_End_NPS'] || {}; // Fixed: was 16_End_to_end_NPS
       const rawData = report.raw_data || {};
 
       const intent = normalizeIntent(intentData.Rating);
-      const storeExp = normalizeExperience(storeExpData.Rating);
-      const callExp = normalizeExperience(callExpData.Rating);
+      const customerExp = normalizeExperience(customerExpData.Rating); // Use customer experience as both store and call
 
-      // Check if already purchased
+      // Check if already purchased (customer bought BEFORE this call, not after)
       const callObjectiveType = String(callObjective.Type || '').toLowerCase();
       const funnelStage = String(funnelData.Stage || '').toLowerCase();
-      const isConverted = rawData.is_Converted === 1 || rawData.is_Converted === '1';
+      const intentRating = String(intentData.Rating || '').toLowerCase();
       const isAlreadyPurchased = 
-        callObjectiveType.includes('post-purchase') || 
-        callObjectiveType.includes('post purchase') ||
-        funnelStage.includes('purchased') || 
-        isConverted;
+        callObjectiveType.includes('already purchased') || 
+        funnelStage.includes('already purchased') || 
+        intentRating.includes('already purchased');
 
       const rawPrice = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
       const cartAmount = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
@@ -214,8 +211,8 @@ const AbcAggregatedDashboard = () => {
         city,
         region,
         intent,
-        storeExp,
-        callExp,
+        storeExp: customerExp, // Use same customer experience for both
+        callExp: customerExp,
         isAlreadyPurchased,
         cartAmount,
         agentName,

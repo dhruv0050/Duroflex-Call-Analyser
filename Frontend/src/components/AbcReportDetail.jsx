@@ -291,26 +291,25 @@ const AbcReportDetail = () => {
   // Extract data from analysis (NEW schema)
   const analysis = report.analysis || {};
   
-  // New schema fields
+  // New schema fields (ABC Cart Recovery)
   const metaData = analysis.MetaData || {};
   const callSummary = analysis.Call_Summary || '';
   const callObjective = analysis['1_Call_Objective'] || {};
   const intentToPurchase = analysis['2_Intent_to_Purchase'] || {};
-  const storeExperience = analysis['3_Store_Experience'] || {};
-  const callExperience = analysis['4_Call_Experience'] || {};
-  const funnelAnalysis = analysis['5_Funnel_Analysis'] || {};
-  const productIntelligence = analysis['6_Product_Intelligence'] || {};
-  const customerNeeds = analysis['7_Customer_Needs'] || {};
-  const purchaseBarriers = analysis['8_Purchase_Barriers'] || {};
-  const decisionMaker = analysis['9_Decision_Maker'] || '';
-  const invitations = analysis['10_Invitations'] || {};
-  const conversionHooks = analysis['11_Conversion_Hooks'] || {};
-  const relaxFramework = analysis['12_RELAX_Framework'] || {};
-  const agentEvaluation = analysis['13_Agent_Evaluation'] || {};
-  const agentLearnings = analysis['14_Agent_Learnings'] || [];
-  const nextActions = analysis['15_Next_Actions'] || '';
-  const npsData = analysis['16_End_to_end_NPS'] || {};
-  const transcript = analysis.Transcript_Log || [];
+  const customerExperience = analysis['3_Customer_Experience'] || {};
+  const funnelAnalysis = analysis['4_Funnel_Analysis'] || {};
+  const productIntelligence = analysis['5_Product_Intelligence'] || {};
+  const customerNeeds = analysis['6_Customer_Needs'] || {};
+  const purchaseBarrier = analysis['7_Purchase_Barrier'] || ''; // String, not object
+  const decisionMaker = analysis['8_Decision_Maker'] || '';
+  const invitations = analysis['9_Invitations'] || {};
+  const conversionHooks = analysis['10_Conversion_Hooks'] || {};
+  const relaxFramework = analysis['11_RELAX_Framework'] || {};
+  const agentEvaluation = analysis['12_Agent_Evaluation'] || {};
+  const agentLearnings = analysis['13_Agent_Learnings'] || [];
+  const nextActions = analysis['14_Next_Actions'] || '';
+  const npsData = analysis['15_End_to_End_NPS'] || {};
+  const transcript = analysis.Transcript_Log || '';
 
   // Old schema fallback
   const headerData = analysis.Header_Data || {};
@@ -355,8 +354,8 @@ const AbcReportDetail = () => {
   const funnelStage = funnelAnalysis.Stage || theVerdict.Funnel_Stage_AIDA || 'Consideration';
   const timelineToPurchase = funnelAnalysis.Timeline_to_Purchase || 'Unknown';
 
-  // Get barriers
-  const primaryBarrier = purchaseBarriers.On_Call || purchaseBarriers.At_Store || theVerdict.Primary_Barrier || 'Not Specified';
+  // Get barriers (7_Purchase_Barrier is a string in new schema)
+  const primaryBarrier = purchaseBarrier || theVerdict.Primary_Barrier || 'Not Specified';
 
   // Get intent ratings
   const purchaseIntentRating = intentToPurchase.Rating || theVerdict.Purchase_Intent || 'MEDIUM';
@@ -364,7 +363,7 @@ const AbcReportDetail = () => {
   
   // Map Call Experience from schema
   const getExperienceRating = () => {
-    if (callExperience.Rating) return callExperience.Rating;
+    if (customerExperience.Rating) return customerExperience.Rating;
     const csatScore = experienceSkills.CSAT_Score;
     if (csatScore) {
       if (csatScore >= 4) return 'High';
@@ -378,7 +377,7 @@ const AbcReportDetail = () => {
     return 'Medium';
   };
   const experienceRating = getExperienceRating();
-  const experienceReason = callExperience.Reason || experienceSkills.Sentiment_Reason || '';
+  const experienceReason = customerExperience.Reason || experienceSkills.Sentiment_Reason || '';
 
   // Get product info
   const narrowDownStage = productIntelligence.Narrow_Down_Stage || 'Category';
@@ -387,7 +386,7 @@ const AbcReportDetail = () => {
   const needsDescription = customerNeeds.Description || theVerdict.Recovery_Outcome_Description || summaryNarrative || 'No details available.';
 
   // Get invitations - map from Conversion_Attempts in old schema
-  const homeMeasurementData = invitations.Home_Measurement || oldConversionAttempts.Store_Visit || {};
+  const storeVisitData = invitations.Store_Visit || oldConversionAttempts.Store_Visit || {};
   const videoDemoData = invitations.Video_Demo || oldConversionAttempts.Video_Call || {};
   
   // Transform old schema Status to Rating format for display
@@ -401,8 +400,8 @@ const AbcReportDetail = () => {
   };
   
   const storeVisit = {
-    Rating: getInvitationRating(homeMeasurementData),
-    Reason: homeMeasurementData.Reason || homeMeasurementData.Details || 'No details available.'
+    Rating: getInvitationRating(storeVisitData),
+    Reason: storeVisitData.Reason || storeVisitData.Details || 'No details available.'
   };
   
   const videoDemo = {
@@ -419,16 +418,17 @@ const AbcReportDetail = () => {
     X: relaxFramework.X_Express_Closing || oldRelaxFramework.X_Express || {}
   };
 
-  // Get agent evaluation - map from Experience_and_Skills.Soft_Skills in old schema
+  // Get agent evaluation (12_Agent_Evaluation)
   const softSkillsData = experienceSkills.Soft_Skills || {};
   const mainSkills = agentEvaluation.Main_Skills || {
-    Sales_Skills: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'N/A',
-    Product_Knowledge: 'N/A',
-    Upsell_Revenue_Skills: 'N/A'
+    Product_Knowledge: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'Medium',
+    Sales_Skills: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'Medium',
+    Upsell_Revenue_Skills: 'Low'
   };
   const secondaryTraits = agentEvaluation.Secondary_Traits || {
-    Agent_Nature: experienceSkills.Customer_Sentiment || 'N/A',
-    Objection_Handling: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'N/A'
+    Need_Discovery: 'Medium',
+    Objection_Handling: softSkillsData.Objection_Handling_Score ? getRatingText(softSkillsData.Objection_Handling_Score) : 'Medium',
+    Agent_Nature: experienceSkills.Customer_Sentiment || 'Responsive'
   };
 
   // Get NPS
@@ -488,7 +488,7 @@ const AbcReportDetail = () => {
               onClick={playAudio}
               className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
             >
-              📞 LISTEN TO CALL
+            LISTEN TO CALL
             </button>
           </div>
         </div>
@@ -598,7 +598,7 @@ const AbcReportDetail = () => {
             <InfoCard 
               label="Purchase Timeline" 
               value={timelineToPurchase}
-              tooltip="Customer's expected purchase timeframe"
+              tooltip={funnelAnalysis.Timeline_to_Purchase_Reason || "Customer's expected purchase timeframe"}
             />
             <InfoCard 
               label="Funnel Stage" 
@@ -829,12 +829,14 @@ const AbcReportDetail = () => {
               <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
                 RELAX Framework
               </h2>
-              <span className={`text-4xl font-bold ${
-                parseFloat(getRelaxOverallRating(relax)) >= 2.5 ? 'text-green-600' : 
-                parseFloat(getRelaxOverallRating(relax)) >= 1.5 ? 'text-yellow-600' : 'text-red-600'
-              }`}>
-                {getRelaxOverallRating(relax) !== 'N/A' ? `${getRelaxOverallRating(relax)}/3` : 'N/A'}
-              </span>
+              <div className="text-right">
+                <span className={`text-4xl font-bold ${
+                  parseFloat(getRelaxOverallRating(relax)) >= 2.5 ? 'text-green-600' : 
+                  parseFloat(getRelaxOverallRating(relax)) >= 1.5 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {getRelaxOverallRating(relax) !== 'N/A' ? `${Math.round((parseFloat(getRelaxOverallRating(relax)) / 3) * 100)}%` : 'N/A'}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
