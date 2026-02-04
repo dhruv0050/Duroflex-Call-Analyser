@@ -113,48 +113,16 @@ def main():
     Main function - Add your admin credentials here
     """
     
-    # ============================================================
-    # ADD YOUR ADMIN CREDENTIALS HERE
-    # ============================================================
-    # Format: {'email': 'email@example.com', 'password': 'your_password', 'name': 'Full Name'}
-    # The 'name' field is optional - if not provided, a default name will be used
+  
     
     admin_credentials = [
-        {
-            'email': 'anup@duroflex.com',
-            'password': 'anup123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'mukul@duroflex.com',
-            'password': 'mukul123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'sudhanshu@duroflex.com',
-            'password': 'sudhanshu123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'yasir@duroflex.com',
-            'password': 'yasir123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'prashant@duroflex.com',
-            'password': 'prashant123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'admin@duroflex.com',
-            'password': 'admin123',
-            'name': 'Admin User'
-        },
-        {
-            'email': 'vishal@duroflex.com',
-            'password': 'vishal123',
-            'name': 'Admin User'
-        },
+        # Append your admin credentials here as dictionaries and to ingest multiple admins at once run this script as:
+        # cd Backend -> python create_admins.py 
+        # {
+        #     'email': 'example@example.com',
+        #     'password': 'examplepassword',
+        #     'name': 'Admin User'
+        # },
     ]
 
     
