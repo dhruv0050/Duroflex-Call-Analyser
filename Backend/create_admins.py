@@ -121,27 +121,42 @@ def main():
     
     admin_credentials = [
         {
-            'email': 'dhruvsh5467@gmail.com',
-            'password': 'duroflex123',
+            'email': 'anup@duroflex.com',
+            'password': 'anup123',
             'name': 'Admin User'
         },
         {
-            'email': 'manager@duroflex.com',
-            'password': 'manager456',
-            'name': 'Manager User'
+            'email': 'mukul@duroflex.com',
+            'password': 'mukul123',
+            'name': 'Admin User'
         },
         {
-            'email': 'supervisor@duroflex.com',
-            'password': 'super789',
-            'name': 'Supervisor User'
+            'email': 'sudhanshu@duroflex.com',
+            'password': 'sudhanshu123',
+            'name': 'Admin User'
         },
-        # Add more admin accounts below:
-        # {
-        #     'email': 'another_admin@duroflex.com',
-        #     'password': 'secure_password_here',
-        #     'name': 'Another Admin'
-        # },
+        {
+            'email': 'yasir@duroflex.com',
+            'password': 'yasir123',
+            'name': 'Admin User'
+        },
+        {
+            'email': 'prashant@duroflex.com',
+            'password': 'prashant123',
+            'name': 'Admin User'
+        },
+        {
+            'email': 'admin@duroflex.com',
+            'password': 'admin123',
+            'name': 'Admin User'
+        },
+        {
+            'email': 'vishal@duroflex.com',
+            'password': 'vishal123',
+            'name': 'Admin User'
+        },
     ]
+
     
     # ============================================================
     # Validate inputs
