@@ -540,7 +540,11 @@ const CallReportDetail = () => {
                   <span className="text-blue-600 text-3xl font-bold">{productIntelligence.Product_of_Interest || customer.Interest_Category || 'General'}</span>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-3 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Date</span>
+                    <span className="font-mono text-lg text-gray-900">{report.call_date || 'N/A'}</span>
+                  </div>
                   <div>
                     <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
                     <span className="font-mono text-lg text-gray-900">{formatDuration(report.duration_seconds)}</span>
@@ -1299,20 +1303,26 @@ const CallReportDetail = () => {
             </div>
 
             {expandTranscript && (
-              <div className="max-h-[600px] overflow-y-auto p-8 space-y-6 bg-gray-50">
-                {transcript.map((msg, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
-                    <span className="font-mono text-sm text-gray-500 min-w-16 pt-1">{msg.Timestamp || `${i + 1}`}</span>
-                    <div className="flex-1">
-                      <p className={`text-sm font-bold uppercase tracking-wider mb-2 ${
-                        msg.Speaker === 'Agent' ? 'text-blue-600' : 'text-green-600'
-                      }`}>
-                        {msg.Speaker}
-                      </p>
-                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
+              <div className="max-h-[600px] overflow-y-auto p-8 bg-gray-50">
+                {transcript.map((msg, i) => {
+                  const isAgent = msg.Speaker === 'Agent';
+                  return (
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                      <div className={`max-w-[75%] ${
+                        isAgent 
+                          ? 'bg-white border border-gray-200' 
+                          : 'bg-green-100 border border-green-200'
+                      } rounded-2xl px-4 py-3 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1 ${
+                          isAgent ? 'text-gray-600' : 'text-green-800'
+                        }`}>
+                          {msg.Speaker}
+                        </p>
+                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

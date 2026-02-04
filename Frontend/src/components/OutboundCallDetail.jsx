@@ -90,6 +90,7 @@ const OutboundCallDetail = () => {
   // Customer Name
   const customerName = pickMeaningful(metaData.Customer_Name, report.customer_phone, 'Walk-in Customer');
   const customerLocation = pickMeaningful(metaData.Customer_Location, report.store_name, 'Unknown Store');
+  const customerLanguage = pickMeaningful(metaData.Customer_Language, 'English');
   const considerationValue = pickMeaningful(metaData.Consideration_Value, 'Not Specified');
   const callQuality = pickMeaningful(metaData.Call_Quality_Overall, 'Medium');
   const callDuration = pickMeaningful(metaData.Call_Duration, formatDuration(report.duration || 0));
@@ -111,7 +112,8 @@ const OutboundCallDetail = () => {
   // Funnel
   const funnelStage = pickMeaningful(funnelAnalysis.Stage, pillar4Health.AIDA_Stage, 'Consideration');
   const funnelReason = pickMeaningful(funnelAnalysis.Reason, funnelAnalysis.reason, '');
-  const timelineToPurchase = pickMeaningful(funnelAnalysis.Timeline_to_Purchase, pillar2Diag.Timeline_Label, 'Unknown');
+  const timelineToPurchase = pickMeaningful(funnelAnalysis.Timeline_to_Purchase, pillar2Diag.Timeline_Label, 'Not Specified');
+  const timelineToPurchaseReason = pickMeaningful(funnelAnalysis.Timeline_to_Purchase_Reason, '');
 
   // Product Intelligence
   const narrowDownStage = pickMeaningful(productIntelligence.Narrow_Down_Stage, 'Category');
@@ -578,8 +580,8 @@ const OutboundCallDetail = () => {
               
               <div className="space-y-4 text-base">
                 <div>
-                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Store Location</span>
-                  <span className="text-gray-900 font-medium text-lg">{customerLocation}</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
+                  <span className="text-gray-900 font-medium text-lg">{customerLocation} • {customerLanguage}</span>
                 </div>
                 
                 <div>
@@ -631,7 +633,7 @@ const OutboundCallDetail = () => {
             <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, serif' }}>Recovery & Experience Audit</h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8">
             <InfoCard label="Intent to Purchase" value={intentRating} reason={intentReason} />
             <InfoCard label="Store Experience" value={storeExpRating} reason={storeExpReason} />
             <InfoCard label="Call Experience" value={callExpRating} reason={callExpReason} />
@@ -644,6 +646,16 @@ const OutboundCallDetail = () => {
               )}
               <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">Funnel Stage</p>
               <span className="text-2xl font-bold text-blue-600">{String(funnelStage || '').toUpperCase()}</span>
+            </div>
+            <div className="relative group bg-gray-50 border-2 border-gray-200 rounded-xl p-6 hover:border-blue-400 transition cursor-pointer">
+              {timelineToPurchaseReason && (
+                <div className="hidden group-hover:block absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-3 bg-gray-800 border border-gray-700 px-4 py-3 rounded-lg text-sm text-gray-100 whitespace-normal w-max max-w-xs z-50 shadow-xl">
+                  {timelineToPurchaseReason}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-800"></div>
+                </div>
+              )}
+              <p className="text-sm text-gray-600 font-bold uppercase tracking-wider mb-3">Timeline to Purchase</p>
+              <span className="text-2xl font-bold text-purple-600">{String(timelineToPurchase || 'Not Specified').toUpperCase()}</span>
             </div>
           </div>
 
@@ -950,19 +962,26 @@ const OutboundCallDetail = () => {
             </div>
 
             {expandTranscript && (
-              <div className="max-h-125 overflow-y-auto p-8 space-y-6">
-                {transcriptItems.map((msg, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
-                    <div className="flex-1">
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${
-                        msg.Speaker?.toLowerCase().includes('agent') ? 'text-blue-600' : 'text-emerald-600'
-                      }`}>
-                        {msg.Speaker}
-                      </p>
-                      <p className="text-base text-gray-700 leading-relaxed">{msg.Text}</p>
+              <div className="max-h-125 overflow-y-auto p-8 bg-gray-50">
+                {transcriptItems.map((msg, i) => {
+                  const isAgent = msg.Speaker?.toLowerCase().includes('agent');
+                  return (
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                      <div className={`max-w-[75%] ${
+                        isAgent 
+                          ? 'bg-white border border-gray-200' 
+                          : 'bg-green-100 border border-green-200'
+                      } rounded-2xl px-4 py-3 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1 ${
+                          isAgent ? 'text-gray-600' : 'text-green-800'
+                        }`}>
+                          {msg.Speaker}
+                        </p>
+                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

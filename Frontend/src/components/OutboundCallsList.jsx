@@ -85,7 +85,7 @@ const OutboundCallsList = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 999999; // Show all records
 
   // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
@@ -229,10 +229,10 @@ const OutboundCallsList = () => {
         if (!considerationValue.includes('k')) valueDisplay = '50k+';
       } else if (valLower.includes('25k') || valLower.includes('queen')) {
         valueBucket = '25k';
-        if (!considerationValue.includes('k')) valueDisplay = '25k - 50k';
+        if (!considerationValue.includes('k')) valueDisplay = '25k to 50k';
       } else if (valLower.includes('15k') || valLower.includes('double')) {
         valueBucket = '15k';
-        if (!considerationValue.includes('k')) valueDisplay = '15k - 25k';
+        if (!considerationValue.includes('k')) valueDisplay = '15k to 25k';
       } else if (valLower.includes('single') || valLower.includes('budget')) {
         valueBucket = 'low';
         if (!considerationValue.includes('k')) valueDisplay = 'Below 15k';
@@ -602,8 +602,8 @@ const OutboundCallsList = () => {
             >
               <option value="All">Consideration Value: All</option>
               <option value="50k">50k+</option>
-              <option value="25k">25k - 50k</option>
-              <option value="15k">15k - 25k</option>
+              <option value="25k">25k to 50k</option>
+              <option value="15k">15k to 25k</option>
               <option value="low">Below 15k</option>
             </select>
 
@@ -780,24 +780,8 @@ const OutboundCallsList = () => {
           {/* Pagination */}
           <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
             <p className="text-xs text-gray-500">
-              Showing <span className="font-bold">{filteredReports.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+              Showing <span className="font-bold">all {filteredReports.length}</span> results
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Prev
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Next
-              </button>
-            </div>
           </div>
         </div>
 

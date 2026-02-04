@@ -512,8 +512,8 @@ const AbcReportsList = () => {
             >
               <option value="All">Cart Value: All</option>
               <option value="50k">50k+</option>
-              <option value="25k">25k - 50k</option>
-              <option value="15k">15k - 25k</option>
+              <option value="25k">25k to 50k</option>
+              <option value="15k">15k to 25k</option>
               <option value="low">Below 15k</option>
             </select>
 

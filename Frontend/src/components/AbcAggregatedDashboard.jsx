@@ -343,7 +343,7 @@ const AbcAggregatedDashboard = () => {
           x: parseFloat(avgX),
         };
       })
-      .sort((a, b) => b.overall - a.overall);
+      .sort((a, b) => b.leads - a.leads);
 
     // City performance (intent distribution)
     const cityMap = {};
@@ -884,7 +884,14 @@ const AbcAggregatedDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {metrics.agentPerformance.map((agent) => (
-                  <tr key={agent.name} className="hover:bg-gray-50 transition">
+                  <tr 
+                    key={agent.name}
+                    onClick={() => navigateWithFilter(
+                      c => c.agentName === agent.name,
+                      `Agent: ${agent.name}`
+                    )}
+                    className="hover:bg-blue-50 transition cursor-pointer"
+                  >
                     <td className="p-4 flex items-center">
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-3 ${getAvatarColor(
@@ -973,7 +980,14 @@ const AbcAggregatedDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {metrics.cityPerformance.map((city) => (
-                  <tr key={city.name} className="hover:bg-gray-50 transition">
+                  <tr 
+                    key={city.name}
+                    onClick={() => navigateWithFilter(
+                      c => c.city === city.name,
+                      `City: ${city.name}`
+                    )}
+                    className="hover:bg-blue-50 transition cursor-pointer"
+                  >
                     <td className="p-4">
                       <div className="font-bold text-gray-900">{city.name}</div>
                     </td>

@@ -227,8 +227,8 @@ class GeminiAudioAnalyzer:
         audio_data: bytes,
         row_data: Dict[str, Any],
         prompt_template: str,
-        max_retries: int = 3,
-        retry_delay: int = 5,
+        max_retries: int = 5,
+        retry_delay: int = 10,
     ) -> Tuple[Optional[Dict], Optional[str]]:
         last_error = None
         for attempt in range(1, max_retries + 1):
@@ -237,8 +237,18 @@ class GeminiAudioAnalyzer:
                 return result, None
             last_error = error
             print(f"[GEMINI] Attempt {attempt}/{max_retries} failed: {error}")
+            
             if attempt < max_retries:
-                time.sleep(retry_delay * attempt)
+                # Special handling for 429 rate limit errors
+                if error and "429" in str(error):
+                    # Exponential backoff for rate limits: 30s, 60s, 120s, 240s
+                    wait_time = retry_delay * (2 ** attempt)
+                    print(f"[GEMINI] Rate limit hit (429), waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    # Regular exponential backoff for other errors
+                    wait_time = retry_delay * attempt
+                    time.sleep(wait_time)
         return None, f"All {max_retries} attempts failed: {last_error}"
 
 
@@ -599,8 +609,8 @@ class CallUploadProcessor:
                 audio_data=audio_data,
                 row_data=row_data,
                 prompt_template=self.prompt,
-                max_retries=3,
-                retry_delay=5
+                max_retries=5,
+                retry_delay=10
             )
 
             if gemini_error:
@@ -640,7 +650,7 @@ class CallUploadProcessor:
     def process_csv_file(
         self,
         csv_file_path: str,
-        rate_limit_delay: float = 2.0
+        rate_limit_delay: float = 10.0
     ) -> str:
         """
         Process entire CSV file.

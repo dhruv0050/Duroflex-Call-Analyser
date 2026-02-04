@@ -505,7 +505,7 @@ const OutboundAggregatedDashboard = () => {
         A: count > 0 ? (agent.totalA / count).toFixed(1) : 0,
         X: count > 0 ? (agent.totalX / count).toFixed(1) : 0
       };
-    }).sort((a, b) => parseFloat(b.overallScore) - parseFloat(a.overallScore));
+    }).sort((a, b) => b.leads - a.leads);
     
     // City performance
     const cityMap = {};
@@ -534,6 +534,7 @@ const OutboundAggregatedDashboard = () => {
     return {
       totalCalls,
       purchasedCount: purchasedCalls.length,
+      salesLeadsCount: totalCalls - purchasedCalls.length,
       highIntentCount: highIntentCalls.length,
       uniqueStores,
       matrix,
@@ -828,7 +829,7 @@ const OutboundAggregatedDashboard = () => {
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <h3 className="text-4xl font-bold text-emerald-600">{metrics.highIntentCount}</h3>
+            <h3 className="text-4xl font-bold text-emerald-600">{metrics.salesLeadsCount}</h3>
             <p className="text-xs text-gray-400">
               {metrics.totalCalls > 0 ? Math.round((metrics.highIntentCount / metrics.totalCalls) * 100) : 0}% High Intent Leads
             </p>
@@ -965,7 +966,14 @@ const OutboundAggregatedDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {metrics.agentPerformance.slice(0, 10).map((agent) => (
-                  <tr key={agent.name} className="hover:bg-gray-50 transition">
+                  <tr 
+                    key={agent.name} 
+                    onClick={() => navigateWithFilter(
+                      c => c.agentName === agent.name,
+                      `Agent: ${agent.name}`
+                    )}
+                    className="hover:bg-blue-50 transition cursor-pointer"
+                  >
                     <td className="p-4 flex items-center">
                       <div className={`w-8 h-8 rounded-full ${getAvatarColor(agent.name)} flex items-center justify-center font-bold text-xs mr-3`}>
                         {getInitials(agent.name)}
@@ -1027,7 +1035,14 @@ const OutboundAggregatedDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {metrics.cityPerformance.slice(0, 10).map((city) => (
-                  <tr key={city.city} className="hover:bg-gray-50 transition">
+                  <tr 
+                    key={city.city}
+                    onClick={() => navigateWithFilter(
+                      c => c.city === city.city,
+                      `City: ${city.city}`
+                    )}
+                    className="hover:bg-blue-50 transition cursor-pointer"
+                  >
                     <td className="p-4">
                       <div className="font-bold text-gray-900">{city.city}</div>
                     </td>

@@ -174,13 +174,19 @@ const CallAggregatedDashboard = () => {
       // Determine call type
       const callType = determineCallType(analysis);
 
-      // Price bucket from Consideration_Value
+      // Price bucket from Consideration_Value - standardized 4 buckets
       const considerationValue = metadata.Consideration_Value || '';
-      let priceBucket = 'Mid-Range';
-      if (considerationValue.toLowerCase().includes('premium') || considerationValue.toLowerCase().includes('high')) {
-        priceBucket = 'Premium';
-      } else if (considerationValue.toLowerCase().includes('budget') || considerationValue.toLowerCase().includes('low')) {
-        priceBucket = 'Budget';
+      const valLower = considerationValue.toLowerCase();
+      let priceBucket = '15k to 25k'; // Default mid-low
+      
+      if (valLower.includes('50k') || valLower.includes('premium') || valLower.includes('high') || valLower.includes('king')) {
+        priceBucket = '50k+';
+      } else if (valLower.includes('25k') || valLower.includes('queen')) {
+        priceBucket = '25k to 50k';
+      } else if (valLower.includes('15k') || valLower.includes('double')) {
+        priceBucket = '15k to 25k';
+      } else if (valLower.includes('budget') || valLower.includes('low') || valLower.includes('single')) {
+        priceBucket = 'Below 15k';
       }
 
       return {
@@ -306,9 +312,9 @@ const CallAggregatedDashboard = () => {
       })
       .sort((a, b) => b.overall - a.overall);
 
-    // Price Bucket Performance
+    // Price Bucket Performance - 4 standardized buckets
     const priceBuckets = {};
-    ['Premium', 'Mid-Range', 'Budget'].forEach((bucket) => {
+    ['50k+', '25k to 50k', '15k to 25k', 'Below 15k'].forEach((bucket) => {
       const bucketCalls = filteredCalls.filter((c) => c.priceBucket === bucket);
       if (bucketCalls.length > 0) {
         const avgScore = (metric) =>
@@ -591,15 +597,15 @@ const CallAggregatedDashboard = () => {
           </div>
 
           <div className="overflow-x-auto pb-4">
-            <div className="min-w-[1000px] grid grid-cols-[140px_repeat(3,minmax(0,1fr))] gap-4">
+            <div className="min-w-[1000px] grid grid-cols-[180px_repeat(3,minmax(0,1fr))] gap-4">
               {/* Headers */}
               <div></div>
-              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">High Experience</div>
-              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">Medium Experience</div>
-              <div className="text-center font-bold text-gray-500 text-sm uppercase tracking-wide pb-2">Low Experience</div>
+              <div className="text-center font-bold text-gray-500 text-base uppercase tracking-wide pb-2">High Experience</div>
+              <div className="text-center font-bold text-gray-500 text-base uppercase tracking-wide pb-2">Medium Experience</div>
+              <div className="text-center font-bold text-gray-500 text-base uppercase tracking-wide pb-2">Low Experience</div>
 
               {/* Row 1: High Intent */}
-              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">High Intent</div>
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-base">High Intent</div>
               {['High', 'Medium', 'Low'].map((exp) => (
                 <button
                   key={`high-${exp}`}
@@ -612,7 +618,7 @@ const CallAggregatedDashboard = () => {
               ))}
 
               {/* Row 2: Medium Intent */}
-              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Medium Intent</div>
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-base">Medium Intent</div>
               {['High', 'Medium', 'Low'].map((exp) => (
                 <button
                   key={`medium-${exp}`}
@@ -625,7 +631,7 @@ const CallAggregatedDashboard = () => {
               ))}
 
               {/* Row 3: Low Intent */}
-              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Low Intent</div>
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-base">Low Intent</div>
               {['High', 'Medium', 'Low'].map((exp) => (
                 <button
                   key={`low-${exp}`}
@@ -638,7 +644,7 @@ const CallAggregatedDashboard = () => {
               ))}
 
               {/* Row 4: Already Purchased */}
-              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-sm">Already Purchased</div>
+              <div className="flex items-center justify-end pr-6 font-bold text-gray-800 text-base">Already Purchased</div>
               {['High', 'Medium', 'Low'].map((exp) => (
                 <button
                   key={`purchased-${exp}`}
@@ -682,7 +688,7 @@ const CallAggregatedDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {metrics.storePerformance.map((store) => (
+                {metrics.storePerformance.sort((a, b) => b.totalCalls - a.totalCalls).map((store) => (
                   <tr
                     key={store.storeName}
                     onClick={() => navigateWithFilter((c) => c.store === store.storeName, `${store.storeName} calls`)}
@@ -743,71 +749,105 @@ const CallAggregatedDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {/* Premium */}
-                <tr className="hover:bg-gray-50 transition">
+                {/* 50k+ */}
+                <tr 
+                  onClick={() => navigateWithFilter((c) => c.priceBucket === '50k+', '50k+ price bucket calls')}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                >
                   <td className="p-4">
-                    <div className="font-bold text-gray-900">Premium (&gt;50k)</div>
+                    <div className="font-bold text-gray-900">50k+</div>
                     <div className="text-xs text-green-600 font-bold">High Focus</div>
                   </td>
                   <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
-                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets.Premium.overall)}`}>
-                      {metrics.priceBuckets.Premium.overall}
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['50k+'].overall)}`}>
+                      {metrics.priceBuckets['50k+'].overall}
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets.Premium.totalCalls}</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['50k+'].totalCalls}</span>
                   </td>
-                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets.Premium.nps}</td>
-                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets.Premium.cx}</td>
-                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets.Premium.r}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.e}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.l}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.a}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Premium.x}</td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['50k+'].nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['50k+'].cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['50k+'].r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['50k+'].e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['50k+'].l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['50k+'].a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['50k+'].x}</td>
                 </tr>
 
-                {/* Mid-Range */}
-                <tr className="hover:bg-gray-50 transition">
+                {/* 25k to 50k */}
+                <tr 
+                  onClick={() => navigateWithFilter((c) => c.priceBucket === '25k to 50k', '25k to 50k price bucket calls')}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                >
                   <td className="p-4">
-                    <div className="font-bold text-gray-900">Mid-Range (20k-50k)</div>
+                    <div className="font-bold text-gray-900">25k to 50k</div>
                   </td>
                   <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
-                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['Mid-Range'].overall)}`}>
-                      {metrics.priceBuckets['Mid-Range'].overall}
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['25k to 50k'].overall)}`}>
+                      {metrics.priceBuckets['25k to 50k'].overall}
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['Mid-Range'].totalCalls}</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['25k to 50k'].totalCalls}</span>
                   </td>
-                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['Mid-Range'].nps}</td>
-                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['Mid-Range'].cx}</td>
-                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['Mid-Range'].r}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].e}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].l}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].a}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Mid-Range'].x}</td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['25k to 50k'].nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['25k to 50k'].cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['25k to 50k'].r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['25k to 50k'].e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['25k to 50k'].l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['25k to 50k'].a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['25k to 50k'].x}</td>
                 </tr>
 
-                {/* Budget */}
-                <tr className="hover:bg-gray-50 transition">
+                {/* 15k to 25k */}
+                <tr 
+                  onClick={() => navigateWithFilter((c) => c.priceBucket === '15k to 25k', '15k to 25k price bucket calls')}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                >
                   <td className="p-4">
-                    <div className="font-bold text-gray-900">Budget (&lt;20k)</div>
+                    <div className="font-bold text-gray-900">15k to 25k</div>
                   </td>
                   <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
-                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets.Budget.overall)}`}>
-                      {metrics.priceBuckets.Budget.overall}
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['15k to 25k'].overall)}`}>
+                      {metrics.priceBuckets['15k to 25k'].overall}
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets.Budget.totalCalls}</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['15k to 25k'].totalCalls}</span>
                   </td>
-                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets.Budget.nps}</td>
-                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets.Budget.cx}</td>
-                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets.Budget.r}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.e}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.l}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.a}</td>
-                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets.Budget.x}</td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['15k to 25k'].nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['15k to 25k'].cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['15k to 25k'].r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['15k to 25k'].e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['15k to 25k'].l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['15k to 25k'].a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['15k to 25k'].x}</td>
+                </tr>
+
+                {/* Below 15k */}
+                <tr 
+                  onClick={() => navigateWithFilter((c) => c.priceBucket === 'Below 15k', 'Below 15k price bucket calls')}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                >
+                  <td className="p-4">
+                    <div className="font-bold text-gray-900">Below 15k</div>
+                  </td>
+                  <td className="p-4 text-center bg-gray-50 border-l border-r border-gray-100">
+                    <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-bold text-base border ${getScorePillClass(metrics.priceBuckets['Below 15k'].overall)}`}>
+                      {metrics.priceBuckets['Below 15k'].overall}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{metrics.priceBuckets['Below 15k'].totalCalls}</span>
+                  </td>
+                  <td className="p-4 text-center text-gray-900 font-bold">{metrics.priceBuckets['Below 15k'].nps}</td>
+                  <td className="p-4 text-center text-gray-900">{metrics.priceBuckets['Below 15k'].cx}</td>
+                  <td className="p-4 text-center border-l border-gray-100 text-gray-600">{metrics.priceBuckets['Below 15k'].r}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Below 15k'].e}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Below 15k'].l}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Below 15k'].a}</td>
+                  <td className="p-4 text-center text-gray-600">{metrics.priceBuckets['Below 15k'].x}</td>
                 </tr>
               </tbody>
             </table>

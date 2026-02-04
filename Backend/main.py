@@ -419,7 +419,7 @@ async def upload_audio_csv(file: UploadFile = File(...)):
             processor = CallUploadProcessor(api_key=api_key)
 
             # Start processing (returns job_id immediately)
-            job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=2.0)
+            job_id = processor.process_csv_file(csv_file_path=temp_path, rate_limit_delay=15.0)
 
             # Save processed calls to MongoDB and JSON backup
             processed_calls = processor.get_processed_calls()

@@ -288,7 +288,7 @@ const CallReportsList = () => {
   function formatPotentialValue(val) {
     if (!val || val === 'N/A') return 'N/A';
     const str = String(val).toLowerCase();
-    if (str.includes('budget')) return 'Budget Range';
+    if (str.includes('budget')) return 'Below 15k';
     if (str.includes('premium')) return '50k+';
     if (str.includes('50k') || str.includes('50000')) return '50k+';
     if (str.includes('25k') || str.includes('25000')) return '25k to 50k';
@@ -296,10 +296,12 @@ const CallReportsList = () => {
     // Check for range like "45000-67000"
     const rangeMatch = val.match(/(\d+)-(\d+)/);
     if (rangeMatch) {
-      const low = parseInt(rangeMatch[1]) / 1000;
-      const high = parseInt(rangeMatch[2]) / 1000;
-      if (high >= 50) return '50k+';
-      return `${Math.round(low)}k to ${Math.round(high)}k`;
+      const low = parseInt(rangeMatch[1]);
+      const high = parseInt(rangeMatch[2]);
+      if (high >= 50000) return '50k+';
+      if (high >= 25000) return '25k to 50k';
+      if (high >= 15000) return '15k to 25k';
+      return 'Below 15k';
     }
     return val;
   }
@@ -566,7 +568,6 @@ const CallReportsList = () => {
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Store</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -668,13 +669,6 @@ const CallReportsList = () => {
                               No
                             </span>
                           )}
-                        </td>
-                        
-                        {/* Action */}
-                        <td className="px-4 py-3">
-                          <span className="text-blue-600 font-bold text-xs uppercase pointer-events-none">
-                            View
-                          </span>
                         </td>
                       </tr>
                     );

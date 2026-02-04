@@ -382,7 +382,7 @@ class OutboundCallUploadProcessor:
     "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
     "Consideration_Value": "String (e.g. 'Premium Range' or 'Budget')",
     "Call_Quality_Overall": "High | Medium | Low",
-    "Call_Duration": "String",
+    "Call_Duration": "String(Format : MM:SS)",
     "Connected_to_Customer": true,
     "Customer_Enthusiasm": "High | Medium | Low"
   },

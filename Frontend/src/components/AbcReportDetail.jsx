@@ -1078,16 +1078,21 @@ const AbcReportDetail = () => {
                   // Render parsed lines
                   return lines.map((line, i) => {
                     const isAgent = line.speaker === 'Agent';
-                    const bgColor = isAgent ? 'bg-blue-50' : 'bg-green-50';
-                    const borderColor = isAgent ? 'border-l-blue-500' : 'border-l-green-500';
-                    const textColor = isAgent ? 'text-blue-700' : 'text-green-700';
                     
                     return (
-                      <div key={i} className={`${bgColor} border-l-4 ${borderColor} p-4 rounded-r-lg`}>
-                        <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${textColor}`}>
-                          {line.speaker}
-                        </p>
-                        <p className="text-base text-gray-800 leading-relaxed">{line.text}</p>
+                      <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                        <div className={`max-w-[75%] ${
+                          isAgent 
+                            ? 'bg-white border border-gray-200' 
+                            : 'bg-green-100 border border-green-200'
+                        } rounded-2xl px-4 py-3 shadow-sm`}>
+                          <p className={`text-xs font-semibold mb-1 ${
+                            isAgent ? 'text-gray-600' : 'text-green-800'
+                          }`}>
+                            {line.speaker}
+                          </p>
+                          <p className="text-base text-gray-800 leading-relaxed">{line.text}</p>
+                        </div>
                       </div>
                     );
                   });
@@ -1095,19 +1100,21 @@ const AbcReportDetail = () => {
               ) : Array.isArray(transcript) && transcript.length > 0 ? (
                 transcript.map((msg, i) => {
                   const isAgent = msg.Speaker === 'Agent';
-                  const bgColor = isAgent ? 'bg-blue-50' : 'bg-green-50';
-                  const borderColor = isAgent ? 'border-l-blue-500' : 'border-l-green-500';
-                  const textColor = isAgent ? 'text-blue-700' : 'text-green-700';
                   
                   return (
-                    <div key={i} className={`${bgColor} border-l-4 ${borderColor} p-4 rounded-r-lg`}>
-                      {msg.Timestamp && (
-                        <span className="font-mono text-xs text-gray-500 mr-3">{msg.Timestamp}</span>
-                      )}
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${textColor}`}>
-                        {msg.Speaker}
-                      </p>
-                      <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                      <div className={`max-w-[75%] ${
+                        isAgent 
+                          ? 'bg-white border border-gray-200' 
+                          : 'bg-green-100 border border-green-200'
+                      } rounded-2xl px-4 py-3 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1 ${
+                          isAgent ? 'text-gray-600' : 'text-green-800'
+                        }`}>
+                          {msg.Speaker}
+                        </p>
+                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                      </div>
                     </div>
                   );
                 })
