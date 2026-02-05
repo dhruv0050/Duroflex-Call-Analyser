@@ -145,6 +145,12 @@ const GmbAggregatedDashboard = () => {
     if (!allCalls.length) return [];
 
     return allCalls.map((report) => {
+      // Filter out calls with duration < 30 seconds
+      const durationSeconds = report.duration_seconds;
+      if (durationSeconds !== null && durationSeconds !== undefined && durationSeconds < 30) {
+        return null;
+      }
+
       const analysis = report.analysis || {};
       const metadata = analysis.MetaData || {};
       const relax = analysis['11_RELAX_Framework'] || {};
@@ -209,7 +215,7 @@ const GmbAggregatedDashboard = () => {
           x: xScore,
         },
       };
-    });
+    }).filter(Boolean);
   }, [allCalls]);
 
   // Get unique regions

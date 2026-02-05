@@ -328,20 +328,25 @@ const StoreWalkinAggregatedDashboard = () => {
   };
 
   const parseDurationToSeconds = (secondsValue, durationText) => {
+    // Prioritize Call_Duration (formatted string) over raw duration field for accuracy
+    if (durationText) {
+      const text = String(durationText).trim();
+      if (text.includes(':')) {
+        const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 3) {
+          // HH:MM:SS format
+          return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+        }
+        if (parts.length === 2) {
+          // MM:SS format
+          return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+        }
+      }
+      if (text.match(/^\d+$/)) return parseInt(text, 10);
+    }
+    // Fallback to raw duration value
     if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
     if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
-    if (!durationText) return null;
-    const text = String(durationText).trim();
-    if (text.includes(':')) {
-      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
-      if (parts.length === 3) {
-        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
-      }
-      if (parts.length === 2) {
-        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
-      }
-    }
-    if (text.match(/^\d+$/)) return parseInt(text, 10);
     return null;
   };
 
@@ -685,7 +690,7 @@ const StoreWalkinAggregatedDashboard = () => {
                 <ArrowRight className="w-3 h-3" />
               </Link>
               <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
-                Walk-in Recovery Analytics
+                Store Walk-in Recovery Analytics
               </h1>
               <p className="text-sm text-gray-500 mt-1">Central Sales Follow-up on Store Walk-outs</p>
             </div>

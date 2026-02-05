@@ -207,9 +207,32 @@ const AbcReportsList = () => {
       
       // Cart value bucket for filtering
       let cartValueBucket = 'low';
-      if (rawCartValue >= 50000 || considerationValue.includes('50k')) cartValueBucket = '50k';
-      else if (rawCartValue >= 25000 || considerationValue.includes('25k')) cartValueBucket = '25k';
-      else if (rawCartValue >= 15000 || considerationValue.includes('15k')) cartValueBucket = '15k';
+      const valLower = considerationValue.toLowerCase();
+      
+      // "Unknown" and "N/A" go to 'low' bucket (Below 15k)
+      if (valLower === 'unknown' || considerationValue === 'N/A') {
+        cartValueBucket = 'low';
+      }
+      // 50k+ bucket: check for exact "50k+", "50k", or numeric >= 50000
+      else if (valLower === '50k+' || valLower === '50k' || rawCartValue >= 50000 || valLower.includes('premium') || valLower.includes('king')) {
+        cartValueBucket = '50k';
+      }
+      // 25k-50k bucket: check for exact "25k-50k" (has both 25 and 50), or numeric >= 25000 but < 50000
+      else if (valLower === '25k-50k' || (valLower.includes('25') && valLower.includes('50')) || (rawCartValue >= 25000 && rawCartValue < 50000) || valLower.includes('queen')) {
+        cartValueBucket = '25k';
+      }
+      // 15k-25k bucket: check for exact "15k-25k" (has both 15 and 25), or numeric >= 15000 but < 25000
+      else if (valLower === '15k-25k' || (valLower.includes('15') && valLower.includes('25')) || (rawCartValue >= 15000 && rawCartValue < 25000) || valLower.includes('double')) {
+        cartValueBucket = '15k';
+      }
+      // Below 15k bucket: numeric < 15000 or keywords
+      else if (rawCartValue > 0 && rawCartValue < 15000 || valLower.includes('single') || valLower.includes('budget') || valLower.includes('below')) {
+        cartValueBucket = 'low';
+      }
+      // Default: any unrecognized value goes to low
+      else {
+        cartValueBucket = 'low';
+      }
       
       return {
         ...report,

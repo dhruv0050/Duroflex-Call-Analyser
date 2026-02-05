@@ -91,7 +91,8 @@ const StoreWalkinReportDetail = () => {
   const customerName = pickMeaningful(metaData.Customer_Name, report.customer_phone, 'Walk-in Customer');
   const customerLocation = pickMeaningful(metaData.Customer_Location, report.store_name, 'Unknown Store');
   const customerLanguage = pickMeaningful(metaData.Customer_Language, 'English');
-  const considerationValue = pickMeaningful(metaData.Consideration_Value, 'Not Specified');
+  // Keep "Unknown" and "N/A" for Consideration Value (don't filter them out)
+  const considerationValue = metaData.Consideration_Value || 'Not Specified';
   const callQuality = pickMeaningful(metaData.Call_Quality_Overall, 'Medium');
   const callDuration = pickMeaningful(metaData.Call_Duration, formatDuration(report.duration || 0));
   const customerEnthusiasm = pickMeaningful(metaData.Customer_Enthusiasm, 'Medium');

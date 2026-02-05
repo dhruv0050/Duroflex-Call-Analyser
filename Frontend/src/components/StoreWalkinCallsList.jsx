@@ -228,18 +228,35 @@ const StoreWalkinCallsList = () => {
       let valueDisplay = considerationValue;
       let valueBucket = 'low';
       const valLower = considerationValue.toLowerCase();
-      if (valLower.includes('50k') || valLower.includes('premium') || valLower.includes('king')) {
+      // "Unknown" and "N/A" go to 'low' bucket (Below 15k)
+      if (valLower === 'unknown' || considerationValue === 'N/A') {
+        valueBucket = 'low';
+        valueDisplay = considerationValue;
+      }
+      // 50k+ bucket: check for exact "50k+", "50k", or patterns matching 50k
+      else if (valLower === '50k+' || valLower === '50k' || valLower.startsWith('50') || valLower.includes('premium') || valLower.includes('king')) {
         valueBucket = '50k';
         if (!considerationValue.includes('k')) valueDisplay = '50k+';
-      } else if (valLower.includes('25k') || valLower.includes('queen')) {
+      }
+      // 25k-50k bucket: check for exact "25k-50k" (has both 25 and 50), or just "25k"
+      else if (valLower === '25k-50k' || (valLower.includes('25') && valLower.includes('50')) || valLower === '25k' || valLower.includes('queen')) {
         valueBucket = '25k';
         if (!considerationValue.includes('k')) valueDisplay = '25k to 50k';
-      } else if (valLower.includes('15k') || valLower.includes('double')) {
+      }
+      // 15k-25k bucket: check for exact "15k-25k" (has both 15 and 25), or just "15k"
+      else if (valLower === '15k-25k' || (valLower.includes('15') && valLower.includes('25')) || valLower === '15k' || valLower.includes('double')) {
         valueBucket = '15k';
         if (!considerationValue.includes('k')) valueDisplay = '15k to 25k';
-      } else if (valLower.includes('single') || valLower.includes('budget')) {
+      }
+      // Below 15k bucket: single/budget keywords
+      else if (valLower.includes('single') || valLower.includes('budget') || valLower.includes('below')) {
         valueBucket = 'low';
         if (!considerationValue.includes('k')) valueDisplay = 'Below 15k';
+      }
+      // Default: any other unrecognized value goes to low
+      else {
+        valueBucket = 'low';
+        valueDisplay = considerationValue;
       }
       
       // Extract city from store name or use region
@@ -398,20 +415,25 @@ const StoreWalkinCallsList = () => {
   }
 
   function parseDurationToSeconds(secondsValue, durationText) {
+    // Prioritize Call_Duration (formatted string) over raw duration field for accuracy
+    if (durationText) {
+      const text = String(durationText).trim();
+      if (text.includes(':')) {
+        const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 3) {
+          // HH:MM:SS format
+          return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+        }
+        if (parts.length === 2) {
+          // MM:SS format
+          return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+        }
+      }
+      if (text.match(/^\d+$/)) return parseInt(text, 10);
+    }
+    // Fallback to raw duration value
     if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
     if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
-    if (!durationText) return null;
-    const text = String(durationText).trim();
-    if (text.includes(':')) {
-      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
-      if (parts.length === 3) {
-        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
-      }
-      if (parts.length === 2) {
-        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
-      }
-    }
-    if (text.match(/^\d+$/)) return parseInt(text, 10);
     return null;
   }
 
@@ -749,8 +771,8 @@ const StoreWalkinCallsList = () => {
                         
                         {/* Consideration Value */}
                         <td className="px-4 py-3 text-center">
-                          <span className={`text-sm ${report.valueDisplay === 'N/A' || report.leadType === 'Post Purchase' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
-                            {report.leadType === 'Post Purchase' ? 'N/A' : report.valueDisplay}
+                          <span className={`text-sm ${report.valueDisplay === 'N/A' || report.valueDisplay === 'Unknown' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.valueDisplay}
                           </span>
                         </td>
                         

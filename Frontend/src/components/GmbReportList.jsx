@@ -117,6 +117,12 @@ const GmbReportList = () => {
     return reports.map(report => {
       const analysis = report.analysis || {};
       
+      // Filter out calls with duration < 30 seconds
+      const durationSeconds = report.duration_seconds;
+      if (durationSeconds !== null && durationSeconds !== undefined && durationSeconds < 30) {
+        return null;
+      }
+      
       // Extract fields using new schema paths with fallbacks
       const callObjectiveType = getField(analysis, '1_Call_Objective.Type', 'Functional.Call_Objective_Theme') || '';
       const intent = getField(analysis, '2_Intent_to_Purchase.Rating', 'Customer_Information.Intent_to_Purchase_Rating') || 'Medium';
@@ -180,7 +186,7 @@ const GmbReportList = () => {
         invitedToStore,
         isPurchased
       };
-    });
+    }).filter(Boolean);
   }, [reports]);
 
   // Get unique regions and stores for filters
