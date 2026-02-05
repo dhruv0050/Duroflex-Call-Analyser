@@ -418,7 +418,7 @@ class OutboundCallUploadProcessor:
   "5_Funnel_Analysis": {
         "Stage": "Awareness | Consideration | Action | Already Purchased",
         "Reason": "String (REQUIRED - evidence-based reasoning for the stage)",
-    "Timeline_to_Purchase": "Immediate | Short Term | Long Term | Unknown",
+    "Timeline_to_Purchase": "Immediate (2-3 days) | Short Term (within a week) | Long Term (more than a week) | Unknown (unclear)",
     "Timeline_to_Purchase_Reason": "String (REQUIRED - evidence based reasoning)"
   },
   "6_Product_Intelligence": {
