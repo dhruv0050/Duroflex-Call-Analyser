@@ -82,10 +82,6 @@ const AbcReportsList = () => {
   const [selectedIntent, setSelectedIntent] = useState('All');
   const [timeRange, setTimeRange] = useState('30');
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
   // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
   const filterDescription = location.state?.filterDescription;
@@ -123,6 +119,7 @@ const AbcReportsList = () => {
       const callObjectiveType = getField(analysis, '1_Call_Objective.Type') || '';
       const intent = getField(analysis, '2_Intent_to_Purchase.Rating') || 'Medium';
       const customerExp = getField(analysis, '3_Customer_Experience.Rating') || 'Medium';
+      const funnelStage = getField(analysis, '4_Funnel_Analysis.Stage') || '';
       const region = metadata.Call_Region || report.region || 'Unknown';
       const customerCity = metadata.Customer_Location || report.city || 'Unknown';
       
@@ -150,8 +147,9 @@ const AbcReportsList = () => {
         leadType = 'Recovery';
       }
       
-      // Check if already purchased
-      const isPurchased = objType.includes('already purchased') || objType.includes('post purchase') || rawData.is_Converted === 1;
+      // Check if already purchased - ONLY check funnel stage (bought BEFORE call), NOT is_Converted (bought AFTER call)
+      const funnelStageLower = funnelStage.toLowerCase();
+      const isPurchased = funnelStageLower.includes('already purchased');
       
       // Determine invited to store (High/Medium = Yes, Low = No)
       let invitedToStore = 'No';
@@ -194,50 +192,69 @@ const AbcReportsList = () => {
         }
       }
       
-      // Format cart value for display
+      // Format cart value for display - PRIORITIZE metadata.Consideration_Value over raw price
       let cartValueDisplay = 'N/A';
-      if (rawCartValue > 0) {
+      if (considerationValue && considerationValue !== 'N/A' && considerationValue.toLowerCase() !== 'unknown') {
+        // Use metadata Consideration_Value if available and meaningful
+        cartValueDisplay = considerationValue;
+      } else if (rawCartValue > 0) {
+        // Fallback to calculating from raw price
         if (rawCartValue >= 50000) cartValueDisplay = '50k+';
         else if (rawCartValue >= 25000) cartValueDisplay = '25k - 50k';
         else if (rawCartValue >= 15000) cartValueDisplay = '15k to 25k';
         else cartValueDisplay = 'Below 15k';
-      } else if (considerationValue) {
-        cartValueDisplay = considerationValue;
       }
       
-      // Cart value bucket for filtering
+      // Cart value bucket for filtering - PRIORITIZE metadata over raw price
       let cartValueBucket = 'low';
       const valLower = considerationValue.toLowerCase();
       
-      // "Unknown" and "N/A" go to 'low' bucket (Below 15k)
-      if (valLower === 'unknown' || considerationValue === 'N/A') {
-        cartValueBucket = 'low';
+      // If we have a meaningful Consideration_Value from metadata, use it for bucketing
+      if (considerationValue && valLower !== 'unknown' && considerationValue !== 'N/A') {
+        // 50k+ bucket: check for exact "50k+", "50k"
+        if (valLower === '50k+' || valLower === '50k' || valLower.includes('premium') || valLower.includes('king')) {
+          cartValueBucket = '50k';
+        }
+        // 25k-50k bucket: check for exact "25k-50k" (has both 25 and 50)
+        else if (valLower === '25k-50k' || (valLower.includes('25') && valLower.includes('50')) || valLower.includes('queen')) {
+          cartValueBucket = '25k';
+        }
+        // 15k-25k bucket: check for exact "15k-25k" (has both 15 and 25)
+        else if (valLower === '15k-25k' || (valLower.includes('15') && valLower.includes('25')) || valLower.includes('double')) {
+          cartValueBucket = '15k';
+        }
+        // Below 15k bucket: keywords
+        else if (valLower.includes('single') || valLower.includes('budget') || valLower.includes('below')) {
+          cartValueBucket = 'low';
+        }
+        // Default for unrecognized metadata values
+        else {
+          cartValueBucket = 'low';
+        }
+      } else {
+        // Fallback to raw numeric value if no meaningful metadata
+        if (rawCartValue >= 50000) {
+          cartValueBucket = '50k';
+        } else if (rawCartValue >= 25000 && rawCartValue < 50000) {
+          cartValueBucket = '25k';
+        } else if (rawCartValue >= 15000 && rawCartValue < 25000) {
+          cartValueBucket = '15k';
+        } else {
+          cartValueBucket = 'low';
+        }
       }
-      // 50k+ bucket: check for exact "50k+", "50k", or numeric >= 50000
-      else if (valLower === '50k+' || valLower === '50k' || rawCartValue >= 50000 || valLower.includes('premium') || valLower.includes('king')) {
-        cartValueBucket = '50k';
-      }
-      // 25k-50k bucket: check for exact "25k-50k" (has both 25 and 50), or numeric >= 25000 but < 50000
-      else if (valLower === '25k-50k' || (valLower.includes('25') && valLower.includes('50')) || (rawCartValue >= 25000 && rawCartValue < 50000) || valLower.includes('queen')) {
-        cartValueBucket = '25k';
-      }
-      // 15k-25k bucket: check for exact "15k-25k" (has both 15 and 25), or numeric >= 15000 but < 25000
-      else if (valLower === '15k-25k' || (valLower.includes('15') && valLower.includes('25')) || (rawCartValue >= 15000 && rawCartValue < 25000) || valLower.includes('double')) {
-        cartValueBucket = '15k';
-      }
-      // Below 15k bucket: numeric < 15000 or keywords
-      else if (rawCartValue > 0 && rawCartValue < 15000 || valLower.includes('single') || valLower.includes('budget') || valLower.includes('below')) {
-        cartValueBucket = 'low';
-      }
-      // Default: any unrecognized value goes to low
-      else {
-        cartValueBucket = 'low';
+      
+      // Determine display intent - show "Already Purchased" for those calls
+      let intentDisplay = normalizeRating(intent);
+      if (funnelStageLower.includes('already purchased')) {
+        intentDisplay = 'Already Purchased';
       }
       
       return {
         ...report,
         callObjectiveType,
         intent: normalizeRating(intent),
+        intentDisplay, // Use intentDisplay for rendering (shows "Already Purchased" when applicable)
         customerExp: normalizeRating(customerExp),
         region,
         customerCity,
@@ -279,8 +296,8 @@ const AbcReportsList = () => {
       result = result.filter(r => r.cartValueBucket === selectedCartValue);
     }
 
-    // Time filter
-    if (timeRange !== 'all') {
+    // Time filter (skip when external filterIds are provided)
+    if (timeRange !== 'all' && !(filterIds && Array.isArray(filterIds) && filterIds.length > 0)) {
       const days = parseInt(timeRange, 10);
       const cutoff = new Date();
       cutoff.setHours(0, 0, 0, 0);
@@ -312,8 +329,12 @@ const AbcReportsList = () => {
   const kpis = useMemo(() => {
     const total = filteredReports.length;
     const highIntent = filteredReports.filter(r => r.intent === 'High' && !r.isPurchased).length;
-    const salesLeads = filteredReports.filter(r => r.leadType === 'Sales Lead' || r.leadType === 'Recovery').length;
-    const postPurchase = filteredReports.filter(r => r.leadType === 'Post-Sales' || r.isPurchased).length;
+    
+    // Count post-purchase calls (already purchased before the call)
+    const postPurchase = filteredReports.filter(r => r.isPurchased).length;
+    
+    // Count sales leads (all calls that are NOT already purchased)
+    const salesLeads = filteredReports.filter(r => !r.isPurchased).length;
     
     return {
       total,
@@ -323,13 +344,10 @@ const AbcReportsList = () => {
     };
   }, [filteredReports]);
 
-  // Pagination
+  // Show all reports without pagination
   const paginatedReports = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredReports.slice(start, start + itemsPerPage);
-  }, [filteredReports, currentPage]);
-
-  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+    return filteredReports;
+  }, [filteredReports]);
 
   // Reset filters
   const handleResetFilters = () => {
@@ -337,7 +355,6 @@ const AbcReportsList = () => {
     setSelectedCartValue('All');
     setTimeRange('30');
     setSelectedIntent('All');
-    setCurrentPage(1);
     // Clear external filter
     if (filterIds) {
       navigate('/abc-outbound-calls', { replace: true });
@@ -529,7 +546,7 @@ const AbcReportsList = () => {
             {/* Region */}
             <select
               value={selectedRegion}
-              onChange={(e) => { setSelectedRegion(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSelectedRegion(e.target.value)}
               className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               style={{
                 backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -543,10 +560,10 @@ const AbcReportsList = () => {
               ))}
             </select>
 
-            {/* Cart Value */}
+            {/* Consideration Value */}
             <select
               value={selectedCartValue}
-              onChange={(e) => { setSelectedCartValue(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSelectedCartValue(e.target.value)}
               className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               style={{
                 backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -555,7 +572,7 @@ const AbcReportsList = () => {
                 backgroundSize: '1.5em 1.5em'
               }}
             >
-              <option value="All">Cart Value: All</option>
+              <option value="All">Consideration Value: All</option>
               <option value="50k">50k+</option>
               <option value="25k">25k to 50k</option>
               <option value="15k">15k to 25k</option>
@@ -565,7 +582,7 @@ const AbcReportsList = () => {
             {/* Purchase Intent */}
             <select
               value={selectedIntent}
-              onChange={(e) => { setSelectedIntent(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setSelectedIntent(e.target.value)}
               className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               style={{
                 backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -584,7 +601,7 @@ const AbcReportsList = () => {
             {/* Time */}
             <select
               value={timeRange}
-              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => setTimeRange(e.target.value)}
               className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               style={{
                 backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -622,7 +639,7 @@ const AbcReportsList = () => {
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer City</th>
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Cart Value</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Consideration Value</th>
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Purchase Intent</th>
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
                   <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Invited to<br/>Store</th>
@@ -682,7 +699,7 @@ const AbcReportsList = () => {
                           </span>
                         </td>
                         
-                        {/* Cart Value */}
+                        {/* Consideration Value */}
                         <td className="px-4 py-3 text-center">
                           <span className={`text-sm ${report.cartValueDisplay === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
                             {report.cartValueDisplay}
@@ -692,8 +709,8 @@ const AbcReportsList = () => {
                         {/* Purchase Intent */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center">
-                            <span className={`h-2 w-2 rounded-full mr-2 ${report.isPurchased ? 'bg-red-500' : getIntentDotColor(report.intent)}`}></span>
-                            <span className="font-bold text-gray-700 text-sm">{report.isPurchased ? 'N/A' : report.intent}</span>
+                            <span className={`h-2 w-2 rounded-full mr-2 ${report.intentDisplay === 'Already Purchased' ? 'bg-purple-500' : getIntentDotColor(report.intent)}`}></span>
+                            <span className="font-bold text-gray-700 text-sm">{report.intentDisplay}</span>
                           </div>
                         </td>
                         
@@ -739,27 +756,11 @@ const AbcReportsList = () => {
             </table>
           </div>
           
-          {/* Pagination */}
-          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+          {/* Results count */}
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
             <p className="text-xs text-gray-500">
-              Showing <span className="font-bold">{filteredReports.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+              Showing <span className="font-bold">{filteredReports.length}</span> {filteredReports.length === 1 ? 'result' : 'results'}
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Prev
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Next
-              </button>
-            </div>
           </div>
         </div>
 

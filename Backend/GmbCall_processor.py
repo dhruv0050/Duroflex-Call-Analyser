@@ -120,7 +120,7 @@ class AudioDownloader:
 class GeminiAudioAnalyzer:
     """Analyzes audio calls using Gemini API."""
 
-    def __init__(self, api_key: str, model: str = "gemini-3-pro-preview"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-pro"):
         self.model_name = model
         self.api_key = api_key
 

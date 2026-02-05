@@ -156,7 +156,7 @@ const AbcReportDetail = () => {
     const expSkills = analysis.Experience_and_Skills || {};
     
     const headers = [
-      'Call ID', 'Agent Name', 'Phone', 'City', 'Cart Value', 'Call Date',
+      'Call ID', 'Agent Name', 'Phone', 'City', 'Consideration Value', 'Call Date',
       'Lead Status', 'Recovery Outcome', 'Primary Barrier', 'Purchase Intent', 'Funnel Stage',
       'RELAX R Score', 'RELAX E Score', 'RELAX L Score', 'RELAX A Score', 'RELAX X Score',
       'CSAT Score', 'Customer Sentiment'
@@ -328,8 +328,23 @@ const AbcReportDetail = () => {
     metaData.Agent_Name ||
     'Unknown Agent';
 
-  // Get cart value
-  const cartValue = report.raw_data?.['Lineitem price'] || metaData.Consideration_Value || 'N/A';
+  // Get cart value - PRIORITIZE metadata.Consideration_Value over raw price
+  const considerationValueFromMeta = metaData.Consideration_Value || '';
+  const rawCartPrice = report.raw_data?.['Lineitem price'] || 0;
+  
+  // Use metadata if available and meaningful, otherwise use raw price
+  let cartValue = 'N/A';
+  let cartValueDisplay = 'N/A';
+  
+  if (considerationValueFromMeta && considerationValueFromMeta !== 'N/A' && considerationValueFromMeta.toLowerCase() !== 'unknown') {
+    // Metadata has meaningful value - use it
+    cartValue = considerationValueFromMeta;
+    cartValueDisplay = considerationValueFromMeta;
+  } else if (rawCartPrice > 0) {
+    // Fallback to raw price
+    cartValue = rawCartPrice;
+    cartValueDisplay = getCartValueBracket(rawCartPrice);
+  }
 
   // Get customer info
   const customerName = metaData.Customer_Name || theVerdict.Customer_Name || 'Customer';
@@ -501,7 +516,7 @@ const AbcReportDetail = () => {
               Abandoned Cart Recovery
             </h1>
             <p className="text-base text-gray-500 mt-2">
-              {objectiveType} • Agent: {agentName} • Cart Value: ₹{Number(cartValue).toLocaleString('en-IN') || 'N/A'}
+              {objectiveType} • Agent: {agentName} • Consideration Value: ₹{Number(cartValue).toLocaleString('en-IN') || 'N/A'}
             </p>
           </div>
           
@@ -527,8 +542,8 @@ const AbcReportDetail = () => {
                 </div>
                 
                 <div>
-                  <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Cart Value</span>
-                  <span className="text-blue-600 text-3xl font-bold">{getCartValueBracket(cartValue)}</span>
+                  <span className="text-xs text-blue-600 uppercase tracking-wider font-bold block mb-1">Consideration Value</span>
+                  <span className="text-blue-600 text-3xl font-bold">{cartValueDisplay}</span>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4 pt-2">

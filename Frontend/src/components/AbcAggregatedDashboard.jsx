@@ -118,21 +118,46 @@ const AbcAggregatedDashboard = () => {
   };
 
   const parseDurationToSeconds = (secondsValue, durationText) => {
+    if (durationText) {
+      const text = String(durationText).trim();
+      if (text.includes(':')) {
+        const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 3) {
+          return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+        }
+        if (parts.length === 2) {
+          return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+        }
+      }
+      if (text.match(/^\d+$/)) return parseInt(text, 10);
+    }
     if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
     if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
-    if (!durationText) return null;
-    const text = String(durationText).trim();
-    if (text.includes(':')) {
-      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
-      if (parts.length === 3) {
-        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
-      }
-      if (parts.length === 2) {
-        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
-      }
-    }
-    if (text.match(/^\d+$/)) return parseInt(text, 10);
     return null;
+  };
+
+  const parseReportDate = (report) => {
+    const rawDate = report?.call_date || report?.raw_data?.Date || report?.processed_at || report?.raw_data?.CallStartDateTime || '';
+    if (!rawDate) return null;
+    try {
+      if (String(rawDate).includes('T')) {
+        const dt = new Date(rawDate);
+        return isNaN(dt.getTime()) ? null : dt;
+      }
+      if (String(rawDate).includes('-')) {
+        const parts = String(rawDate).split('-');
+        if (parts[0].length === 2) {
+          const dt = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          return isNaN(dt.getTime()) ? null : dt;
+        }
+        const dt = new Date(rawDate);
+        return isNaN(dt.getTime()) ? null : dt;
+      }
+      const dt = new Date(rawDate);
+      return isNaN(dt.getTime()) ? null : dt;
+    } catch (err) {
+      return null;
+    }
   };
 
   // Map cities/states to regions - comprehensive mapping for all Indian states
@@ -195,14 +220,9 @@ const AbcAggregatedDashboard = () => {
       const intent = normalizeIntent(intentData.Rating);
       const customerExp = normalizeExperience(customerExpData.Rating); // Use customer experience as both store and call
 
-      // Check if already purchased (customer bought BEFORE this call, not after)
-      const callObjectiveType = String(callObjective.Type || '').toLowerCase();
+      // Check if already purchased - ONLY check funnel stage (bought BEFORE call)
       const funnelStage = String(funnelData.Stage || '').toLowerCase();
-      const intentRating = String(intentData.Rating || '').toLowerCase();
-      const isAlreadyPurchased = 
-        callObjectiveType.includes('already purchased') || 
-        funnelStage.includes('already purchased') || 
-        intentRating.includes('already purchased');
+      const isAlreadyPurchased = funnelStage.includes('already purchased');
 
       const rawPrice = rawData['Lineitem price'] || rawData.Lineitem_price || 0;
       const cartAmount = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
@@ -219,6 +239,7 @@ const AbcAggregatedDashboard = () => {
       if (durationSeconds !== null && durationSeconds < 30) {
         return null;
       }
+      const callDate = parseReportDate(report);
 
       // NPS
       const nps = npsData.Score !== undefined ? npsData.Score : 7;
@@ -241,6 +262,7 @@ const AbcAggregatedDashboard = () => {
         agentName,
         nps,
         overallRelax: parseFloat(overallRelax),
+        callDate,
         scores: {
           r: rScore,
           e: eScore,
@@ -281,14 +303,27 @@ const AbcAggregatedDashboard = () => {
 
     // Intent filter
     if (selectedIntent !== 'All') {
-      filtered = filtered.filter((c) => c.intent === selectedIntent);
+      if (selectedIntent === 'Purchased') {
+        filtered = filtered.filter((c) => c.isAlreadyPurchased);
+      } else {
+        filtered = filtered.filter((c) => c.intent === selectedIntent && !c.isAlreadyPurchased);
+      }
     }
 
-    // Time range filter (simplified - limit count)
-    if (timeRange === '7') {
-      filtered = filtered.slice(-7);
-    } else if (timeRange === '30') {
-      filtered = filtered.slice(-30);
+    // Time range filter (date-based)
+    if (timeRange !== 'all') {
+      const days = parseInt(timeRange, 10);
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - days);
+
+      filtered = filtered.filter((c) => {
+        if (!c.callDate) return false;
+        const dt = new Date(c.callDate);
+        if (isNaN(dt.getTime())) return false;
+        dt.setHours(0, 0, 0, 0);
+        return dt >= cutoff;
+      });
     }
 
     return filtered;
@@ -634,6 +669,7 @@ const AbcAggregatedDashboard = () => {
                 <option value="High">High</option>
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
+                <option value="Purchased">Already Purchased</option>
               </select>
 
               {/* Time */}

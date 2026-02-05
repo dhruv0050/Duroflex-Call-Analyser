@@ -20,7 +20,7 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME_LITE = os.getenv("MODEL_LITE", "gemini-flash-lite-latest")
-MODEL_NAME_FULL = os.getenv("MODEL", "gemini-3-pro-preview")
+MODEL_NAME_FULL = os.getenv("MODEL", "gemini-2.5-pro")
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
