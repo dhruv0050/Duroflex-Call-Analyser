@@ -80,6 +80,7 @@ const AbcReportsList = () => {
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [selectedCartValue, setSelectedCartValue] = useState('All');
   const [selectedIntent, setSelectedIntent] = useState('All');
+  const [selectedCallExp, setSelectedCallExp] = useState('All');
   const [timeRange, setTimeRange] = useState('30');
 
   // External filter from aggregated dashboard
@@ -296,6 +297,11 @@ const AbcReportsList = () => {
       result = result.filter(r => r.cartValueBucket === selectedCartValue);
     }
 
+    // Call Experience filter
+    if (selectedCallExp !== 'All') {
+      result = result.filter(r => r.customerExp === selectedCallExp);
+    }
+
     // Time filter (skip when external filterIds are provided)
     if (timeRange !== 'all' && !(filterIds && Array.isArray(filterIds) && filterIds.length > 0)) {
       const days = parseInt(timeRange, 10);
@@ -323,7 +329,7 @@ const AbcReportsList = () => {
     }
 
     return result;
-  }, [processedReports, filterIds, selectedRegion, selectedCartValue, timeRange, selectedIntent]);
+  }, [processedReports, filterIds, selectedRegion, selectedCartValue, selectedCallExp, timeRange, selectedIntent]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -353,6 +359,7 @@ const AbcReportsList = () => {
   const handleResetFilters = () => {
     setSelectedRegion('All');
     setSelectedCartValue('All');
+    setSelectedCallExp('All');
     setTimeRange('30');
     setSelectedIntent('All');
     // Clear external filter
@@ -596,6 +603,24 @@ const AbcReportsList = () => {
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
               <option value="Purchased">Already Purchased</option>
+            </select>
+
+            {/* Call Experience */}
+            <select
+              value={selectedCallExp}
+              onChange={(e) => setSelectedCallExp(e.target.value)}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Call Experience: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
             </select>
 
             {/* Time */}

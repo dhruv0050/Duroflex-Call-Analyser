@@ -81,6 +81,8 @@ const StoreWalkinCallsList = () => {
   const [selectedStore, setSelectedStore] = useState('All');
   const [selectedValue, setSelectedValue] = useState('All');
   const [selectedIntent, setSelectedIntent] = useState('All');
+  const [selectedCallExp, setSelectedCallExp] = useState('All');
+  const [selectedStoreExp, setSelectedStoreExp] = useState('All');
   const [timeRange, setTimeRange] = useState('30');
 
   // Pagination
@@ -324,6 +326,16 @@ const StoreWalkinCallsList = () => {
       result = result.filter(r => r.valueBucket === selectedValue);
     }
 
+    // Call Experience filter
+    if (selectedCallExp !== 'All') {
+      result = result.filter(r => r.callExp === selectedCallExp);
+    }
+
+    // Store Visit Experience filter
+    if (selectedStoreExp !== 'All') {
+      result = result.filter(r => r.storeExp === selectedStoreExp);
+    }
+
     // Time filter
     if (timeRange !== 'all') {
       const days = parseInt(timeRange, 10);
@@ -350,7 +362,7 @@ const StoreWalkinCallsList = () => {
     }
 
     return result;
-  }, [processedReports, filterIds, selectedRegion, selectedStore, selectedValue, timeRange, selectedIntent]);
+  }, [processedReports, filterIds, selectedRegion, selectedStore, selectedValue, selectedCallExp, selectedStoreExp, timeRange, selectedIntent]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -380,6 +392,8 @@ const StoreWalkinCallsList = () => {
     setSelectedRegion('All');
     setSelectedStore('All');
     setSelectedValue('All');
+    setSelectedCallExp('All');
+    setSelectedStoreExp('All');
     setTimeRange('30');
     setSelectedIntent('All');
     setCurrentPage(1);
@@ -668,6 +682,42 @@ const StoreWalkinCallsList = () => {
               <option value="Med">Medium</option>
               <option value="Low">Low</option>
               <option value="Purchased">Already Purchased</option>
+            </select>
+
+            {/* Call Experience */}
+            <select
+              value={selectedCallExp}
+              onChange={(e) => { setSelectedCallExp(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Call Experience: All</option>
+              <option value="High">High</option>
+              <option value="Med">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
+            {/* Store Visit Experience */}
+            <select
+              value={selectedStoreExp}
+              onChange={(e) => { setSelectedStoreExp(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Store Visit Exp: All</option>
+              <option value="Good">Good</option>
+              <option value="Avg">Average</option>
+              <option value="Poor">Poor</option>
             </select>
 
             {/* Time */}
