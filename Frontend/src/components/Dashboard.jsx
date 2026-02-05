@@ -14,6 +14,40 @@ const normalizeIntent = (rating) => {
   return 'Medium';
 };
 
+const parseDurationToSeconds = (secondsValue, durationText) => {
+  if (durationText) {
+    const text = String(durationText).trim();
+    if (text.includes(':')) {
+      const parts = text.split(':').map((p) => p.trim()).filter(Boolean);
+      if (parts.length === 3) {
+        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+      }
+      if (parts.length === 2) {
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+      }
+    }
+    if (text.match(/^\d+$/)) return parseInt(text, 10);
+  }
+  if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
+  if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
+  return null;
+};
+
+const getReportDurationSeconds = (report) => {
+  const analysis = report?.analysis || report?.analysis_data || {};
+  const metaData = analysis.MetaData || analysis.metaData || {};
+  const durationText = metaData.Call_Duration || report?.call_duration || report?.Call_Duration || null;
+  const secondsValue = report?.duration_seconds ?? report?.duration ?? report?.durationSeconds ?? report?.duration_sec ?? null;
+  return parseDurationToSeconds(secondsValue, durationText);
+};
+
+const filterByDuration = (reports) =>
+  (reports || []).filter((report) => {
+    const durationSeconds = getReportDurationSeconds(report);
+    if (durationSeconds === null || durationSeconds === undefined) return true;
+    return durationSeconds >= 30;
+  });
+
 const deriveType = (objective) => {
   const text = (objective || '').toLowerCase();
   const serviceKeywords = ['service', 'support', 'issue', 'complaint', 'warranty', 'return'];
@@ -162,7 +196,8 @@ const Dashboard = () => {
   }, []);
 
   const audioMetrics = useMemo(() => {
-    const calls = audioReports.map((report) => {
+    const visibleReports = filterByDuration(audioReports);
+    const calls = visibleReports.map((report) => {
       const analysis = report.analysis || {};
       const functional = analysis.Functional || {};
       const customer = analysis.Customer_Information || {};
@@ -194,12 +229,13 @@ const Dashboard = () => {
       salesShare: total ? Math.round((sales / total) * 100) : 0,
       serviceShare: total ? Math.round((service / total) * 100) : 0,
       storeList: Array.from(stores),
-      latest: getLatestDateStr(audioReports),
+      latest: getLatestDateStr(visibleReports),
     };
   }, [audioReports]);
 
   const videoMetrics = useMemo(() => {
-    const calls = videoReports.map((report) => {
+    const visibleReports = filterByDuration(videoReports);
+    const calls = visibleReports.map((report) => {
       const analysis = report.analysis_data || {};
       const functional = analysis.Functional || {};
       const customer = analysis.Customer_Information || {};
@@ -229,12 +265,13 @@ const Dashboard = () => {
       salesShare: total ? Math.round((sales / total) * 100) : 0,
       serviceShare: total ? Math.round((service / total) * 100) : 0,
       storeList: Array.from(stores),
-      latest: getLatestDateStr(videoReports),
+      latest: getLatestDateStr(visibleReports),
     };
   }, [videoReports]);
 
   const outboundMetrics = useMemo(() => {
-    const calls = outboundReports.map((report) => {
+    const visibleReports = filterByDuration(outboundReports);
+    const calls = visibleReports.map((report) => {
       const analysis = report.analysis || {};
       const pillar1 = analysis.Pillar_1_Customer_Intent_and_Barriers || {};
       
@@ -257,7 +294,7 @@ const Dashboard = () => {
       coverage: total ? Math.round((analyzed / total) * 100) : 0,
       conversionRate: outboundStats?.conversion_rate || 0,
       storeList: Array.from(stores),
-      latest: getLatestDateStr(outboundReports),
+      latest: getLatestDateStr(visibleReports),
     };
   }, [outboundReports, outboundStats]);
 
@@ -273,8 +310,9 @@ const Dashboard = () => {
     // So `abcReports` state contains only ANALYSED calls (Pre-Purchase).
     // But `abcStats` contains the counts for both.
 
-    const totalAnalysed = abcReports.length; // Actually analysed
-    const totalProcessed = abcStats?.total_processed || totalAnalysed; // Total uploaded/processed
+    const visibleReports = filterByDuration(abcReports);
+    const totalAnalysed = visibleReports.length; // Visible (>=30s)
+    const totalProcessed = totalAnalysed;
 
     return {
       total: totalProcessed,
@@ -282,7 +320,7 @@ const Dashboard = () => {
       discarded: abcStats?.total_discarded || 0,
       coverage: totalProcessed ? Math.round((totalAnalysed / totalProcessed) * 100) : 0,
       conversionRate: abcStats?.conversion_rate || 0, // Placeholder if we had conversion logic
-      latest: getLatestDateStr(abcReports),
+      latest: getLatestDateStr(visibleReports),
     };
   }, [abcReports, abcStats]);
 
