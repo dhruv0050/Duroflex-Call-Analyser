@@ -79,12 +79,14 @@ const GmbReportList = () => {
   // Filter states
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [selectedStore, setSelectedStore] = useState('All');
+  const [selectedValue, setSelectedValue] = useState('All');
+  const [selectedCustomerExp, setSelectedCustomerExp] = useState('All');
   const [timeRange, setTimeRange] = useState('30');
   const [selectedIntent, setSelectedIntent] = useState('All');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 999999; // Show all records
 
   // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
@@ -112,6 +114,48 @@ const GmbReportList = () => {
     navigate('/');
   };
 
+  // Helper functions (defined before useMemo that uses them)
+  function normalizeRating(val) {
+    if (!val) return 'Medium';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str === 'H') return 'High';
+    if (str.includes('LOW') || str === 'L') return 'Low';
+    return 'Medium';
+  }
+
+  function formatConsiderationValue(val) {
+    if (!val || val === 'N/A') return { display: 'N/A', bucket: 'low' };
+    const str = String(val).toLowerCase();
+    
+    // Check for exact metadata values first
+    if (str === '50k+' || str === '50k') return { display: '50k+', bucket: '50k' };
+    if (str === '25k-50k' || str === '25k to 50k') return { display: '25k to 50k', bucket: '25k' };
+    if (str === '15k-25k' || str === '15k to 25k') return { display: '15k to 25k', bucket: '15k' };
+    if (str === 'below 15k' || str.includes('below')) return { display: 'Below 15k', bucket: 'low' };
+    
+    // Pattern matching
+    if (str.includes('premium') || str.includes('king')) return { display: '50k+', bucket: '50k' };
+    if (str.includes('50k') || str.includes('50000') || str.startsWith('50')) return { display: '50k+', bucket: '50k' };
+    if (str.includes('queen') || (str.includes('25') && str.includes('50'))) return { display: '25k to 50k', bucket: '25k' };
+    if (str.includes('25k') || str.includes('25000')) return { display: '25k to 50k', bucket: '25k' };
+    if (str.includes('double') || (str.includes('15') && str.includes('25'))) return { display: '15k to 25k', bucket: '15k' };
+    if (str.includes('15k') || str.includes('15000')) return { display: '15k to 25k', bucket: '15k' };
+    if (str.includes('single') || str.includes('budget')) return { display: 'Below 15k', bucket: 'low' };
+    
+    // Check for range like "45000-67000"
+    const rangeMatch = val.match(/(\d+)-(\d+)/);
+    if (rangeMatch) {
+      const high = parseInt(rangeMatch[2]);
+      if (high >= 50000) return { display: '50k+', bucket: '50k' };
+      if (high >= 25000) return { display: '25k to 50k', bucket: '25k' };
+      if (high >= 15000) return { display: '15k to 25k', bucket: '15k' };
+      return { display: 'Below 15k', bucket: 'low' };
+    }
+    
+    // Default: keep original value
+    return { display: val, bucket: 'low' };
+  }
+
   // Process reports with extracted fields
   const processedReports = useMemo(() => {
     return reports.map(report => {
@@ -125,12 +169,15 @@ const GmbReportList = () => {
       
       // Extract fields using new schema paths with fallbacks
       const callObjectiveType = getField(analysis, '1_Call_Objective.Type', 'Functional.Call_Objective_Theme') || '';
-      const intent = getField(analysis, '2_Intent_to_Purchase.Rating', 'Customer_Information.Intent_to_Purchase_Rating') || 'Medium';
+      const intentRating = getField(analysis, '2_Intent_to_Purchase.Rating', 'Customer_Information.Intent_to_Purchase_Rating') || 'Medium';
       const customerExp = getField(analysis, '3_Customer_Experience.Rating', 'Customer_Information.Customer_Satisfaction_Score') || 'Medium';
       const callObjective = getField(analysis, '1_Call_Objective.Objective_Phrase', 'Functional.Call_Objective_Theme') || 'N/A';
-      const potentialValue = getField(analysis, '5_Product_Intelligence.Approx_Order_Value', 'MetaData.Consideration_Value') || 'N/A';
       const storeVisitRating = getField(analysis, '9_Invitations.Store_Visit.Rating', 'Agent_Areas.The_Invitation_to_Visit.Attempted') || 'Low';
       const region = getField(analysis, 'MetaData.Call_Region') || report.region || 'Unknown';
+      
+      // Get consideration value from metadata (prioritize metadata over product intelligence)
+      const metadata = analysis.MetaData || {};
+      const considerationValue = metadata.Consideration_Value || getField(analysis, '5_Product_Intelligence.Approx_Order_Value') || 'N/A';
       
       // Determine lead type
       let leadType = 'Sales Lead';
@@ -139,8 +186,16 @@ const GmbReportList = () => {
         leadType = 'Post-Sales';
       }
       
-      // Check if already purchased
-      const isPurchased = objType.includes('already purchased') || objType.includes('post purchase');
+      // Check if already purchased by examining funnel stage
+      const funnelStage = getField(analysis, '4_Funnel_Analysis.Stage', 'Customer_Information.Customer_Stage_AIDA') || '';
+      const funnelStageLower = funnelStage.toLowerCase();
+      const isPurchased = funnelStageLower.includes('already purchased');
+      
+      // Normalize intent for display
+      let intent = normalizeRating(intentRating);
+      if (isPurchased) {
+        intent = 'Already Purchased';
+      }
       
       // Determine invited to store
       let invitedToStore = 'No';
@@ -174,15 +229,19 @@ const GmbReportList = () => {
       }
       if (!callDate) callDate = new Date();
       
+      // Format consideration value for display and bucket
+      const valueData = formatConsiderationValue(considerationValue);
+      
       return {
         ...report,
         callDate,
         region,
         leadType,
-        intent: normalizeRating(intent),
+        intent,
         customerExp: normalizeRating(customerExp),
         callObjective,
-        potentialValue: formatPotentialValue(potentialValue),
+        considerationValue: valueData.display,
+        valueBucket: valueData.bucket,
         invitedToStore,
         isPurchased
       };
@@ -220,6 +279,16 @@ const GmbReportList = () => {
       result = result.filter(r => r.store_name === selectedStore);
     }
 
+    // Consideration value filter
+    if (selectedValue !== 'All') {
+      result = result.filter(r => r.valueBucket === selectedValue);
+    }
+
+    // Customer Experience filter
+    if (selectedCustomerExp !== 'All') {
+      result = result.filter(r => r.customerExp === selectedCustomerExp);
+    }
+
     // Time filter
     if (timeRange !== 'all') {
       const days = parseInt(timeRange);
@@ -244,7 +313,7 @@ const GmbReportList = () => {
     }
 
     return result;
-  }, [processedReports, filterIds, selectedRegion, selectedStore, timeRange, selectedIntent]);
+  }, [processedReports, filterIds, selectedRegion, selectedStore, selectedValue, selectedCustomerExp, timeRange, selectedIntent]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -273,6 +342,8 @@ const GmbReportList = () => {
   const handleResetFilters = () => {
     setSelectedRegion('All');
     setSelectedStore('All');
+    setSelectedValue('All');
+    setSelectedCustomerExp('All');
     setTimeRange('30');
     setSelectedIntent('All');
     setCurrentPage(1);
@@ -281,36 +352,6 @@ const GmbReportList = () => {
       navigate('/Gmb_Inbound', { replace: true });
     }
   };
-
-  // Helper functions
-  function normalizeRating(val) {
-    if (!val) return 'Medium';
-    const str = String(val).toUpperCase().trim();
-    if (str.includes('HIGH') || str === 'H') return 'High';
-    if (str.includes('LOW') || str === 'L') return 'Low';
-    return 'Medium';
-  }
-
-  function formatPotentialValue(val) {
-    if (!val || val === 'N/A') return 'N/A';
-    const str = String(val).toLowerCase();
-    if (str.includes('budget')) return 'Below 15k';
-    if (str.includes('premium')) return '50k+';
-    if (str.includes('50k') || str.includes('50000')) return '50k+';
-    if (str.includes('25k') || str.includes('25000')) return '25k to 50k';
-    if (str.includes('15k') || str.includes('15000')) return '15k to 25k';
-    // Check for range like "45000-67000"
-    const rangeMatch = val.match(/(\d+)-(\d+)/);
-    if (rangeMatch) {
-      const low = parseInt(rangeMatch[1]);
-      const high = parseInt(rangeMatch[2]);
-      if (high >= 50000) return '50k+';
-      if (high >= 25000) return '25k to 50k';
-      if (high >= 15000) return '15k to 25k';
-      return 'Below 15k';
-    }
-    return val;
-  }
 
   function formatDuration(seconds) {
     if (!seconds) return '00:00';
@@ -508,6 +549,43 @@ const GmbReportList = () => {
               ))}
             </select>
 
+            {/* Consideration Value */}
+            <select
+              value={selectedValue}
+              onChange={(e) => { setSelectedValue(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Consideration Value: All</option>
+              <option value="50k">50k+</option>
+              <option value="25k">25k to 50k</option>
+              <option value="15k">15k to 25k</option>
+              <option value="low">Below 15k</option>
+            </select>
+
+            {/* Customer Experience */}
+            <select
+              value={selectedCustomerExp}
+              onChange={(e) => { setSelectedCustomerExp(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="All">Customer Exp: All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
             {/* Time */}
             <select
               value={timeRange}
@@ -569,7 +647,7 @@ const GmbReportList = () => {
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Potential Value</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Consideration Value</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Intent</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
                   <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
@@ -627,10 +705,10 @@ const GmbReportList = () => {
                           </span>
                         </td>
                         
-                        {/* Potential Value */}
+                        {/* Consideration Value */}
                         <td className="px-4 py-3">
-                          <span className={`text-sm ${report.potentialValue === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
-                            {report.potentialValue}
+                          <span className={`text-sm ${report.considerationValue === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.considerationValue}
                           </span>
                         </td>
                         
@@ -687,24 +765,8 @@ const GmbReportList = () => {
           {/* Pagination */}
           <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
             <p className="text-xs text-gray-500">
-              Showing <span className="font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+              Showing <span className="font-bold">all {filteredReports.length}</span> results
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Prev
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Next
-              </button>
-            </div>
           </div>
         </div>
 
