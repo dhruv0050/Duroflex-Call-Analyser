@@ -185,7 +185,7 @@ const StoreWalkinCallsList = () => {
       // Normalize intent for display
       let intent = normalizeRating(intentRating);
       if (isPurchased) {
-        intent = 'N/A';
+        intent = 'Already Purchased';
       }
       
       // Determine measurement hook used (High/Medium = Yes, Low = No)
