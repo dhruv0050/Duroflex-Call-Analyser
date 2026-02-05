@@ -92,7 +92,7 @@ const InfoCard = ({ label, value, valueColor, tooltip, children }) => {
   );
 };
 
-const CallReportDetail = () => {
+const GmbReportDetail = () => {
   const { callId } = useParams();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -364,7 +364,7 @@ const CallReportDetail = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4 text-lg">{error || 'Report not found'}</p>
-          <Link to="/GmbCalls" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
+          <Link to="/Gmb_Inbound" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Reports
           </Link>
         </div>
@@ -378,7 +378,7 @@ const CallReportDetail = () => {
   if (hasError) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
-        <Link to="/GmbCalls" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6">
+        <Link to="/Gmb_Inbound" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6">
           <ArrowLeft className="w-4 h-4" /> Back to Reports
         </Link>
         <div className="max-w-4xl mx-auto bg-white border-2 border-gray-200 rounded-xl p-8 shadow-lg">
@@ -479,7 +479,7 @@ const CallReportDetail = () => {
         {/* Navigation */}
         <div className="flex items-center justify-between mb-10">
           <Link 
-            to="/GmbCalls" 
+            to="/Gmb_Inbound" 
             className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide"
           >
             ← BACK TO STORE CALLS
@@ -1356,4 +1356,4 @@ const CallReportDetail = () => {
   );
 };
 
-export default CallReportDetail;
+export default GmbReportDetail;

@@ -3,18 +3,18 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import CallAggregatedDashboard from './components/CallAggregatedDashboard';
-import CallReportsList from './components/CallReportsList';
-import CallReportDetail from './components/CallReportDetail';
+import GmbAggregatedDashboard from './components/GmbAggregatedDashboard';
+import GmbReportList from './components/GmbReportList';
+import GmbReportDetail from './components/GmbReportDetail';
 import AudioCallUpload from './components/AudioCallUpload';
 import VideoCallsList from './components/VideoCallsList';
 import VideoCallDetail from './components/VideoCallDetail';
 import VideoAggregatedDashboard from './components/VideoAggregatedDashboard';
 import VideoCallUpload from './components/VideoCallUpload';
-import OutboundCallsList from './components/OutboundCallsList';
+import StoreWalkinCallsList from './components/StoreWalkinCallsList';
 import OutboundCallUpload from './components/OutboundCallUpload';
-import OutboundCallDetail from './components/OutboundCallDetail';
-import OutboundAggregatedDashboard from './components/OutboundAggregatedDashboard';
+import StoreWalkinReportDetail from './components/StoreWalkinReportDetail';
+import StoreWalkinAggregatedDashboard from './components/StoreWalkinAggregatedDashboard';
 import AbcCallUpload from './components/AbcCallUpload';
 import AbcReportsList from './components/AbcReportsList';
 import AbcReportDetail from './components/AbcReportDetail';
@@ -39,28 +39,28 @@ function App() {
 
 
           {/* GMB Audio Call Reports Routes */}
-          <Route path="/GmbCalls" element={<ProtectedRoute><CallReportsList /></ProtectedRoute>} />
-          <Route path="/GmbCalls/upload" element={<ProtectedRoute><AudioCallUpload /></ProtectedRoute>} />
-          <Route path="/GmbCalls/:callId" element={<ProtectedRoute><CallReportDetail /></ProtectedRoute>} />
-          <Route path="/GmbCalls/analytics" element={<ProtectedRoute><CallAggregatedDashboard /></ProtectedRoute>} />
+          <Route path="/Gmb_Inbound" element={<ProtectedRoute><GmbReportList /></ProtectedRoute>} />
+          <Route path="/Gmb_Inbound/upload" element={<ProtectedRoute><AudioCallUpload /></ProtectedRoute>} />
+          <Route path="/Gmb_Inbound/:callId" element={<ProtectedRoute><GmbReportDetail /></ProtectedRoute>} />
+          <Route path="/Gmb_Inbound/analytics" element={<ProtectedRoute><GmbAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Video Call Reports Routes */}
-          <Route path="/video-reports" element={<ProtectedRoute><VideoCallsList /></ProtectedRoute>} />
-          <Route path="/video-reports/upload" element={<ProtectedRoute><VideoCallUpload /></ProtectedRoute>} />
-          <Route path="/video-reports/:reportId" element={<ProtectedRoute><VideoCallDetail /></ProtectedRoute>} />
-          <Route path="/video-reports/analytics" element={<ProtectedRoute><VideoAggregatedDashboard /></ProtectedRoute>} />
+          <Route path="/popins-inbound" element={<ProtectedRoute><VideoCallsList /></ProtectedRoute>} />
+          <Route path="/popins-inbound/upload" element={<ProtectedRoute><VideoCallUpload /></ProtectedRoute>} />
+          <Route path="/popins-inbound/:reportId" element={<ProtectedRoute><VideoCallDetail /></ProtectedRoute>} />
+          <Route path="/popins-inbound/analytics" element={<ProtectedRoute><VideoAggregatedDashboard /></ProtectedRoute>} />
 
-          {/* Outbound Call Reports Routes */}
-          <Route path="/outbound-calls" element={<ProtectedRoute><OutboundCallsList /></ProtectedRoute>} />
-          <Route path="/outbound-calls/upload" element={<ProtectedRoute><OutboundCallUpload /></ProtectedRoute>} />
-          <Route path="/outbound-calls/:callId" element={<ProtectedRoute><OutboundCallDetail /></ProtectedRoute>} />
-                    <Route path="/outbound-calls/analytics" element={<ProtectedRoute><OutboundAggregatedDashboard /></ProtectedRoute>} />
+          {/* Outbound (Store Walkin) Call Reports Routes */}
+          <Route path="/storewalkin-outbound-calls" element={<ProtectedRoute><StoreWalkinCallsList /></ProtectedRoute>} />
+          <Route path="/storewalkin-outbound-calls/upload" element={<ProtectedRoute><OutboundCallUpload /></ProtectedRoute>} />
+          <Route path="/storewalkin-outbound-calls/:callId" element={<ProtectedRoute><StoreWalkinReportDetail /></ProtectedRoute>} />
+          <Route path="/storewalkin-outbound-calls/analytics" element={<ProtectedRoute><StoreWalkinAggregatedDashboard /></ProtectedRoute>} />
 
           {/* ABC Cart Recovery Routes */}
-          <Route path="/abc-calls" element={<ProtectedRoute><AbcReportsList /></ProtectedRoute>} />
-          <Route path="/abc-calls/upload" element={<ProtectedRoute><AbcCallUpload /></ProtectedRoute>} />
-          <Route path="/abc-calls/:callId" element={<ProtectedRoute><AbcReportDetail /></ProtectedRoute>} />
-          <Route path="/abc-calls/analytics" element={<ProtectedRoute><AbcAggregatedDashboard /></ProtectedRoute>} />
+          <Route path="/abc-outbound-calls" element={<ProtectedRoute><AbcReportsList /></ProtectedRoute>} />
+          <Route path="/abc-outbound-calls/upload" element={<ProtectedRoute><AbcCallUpload /></ProtectedRoute>} />
+          <Route path="/abc-outbound-calls/:callId" element={<ProtectedRoute><AbcReportDetail /></ProtectedRoute>} />
+          <Route path="/abc-outbound-calls/analytics" element={<ProtectedRoute><AbcAggregatedDashboard /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

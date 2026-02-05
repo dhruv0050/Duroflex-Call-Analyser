@@ -213,7 +213,7 @@ const extractCity = (storeName) => {
   return 'Unknown';
 };
 
-const OutboundAggregatedDashboard = () => {
+const StoreWalkinAggregatedDashboard = () => {
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -327,10 +327,29 @@ const OutboundAggregatedDashboard = () => {
     ) || 'Unknown Agent';
   };
 
+  const parseDurationToSeconds = (secondsValue, durationText) => {
+    if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
+    if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
+    if (!durationText) return null;
+    const text = String(durationText).trim();
+    if (text.includes(':')) {
+      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+      if (parts.length === 3) {
+        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+      }
+      if (parts.length === 2) {
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+      }
+    }
+    if (text.match(/^\d+$/)) return parseInt(text, 10);
+    return null;
+  };
+
   // Transform reports to calls with normalized data
   const outboundCalls = useMemo(() => {
     return reports.map(report => {
       const analysis = report.analysis || {};
+      const metaData = analysis.MetaData || {};
       const storeName = report.store_name || 'Unknown Store';
       const city = extractCity(storeName);
       const region = getCityRegion(storeName, city);
@@ -341,15 +360,31 @@ const OutboundAggregatedDashboard = () => {
       const relax = getRelaxScores(report);
       const agentName = getAgentName(report);
       
-      // Check if already purchased (customer bought BEFORE this call, not after)
+      // Check if already purchased (align with list logic)
       const intentRating = String(getIntentRating(report) || '').toLowerCase();
       const funnelStage = String(getField(analysis, '5_Funnel_Analysis.Stage') || '').toLowerCase();
       const callObjectiveType = String(getField(analysis, '1_Call_Objective.Type') || '').toLowerCase();
       const isPurchased = 
         intentRating.includes('already purchased') || 
+        intentRating.includes('purchased') ||
         funnelStage.includes('already purchased') || 
-        callObjectiveType.includes('already purchased');
+        callObjectiveType.includes('already purchased') ||
+        callObjectiveType.includes('post purchase') ||
+        callObjectiveType.includes('service') ||
+        callObjectiveType.includes('complaint');
+
+      // Lead type (align with list logic)
+      let leadType = 'Sales Lead';
+      if (callObjectiveType.includes('post') || callObjectiveType.includes('service') || callObjectiveType.includes('complaint') ||
+          intentRating.includes('purchased') || intentRating.includes('already')) {
+        leadType = 'Post Purchase';
+      }
       
+      const durationSeconds = parseDurationToSeconds(report.duration, metaData.Call_Duration);
+      if (durationSeconds !== null && durationSeconds < 30) {
+        return null;
+      }
+
       // Calculate overall score (average of NPS and RELAX)
       const relaxAvg = (relax.R + relax.E + relax.L + relax.A + relax.X) / 5;
       const overallScore = nps > 0 ? ((nps + relaxAvg) / 2).toFixed(1) : relaxAvg.toFixed(1);
@@ -385,10 +420,11 @@ const OutboundAggregatedDashboard = () => {
         relax,
         agentName,
         isPurchased,
+        leadType,
         overallScore: parseFloat(overallScore),
         callDate
       };
-    });
+    }).filter(Boolean);
   }, [reports]);
 
   // Get unique cities
@@ -440,14 +476,15 @@ const OutboundAggregatedDashboard = () => {
   // Navigate with filter
   const navigateWithFilter = (predicate, description) => {
     const ids = filteredCalls.filter(predicate).map(r => r.call_id).filter(Boolean);
-    navigate('/outbound-calls', { state: { filterIds: ids, filterDescription: description } });
+    navigate('/storewalkin-outbound-calls', { state: { filterIds: ids, filterDescription: description } });
   };
 
   // Calculate metrics
   const metrics = useMemo(() => {
     const calls = filteredCalls;
     const totalCalls = calls.length;
-    const purchasedCalls = calls.filter(c => c.isPurchased);
+    const purchasedCalls = calls.filter(c => c.leadType === 'Post Purchase' || c.isPurchased);
+    const salesLeadsCalls = calls.filter(c => c.leadType === 'Sales Lead');
     const highIntentCalls = calls.filter(c => c.intent === 'High' && !c.isPurchased);
     
     // Matrix: Intent × Call Experience (excluding purchased)
@@ -534,7 +571,7 @@ const OutboundAggregatedDashboard = () => {
     return {
       totalCalls,
       purchasedCount: purchasedCalls.length,
-      salesLeadsCount: totalCalls - purchasedCalls.length,
+      salesLeadsCount: salesLeadsCalls.length,
       highIntentCount: highIntentCalls.length,
       uniqueStores,
       matrix,
@@ -577,7 +614,7 @@ const OutboundAggregatedDashboard = () => {
   };
 
   const handleDownloadReports = () => {
-    exportReportsAsCsv(filteredCalls, 'outbound_call_reports.csv');
+    exportReportsAsCsv(filteredCalls, 'storewalkin_call_reports.csv');
   };
 
   const handleLogout = () => {
@@ -623,9 +660,9 @@ const OutboundAggregatedDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Phone className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-500 mb-4">No outbound call data available.</p>
-          <Link to="/outbound-calls" className="text-indigo-600 hover:text-indigo-500 font-semibold">
-            ← Back to Outbound Calls
+          <p className="text-gray-500 mb-4">No store walk-in call data available.</p>
+          <Link to="/storewalkin-outbound-calls" className="text-indigo-600 hover:text-indigo-500 font-semibold">
+            ← Back to Store Walk-in Calls
           </Link>
         </div>
       </div>
@@ -641,7 +678,7 @@ const OutboundAggregatedDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <Link 
-                to="/outbound-calls" 
+                to="/storewalkin-outbound-calls" 
                 className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
               >
                 GO TO ANALYSED CALLS
@@ -661,7 +698,7 @@ const OutboundAggregatedDashboard = () => {
                 Export Report
               </button>
               <Link
-                to="/outbound-calls/upload"
+                to="/storewalkin-outbound-calls/upload"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />
@@ -1074,4 +1111,4 @@ const OutboundAggregatedDashboard = () => {
   );
 };
 
-export default OutboundAggregatedDashboard;
+export default StoreWalkinAggregatedDashboard;

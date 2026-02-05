@@ -73,7 +73,7 @@ const VideoAggregatedDashboard = () => {
 
   const navigateWithFilter = (predicate, description) => {
     const ids = filteredCalls.filter(predicate).map((c) => c.id || c.report_id).filter(Boolean);
-    navigate('/video-reports', { state: { filterIds: ids, filterDescription: description } });
+    navigate('/popins-inbound', { state: { filterIds: ids, filterDescription: description } });
   };
 
   useEffect(() => {
@@ -608,7 +608,7 @@ const VideoAggregatedDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">No video call data available for aggregated view.</p>
-          <Link to="/video-reports" className="text-blue-600 hover:text-blue-700 font-semibold">
+          <Link to="/popins-inbound" className="text-blue-600 hover:text-blue-700 font-semibold">
             ← Back to Video Reports
           </Link>
         </div>
@@ -628,7 +628,7 @@ const VideoAggregatedDashboard = () => {
         <div className="max-w-[1600px] mx-auto px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link to="/video-reports" className="p-2 hover:bg-white/5 rounded-lg transition">
+              <Link to="/popins-inbound" className="p-2 hover:bg-white/5 rounded-lg transition">
                 <ArrowLeft className="w-5 h-5 text-gray-400" />
               </Link>
               <div>
@@ -648,7 +648,7 @@ const VideoAggregatedDashboard = () => {
                 Download All Reports
               </button>
               <Link
-                to="/video-reports/upload"
+                to="/popins-inbound/upload"
                 className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 px-4 py-2 rounded-lg font-semibold text-sm transition"
               >
                 <Upload className="w-4 h-4" />

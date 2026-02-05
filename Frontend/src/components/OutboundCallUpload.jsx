@@ -4,6 +4,15 @@ import { Upload, AlertCircle, CheckCircle, Clock, X, ChevronLeft } from 'lucide-
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
+const getCsvHeaders = async (file) => {
+  const text = await file.text();
+  const [headerLine] = text.split(/\r?\n/);
+  return (headerLine || '')
+    .split(',')
+    .map((h) => (typeof h === 'string' ? h.trim() : String(h)))
+    .filter(Boolean);
+};
+
 const OutboundCallUpload = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -77,6 +86,20 @@ const OutboundCallUpload = () => {
       return;
     }
 
+    try {
+      const headers = (csvPreview?.headers || []).length
+        ? csvPreview.headers.map((h) => (typeof h === 'string' ? h.trim() : String(h))).filter(Boolean)
+        : await getCsvHeaders(selectedFile);
+
+      if (!headers.includes('Date')) {
+        alert("Missing required column: Date");
+        return;
+      }
+    } catch (e) {
+      alert('Unable to read CSV headers. Please re-select the file and try again.');
+      return;
+    }
+
     setIsProcessing(true);
     setUploadResult(null);
 
@@ -134,7 +157,7 @@ const OutboundCallUpload = () => {
 
   // Navigate back to call reports
   const handleBackToReports = () => {
-    navigate('/outbound-calls');
+    navigate('/storewalkin-outbound-calls');
   };
 
   return (
@@ -174,6 +197,7 @@ const OutboundCallUpload = () => {
             <div>• CallStartDateTime</div>
             <div>• CreatedDate</div>
             <div>• Lead_Source</div>
+            <div>• Date</div>
             <div>• is_Converted</div>
           </div>
           <p className="text-gray-400 text-sm mt-4 leading-relaxed">

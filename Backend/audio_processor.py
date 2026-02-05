@@ -107,7 +107,7 @@ class AudioDownloader:
 class GeminiAudioAnalyzer:
     """Analyzes audio calls using Gemini API"""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-3-pro-preview"):
         """
         Initialize Gemini analyzer
         
@@ -402,7 +402,7 @@ OUTPUT SCHEMA (JSON)
         "Customer_Language": "String",
         "Customer_Gender": "Male | Female | Unknown",
         "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
-        "Consideration_Value": "String (e.g. 'Budget Range' or 'Premium')",
+        "Consideration_Value": "(REQUIRED)String ('Below 15k', '15k-25k', '25k-50k', '50k+')",
         "Call_Quality_Overall": "High | Medium | Low",
         "Call_Duration": "String",
         "Connected_to_Customer": true,

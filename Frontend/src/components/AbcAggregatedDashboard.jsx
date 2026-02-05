@@ -117,6 +117,24 @@ const AbcAggregatedDashboard = () => {
     return isNaN(num) ? 5 : num;
   };
 
+  const parseDurationToSeconds = (secondsValue, durationText) => {
+    if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
+    if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
+    if (!durationText) return null;
+    const text = String(durationText).trim();
+    if (text.includes(':')) {
+      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+      if (parts.length === 3) {
+        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+      }
+      if (parts.length === 2) {
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+      }
+    }
+    if (text.match(/^\d+$/)) return parseInt(text, 10);
+    return null;
+  };
+
   // Map cities/states to regions - comprehensive mapping for all Indian states
   const getCityRegion = (cityName, report) => {
     const city = (cityName || '').toUpperCase();
@@ -197,6 +215,11 @@ const AbcAggregatedDashboard = () => {
       const xScore = relaxScoreToNum(relaxData.X_Express_Closing?.Score);
       const overallRelax = ((rScore + eScore + lScore + aScore + xScore) / 5).toFixed(1);
 
+      const durationSeconds = parseDurationToSeconds(report.duration, metaData.Call_Duration);
+      if (durationSeconds !== null && durationSeconds < 30) {
+        return null;
+      }
+
       // NPS
       const nps = npsData.Score !== undefined ? npsData.Score : 7;
 
@@ -226,7 +249,7 @@ const AbcAggregatedDashboard = () => {
           x: xScore,
         },
       };
-    });
+    }).filter(Boolean);
   }, [allCalls]);
 
   const cities = useMemo(() => {
@@ -273,7 +296,7 @@ const AbcAggregatedDashboard = () => {
 
   const navigateWithFilter = (predicate, description) => {
     const ids = filteredCalls.filter(predicate).map((c) => c.id || c.call_id).filter(Boolean);
-    navigate('/abc-calls', { state: { filterIds: ids, filterDescription: description } });
+    navigate('/abc-outbound-calls', { state: { filterIds: ids, filterDescription: description } });
   };
 
   const metrics = useMemo(() => {
@@ -453,7 +476,7 @@ const AbcAggregatedDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">No ABC call data available for aggregated view.</p>
-          <Link to="/abc-calls" className="text-blue-600 hover:text-blue-700 font-semibold">
+          <Link to="/abc-outbound-calls" className="text-blue-600 hover:text-blue-700 font-semibold">
             ← Back to ABC Reports
           </Link>
         </div>
@@ -469,7 +492,7 @@ const AbcAggregatedDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <Link 
-                to="/abc-calls" 
+                to="/abc-outbound-calls" 
                 className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
               >
                 GO TO ANALYSED CALLS
@@ -494,7 +517,7 @@ const AbcAggregatedDashboard = () => {
                 Export Report
               </button>
               <Link
-                to="/abc-calls/upload"
+                to="/abc-outbound-calls/upload"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />

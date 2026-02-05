@@ -207,14 +207,14 @@ export default function VideoCallsList() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              to="/video-reports/upload"
+              to="/popins-inbound/upload"
               className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl transition-all duration-200 border border-purple-500/40 hover:border-purple-500/60"
             >
               <Upload size={18} />
               <span className="font-medium">Upload CSV</span>
             </Link>
             <button
-              onClick={() => navigate('/video-reports/analytics')}
+              onClick={() => navigate('/popins-inbound/analytics')}
               className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 rounded-xl transition-all duration-200 border border-purple-500/20 hover:border-purple-500/40"
             >
               <BarChart3 size={18} />
@@ -374,7 +374,7 @@ export default function VideoCallsList() {
               Showing filtered results{filterDescription ? `: ${filterDescription}` : ''} ({visibleReports.length} of {reports.length})
             </div>
             <button
-              onClick={() => navigate('/video-reports')}
+              onClick={() => navigate('/popins-inbound')}
               className="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-300/40"
             >
               Clear filter
@@ -438,7 +438,7 @@ export default function VideoCallsList() {
               return (
                 <div
                   key={report.report_id}
-                  onClick={() => navigate(`/video-reports/${report.report_id}`)}
+                  onClick={() => navigate(`/popins-inbound/${report.report_id}`)}
                   className="group bg-[#0f0f14] border border-white/6 rounded-2xl p-6 hover:border-amber-500/50 transition-all overflow-hidden relative cursor-pointer"
                 >
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-600 to-transparent opacity-0 group-hover:opacity-100 transition"></div>

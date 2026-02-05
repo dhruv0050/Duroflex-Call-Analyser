@@ -120,7 +120,7 @@ class AudioDownloader:
 class GeminiAudioAnalyzer:
     """Analyzes audio calls using Gemini API."""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-3-pro-preview"):
         self.model_name = model
         self.api_key = api_key
 
@@ -301,7 +301,7 @@ OUTPUT SCHEMA (JSON)
         "Customer_Language": "String",
         "Customer_Gender": "Male | Female | Unknown",
         "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
-        "Consideration_Value": "String (e.g. 'Budget Range' or 'Premium')",
+        Consideration_Value": "(REQUIRED)String ('Below 15k', '15k-25k', '25k-50k', '50k+')",
         "Call_Quality_Overall": "High | Medium | Low",
         "Call_Duration": "String",
         "Connected_to_Customer": true,
@@ -400,7 +400,7 @@ OUTPUT SCHEMA (JSON)
     ],
     "14_Next_Actions": "String (e.g. Send WhatsApp Location, Save Number)",
     "15_End_to_End_NPS": {
-        "Score": "Integer (0-10)",
+        "Score": "(REQUIRED)Integer (0-10)",
         "Comment": "String (Inferred sentiment)"
     },
     "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"

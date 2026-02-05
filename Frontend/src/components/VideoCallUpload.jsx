@@ -158,7 +158,7 @@ const VideoCallUpload = () => {
 
   // Navigate back to video reports
   const handleBackToReports = () => {
-    navigate('/video-reports');
+    navigate('/popins-inbound');
   };
 
   return (

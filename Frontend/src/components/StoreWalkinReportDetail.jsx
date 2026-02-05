@@ -4,7 +4,7 @@ import { ArrowLeft, Phone, ChevronDown, ChevronUp, Download, FileDown } from 'lu
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
-const OutboundCallDetail = () => {
+const StoreWalkinReportDetail = () => {
   const { callId } = useParams();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ const OutboundCallDetail = () => {
         const data = await res.json();
         setReport(data?.report || data);
       } catch (e) {
-        setError(e?.message || 'Failed to load outbound call report');
+        setError(e?.message || 'Failed to load store walk-in call report');
         setReport(null);
       } finally {
         setLoading(false);
@@ -48,7 +48,7 @@ const OutboundCallDetail = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error || 'Report not found'}</p>
-          <Link to="/outbound-calls" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
+          <Link to="/storewalkin-outbound-calls" className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Calls
           </Link>
         </div>
@@ -207,6 +207,16 @@ const OutboundCallDetail = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
   }
 
   function normalizeRating(rating) {
@@ -454,7 +464,7 @@ const OutboundCallDetail = () => {
     if (!report || !analysis) return;
 
     const rows = [
-      ['Outbound Call Report - CSV Export'],
+      ['Store Walk-in Call Report - CSV Export'],
       [''],
       ['METADATA'],
       ['Call ID', report.call_id],
@@ -497,7 +507,7 @@ const OutboundCallDetail = () => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `outbound-call-${report.call_id}.csv`;
+    link.download = `storewalkin-call-${report.call_id}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -507,7 +517,7 @@ const OutboundCallDetail = () => {
   const downloadTranscript = () => {
     if (!report || !transcriptLog) return;
 
-    let transcriptContent = `OUTBOUND CALL TRANSCRIPT\n`;
+    let transcriptContent = `STORE WALK-IN CALL TRANSCRIPT\n`;
     transcriptContent += `Call ID: ${report.call_id}\n`;
     transcriptContent += `Store: ${report.store_name || 'N/A'}\n`;
     transcriptContent += `Date: ${report.call_date || 'N/A'}\n`;
@@ -529,7 +539,7 @@ const OutboundCallDetail = () => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `outbound-transcript-${report.call_id}.txt`;
+    link.download = `storewalkin-transcript-${report.call_id}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -542,7 +552,7 @@ const OutboundCallDetail = () => {
         
         {/* Navigation */}
         <div className="flex items-center justify-between mb-10">
-          <Link to="/outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
+          <Link to="/storewalkin-outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
             ← BACK TO WALK-IN LEADS
           </Link>
           <div className="flex gap-4">
@@ -589,7 +599,13 @@ const OutboundCallDetail = () => {
                   <span className="text-blue-600 text-3xl font-bold">{considerationValue}</span>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-3 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Date</span>
+                    <span className="font-mono text-lg text-gray-900">
+                      {formatDate(report.call_date || report.created_date)}
+                    </span>
+                  </div>
                   <div>
                     <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
                     <span className="font-mono text-lg text-gray-900">{callDuration}</span>
@@ -1014,4 +1030,4 @@ const OutboundCallDetail = () => {
   );
 };
 
-export default OutboundCallDetail;
+export default StoreWalkinReportDetail;

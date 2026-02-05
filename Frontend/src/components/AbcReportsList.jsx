@@ -131,6 +131,10 @@ const AbcReportsList = () => {
       const considerationValue = metadata.Consideration_Value || '';
       
       // Duration from metadata
+      const durationSeconds = parseDurationToSeconds(report.duration, metadata.Call_Duration);
+      if (durationSeconds !== null && durationSeconds < 30) {
+        return null;
+      }
       const duration = metadata.Call_Duration || '00:00';
       
       // Invitations
@@ -165,7 +169,7 @@ const AbcReportsList = () => {
       
       // Parse call date
       let callDate = null;
-      const dateStr = report.processed_at || rawData.CallStartDateTime || '';
+      const dateStr = report.call_date || rawData.Date || report.processed_at || rawData.CallStartDateTime || '';
       if (dateStr) {
         try {
           if (dateStr.includes('T')) {
@@ -224,7 +228,7 @@ const AbcReportsList = () => {
         cartValueBucket,
         rawCartValue
       };
-    });
+    }).filter(Boolean);
   }, [reports]);
 
   // Get unique regions for filter
@@ -313,7 +317,7 @@ const AbcReportsList = () => {
     setCurrentPage(1);
     // Clear external filter
     if (filterIds) {
-      navigate('/abc-calls', { replace: true });
+      navigate('/abc-outbound-calls', { replace: true });
     }
   };
 
@@ -324,6 +328,24 @@ const AbcReportsList = () => {
     if (str.includes('HIGH') || str === 'H') return 'High';
     if (str.includes('LOW') || str === 'L') return 'Low';
     return 'Medium';
+  }
+
+  function parseDurationToSeconds(secondsValue, durationText) {
+    if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
+    if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
+    if (!durationText) return null;
+    const text = String(durationText).trim();
+    if (text.includes(':')) {
+      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+      if (parts.length === 3) {
+        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+      }
+      if (parts.length === 2) {
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+      }
+    }
+    if (text.match(/^\d+$/)) return parseInt(text, 10);
+    return null;
   }
 
   function formatDate(date) {
@@ -399,14 +421,14 @@ const AbcReportsList = () => {
               Export CSV
             </button>
             <Link
-              to="/abc-calls/upload"
+              to="/abc-outbound-calls/upload"
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload CSV
             </Link>
             <Link
-              to="/abc-calls/analytics"
+              to="/abc-outbound-calls/analytics"
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
@@ -597,7 +619,7 @@ const AbcReportsList = () => {
                     return (
                       <tr 
                         key={report.call_id} 
-                        onClick={() => navigate(`/abc-calls/${report.call_id}`)}
+                        onClick={() => navigate(`/abc-outbound-calls/${report.call_id}`)}
                         className="hover:bg-gray-50 transition cursor-pointer"
                       >
                         {/* Call ID */}

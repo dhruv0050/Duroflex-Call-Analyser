@@ -125,11 +125,12 @@ const AbcReportDetail = () => {
     if (!report) return;
     const analysis = report.analysis || {};
     const transcript = analysis.Transcript_Log || [];
+    const callDateDisplay = report.call_date || report.raw_data?.Date || report.processed_at;
     
     let textContent = `CALL TRANSCRIPT\n`;
     textContent += `${'='.repeat(80)}\n`;
     textContent += `Call ID: ${report.call_id}\n`;
-    textContent += `Date: ${report.processed_at}\n\n`;
+    textContent += `Date: ${callDateDisplay || 'N/A'}\n\n`;
     
     if (typeof transcript === 'string') {
       textContent += transcript;
@@ -155,7 +156,7 @@ const AbcReportDetail = () => {
     const expSkills = analysis.Experience_and_Skills || {};
     
     const headers = [
-      'Call ID', 'Agent Name', 'Phone', 'City', 'Cart Value', 'Processed At',
+      'Call ID', 'Agent Name', 'Phone', 'City', 'Cart Value', 'Call Date',
       'Lead Status', 'Recovery Outcome', 'Primary Barrier', 'Purchase Intent', 'Funnel Stage',
       'RELAX R Score', 'RELAX E Score', 'RELAX L Score', 'RELAX A Score', 'RELAX X Score',
       'CSAT Score', 'Customer Sentiment'
@@ -167,7 +168,7 @@ const AbcReportDetail = () => {
       report.phone || '',
       report.city || '',
       report.raw_data?.['Lineitem price'] || '',
-      report.processed_at || '',
+      report.call_date || report.raw_data?.Date || report.processed_at || '',
       analysis.Header_Data?.Lead_Status_Label || '',
       theVerdict.Recovery_Outcome_Headline || '',
       theVerdict.Primary_Barrier || '',
@@ -282,7 +283,7 @@ const AbcReportDetail = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 text-xl mb-4">{error || 'Report not found'}</p>
-          <Link to="/abc-calls" className="text-blue-600 hover:underline">← Back to ABC Reports</Link>
+          <Link to="/abc-outbound-calls" className="text-blue-600 hover:underline">← Back to ABC Reports</Link>
         </div>
       </div>
     );
@@ -477,7 +478,7 @@ const AbcReportDetail = () => {
         
         {/* Navigation */}
         <div className="flex items-center justify-between mb-10">
-          <Link to="/abc-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
+          <Link to="/abc-outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
             ← BACK TO ABC LEADS
           </Link>
           <div className="flex gap-4">
@@ -530,7 +531,13 @@ const AbcReportDetail = () => {
                   <span className="text-blue-600 text-3xl font-bold">{getCartValueBracket(cartValue)}</span>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-3 gap-4 pt-2">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Call Date</span>
+                    <span className="font-mono text-lg text-gray-900">
+                      {formatDate(report.call_date || report.raw_data?.Date || report.processed_at)}
+                    </span>
+                  </div>
                   <div>
                     <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Duration</span>
                     <span className="font-mono text-lg text-gray-900">{callDuration}</span>

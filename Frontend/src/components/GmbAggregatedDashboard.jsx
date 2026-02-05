@@ -55,7 +55,7 @@ const exportReportsAsCsv = (reports, filename) => {
   URL.revokeObjectURL(url);
 };
 
-const CallAggregatedDashboard = () => {
+const GmbAggregatedDashboard = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('30');
   const [selectedRegion, setSelectedRegion] = useState('Overall');
@@ -77,7 +77,7 @@ const CallAggregatedDashboard = () => {
 
   const navigateWithFilter = (predicate, description) => {
     const ids = filteredCalls.filter(predicate).map((c) => c.id || c.call_id).filter(Boolean);
-    navigate('/GmbCalls', { state: { filterIds: ids, filterDescription: description } });
+    navigate('/Gmb_Inbound', { state: { filterIds: ids, filterDescription: description } });
   };
 
   useEffect(() => {
@@ -399,7 +399,7 @@ const CallAggregatedDashboard = () => {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">No call data available for aggregated view.</p>
-          <Link to="/GmbCalls" className="text-blue-600 hover:text-blue-700 font-semibold">
+          <Link to="/Gmb_Inbound" className="text-blue-600 hover:text-blue-700 font-semibold">
             ← Back to Call Reports
           </Link>
         </div>
@@ -416,7 +416,7 @@ const CallAggregatedDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <Link 
-                to="/GmbCalls" 
+                to="/Gmb_Inbound" 
                 className="text-xs font-bold text-gray-500 hover:text-gray-900 transition tracking-wide mb-1 inline-flex items-center gap-1"
               >
                 GO TO ANALYSED CALLS
@@ -436,7 +436,7 @@ const CallAggregatedDashboard = () => {
                 Export Report
               </button>
               <Link
-                to="/GmbCalls/upload"
+                to="/Gmb_Inbound/upload"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" />
@@ -864,4 +864,4 @@ const CallAggregatedDashboard = () => {
   );
 };
 
-export default CallAggregatedDashboard;
+export default GmbAggregatedDashboard;

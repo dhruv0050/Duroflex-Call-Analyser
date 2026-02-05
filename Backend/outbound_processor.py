@@ -21,7 +21,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Cheap model for filtering (use a model that exists for v1beta/generateContent)
 # You can override via MODEL_LITE in .env
 MODEL_NAME_LITE = os.getenv("MODEL_LITE", "gemini-flash-lite-latest")
-MODEL_NAME_FULL = os.getenv("MODEL", "gemini-2.0-flash")  # Full model for analysis
+MODEL_NAME_FULL = os.getenv("MODEL", "gemini-3-pro-preview")  # Full model for analysis
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
@@ -50,7 +50,8 @@ class OutboundCSVValidator:
         'CallAudio',
         'CallStartDateTime',
         'CreatedDate',
-        'Lead_Source'
+        'Lead_Source',
+        'Date'
     ]
 
     @staticmethod
@@ -211,6 +212,9 @@ class OutboundCallUploadProcessor:
         try:
             # Read CSV
             df = pd.read_csv(csv_file_path)
+
+            # Normalize headers (strip whitespace) so strict checks don't fail due to trailing spaces
+            df.columns = df.columns.str.strip()
             
             # Validate
             is_valid, error_msg = OutboundCSVValidator.validate(df)
@@ -239,10 +243,18 @@ class OutboundCallUploadProcessor:
                             duration = 0
                     else:
                         duration = int(duration_str) if duration_str.isdigit() else 0
+
+                    # Skip very short calls
+                    if duration and duration < 30:
+                        print(f"[OUTBOUND] Row {row_num}: Duration {duration}s < 30s. Skipping.")
+                        self.job_status["filtered_out"] += 1
+                        self.job_status["processed"] += 1
+                        time.sleep(rate_limit_delay)
+                        continue
                     
                     customer_phone = str(row.get('Phone_Number__c', '')).strip()
-                    call_date = str(row.get('CallStartDateTime', '')).strip()
-                    created_date = str(row.get('CreatedDate', '')).strip()
+                    call_date = str(row.get('Date', row.get('CallStartDateTime', ''))).strip()
+                    created_date = str(row.get('Date', row.get('CreatedDate', ''))).strip()
                     lead_source = str(row.get('Lead_Source', '')).strip()
                     is_converted = str(row.get('is_Converted', '0')).strip()
 
@@ -372,7 +384,7 @@ class OutboundCallUploadProcessor:
         # Keep the output schema in a non-f-string so curly braces don't get interpreted
         # by Python's f-string formatter.
         output_schema = """{
-  "MetaData": {
+  "MetaData": { 
     "Customer_Name": "String",
     "Customer_Location": "String",
     "Agent_Name": "String (REQUIRED if available)",
@@ -380,7 +392,7 @@ class OutboundCallUploadProcessor:
     "Customer_Language": "String",
     "Customer_Gender": "Male | Female | Unknown",
     "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
-    "Consideration_Value": "String (e.g. 'Premium Range' or 'Budget')",
+    "Consideration_Value": "(REQUIRED)String ('Below 15k', '15k-25k', '25k-50k', '50k+')",
     "Call_Quality_Overall": "High | Medium | Low",
     "Call_Duration": "String(Format : MM:SS)",
     "Connected_to_Customer": true,
@@ -476,7 +488,7 @@ class OutboundCallUploadProcessor:
   ],
   "15_Next_Actions": "String (e.g. Schedule Technician Visit, Send Brochure)",
   "16_End_to_End_NPS": {
-    "Score": "Integer (0-10)",
+    "Score": "(REQUIRED)Integer (0-10)",
     "Comment": "String (For the Call Experience)"
   },
   "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"

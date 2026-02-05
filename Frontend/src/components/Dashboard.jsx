@@ -322,7 +322,7 @@ const Dashboard = () => {
         </svg>
       ),
       stats: { calls: formatNumber(audioMetrics.total), analyzed: formatNumber(audioMetrics.analyzed), latest: audioMetrics.latest },
-      onClick: () => navigate('/GmbCalls/analytics')
+      onClick: () => navigate('/Gmb_Inbound/analytics')
     },
     {
       id: 'popin',
@@ -336,7 +336,7 @@ const Dashboard = () => {
         </svg>
       ),
       stats: { calls: formatNumber(videoMetrics.total), analyzed: formatNumber(videoMetrics.analyzed), latest: videoMetrics.latest },
-      onClick: () => navigate('/video-reports/analytics')
+      onClick: () => navigate('/popins-inbound/analytics')
     },
     {
       id: 'walkin',
@@ -350,7 +350,7 @@ const Dashboard = () => {
         </svg>
       ),
       stats: { calls: formatNumber(outboundMetrics.total), analyzed: formatNumber(outboundMetrics.analyzed), latest: outboundMetrics.latest },
-      onClick: () => navigate('/outbound-calls/analytics')
+      onClick: () => navigate('/storewalkin-outbound-calls/analytics')
     },
     {
       id: 'abc',
@@ -363,7 +363,7 @@ const Dashboard = () => {
         </svg>
       ),
       stats: { calls: formatNumber(abcMetrics.total), analyzed: formatNumber(abcMetrics.analyzed), latest: abcMetrics.latest },
-      onClick: () => navigate('/abc-calls/analytics')
+      onClick: () => navigate('/abc-outbound-calls/analytics')
     }
   ];
 

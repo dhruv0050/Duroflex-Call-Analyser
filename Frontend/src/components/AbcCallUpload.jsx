@@ -4,6 +4,15 @@ import { Upload, AlertCircle, CheckCircle, Clock, X, ChevronLeft } from 'lucide-
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
+const getCsvHeaders = async (file) => {
+  const text = await file.text();
+  const [headerLine] = text.split(/\r?\n/);
+  return (headerLine || '')
+    .split(',')
+    .map((h) => (typeof h === 'string' ? h.trim() : String(h)))
+    .filter(Boolean);
+};
+
 const AbcCallUpload = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -77,6 +86,20 @@ const AbcCallUpload = () => {
       return;
     }
 
+    try {
+      const headers = (csvPreview?.headers || []).length
+        ? csvPreview.headers.map((h) => (typeof h === 'string' ? h.trim() : String(h))).filter(Boolean)
+        : await getCsvHeaders(selectedFile);
+
+      if (!headers.includes('Date')) {
+        alert("Missing required column: Date");
+        return;
+      }
+    } catch (e) {
+      alert('Unable to read CSV headers. Please re-select the file and try again.');
+      return;
+    }
+
     setIsProcessing(true);
     setUploadResult(null);
 
@@ -126,7 +149,7 @@ const AbcCallUpload = () => {
 
   // Navigate back to call reports
   const handleBackToReports = () => {
-    navigate('/abc-calls');
+    navigate('/abc-outbound-calls');
   };
 
   return (
@@ -166,6 +189,7 @@ const AbcCallUpload = () => {
             <div>• Lineitem price (Cart Value)</div>
             <div>• CallStartDateTime</div>
             <div>• LeadCreatedDate</div>
+            <div>• Date</div>
             <div>• is_Converted</div>
           </div>
           <p className="text-gray-400 text-sm mt-4 leading-relaxed">

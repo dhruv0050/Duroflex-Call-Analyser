@@ -125,7 +125,7 @@ const AudioCallUpload = () => {
 
   // Navigate back to call reports
   const handleBackToReports = () => {
-    navigate('/GmbCalls');
+    navigate('/Gmb_Inbound');
   };
 
   return (

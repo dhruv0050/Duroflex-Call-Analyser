@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Phone, BarChart3, DollarSign, HelpCircle, Download, Upload, LogOut, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, LogOut, BarChart3, Upload, Download, Users, DollarSign, CheckCircle } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duroflex-call-analyser.onrender.com';
 
@@ -30,7 +30,7 @@ const flattenObject = (obj, prefix = '') => {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       Object.assign(result, flattenObject(value, newKey));
     } else if (Array.isArray(value)) {
-      result[newKey] = value.map(item => (item && typeof item === 'object' ? JSON.stringify(item) : item)).join('; ');
+      result[newKey] = value.join('; ');
     } else {
       result[newKey] = value;
     }
@@ -69,7 +69,7 @@ const exportReportsAsCsv = (reports, filename) => {
   URL.revokeObjectURL(url);
 };
 
-const CallReportsList = () => {
+const StoreWalkinCallsList = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [reports, setReports] = useState([]);
@@ -79,12 +79,13 @@ const CallReportsList = () => {
   // Filter states
   const [selectedRegion, setSelectedRegion] = useState('All');
   const [selectedStore, setSelectedStore] = useState('All');
-  const [timeRange, setTimeRange] = useState('30');
+  const [selectedValue, setSelectedValue] = useState('All');
   const [selectedIntent, setSelectedIntent] = useState('All');
+  const [timeRange, setTimeRange] = useState('30');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 999999; // Show all records
 
   // External filter from aggregated dashboard
   const filterIds = location.state?.filterIds;
@@ -96,11 +97,11 @@ const CallReportsList = () => {
 
   const fetchReports = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/GmbCalls`);
+      const res = await fetch(`${API_BASE}/api/outbound-calls`);
       const data = await res.json();
       setReports(data.reports || []);
     } catch (err) {
-      setError('Failed to load call reports');
+      setError('Failed to load store walk-in call reports');
     } finally {
       setLoading(false);
     }
@@ -116,81 +117,169 @@ const CallReportsList = () => {
   const processedReports = useMemo(() => {
     return reports.map(report => {
       const analysis = report.analysis || {};
+      const metadata = analysis.MetaData || {};
       
-      // Extract fields using new schema paths with fallbacks
-      const callObjectiveType = getField(analysis, '1_Call_Objective.Type', 'Functional.Call_Objective_Theme') || '';
-      const intent = getField(analysis, '2_Intent_to_Purchase.Rating', 'Customer_Information.Intent_to_Purchase_Rating') || 'Medium';
-      const customerExp = getField(analysis, '3_Customer_Experience.Rating', 'Customer_Information.Customer_Satisfaction_Score') || 'Medium';
-      const callObjective = getField(analysis, '1_Call_Objective.Objective_Phrase', 'Functional.Call_Objective_Theme') || 'N/A';
-      const potentialValue = getField(analysis, '5_Product_Intelligence.Approx_Order_Value', 'MetaData.Consideration_Value') || 'N/A';
-      const storeVisitRating = getField(analysis, '9_Invitations.Store_Visit.Rating', 'Agent_Areas.The_Invitation_to_Visit.Attempted') || 'Low';
-      const region = getField(analysis, 'MetaData.Call_Region') || report.region || 'Unknown';
+      // Extract fields using new schema paths
+      const callObjectiveType = getField(analysis, '1_Call_Objective.Type') || '';
+      const intentRating = getField(analysis, '2_Intent_to_Purchase.Rating') || 'Medium';
+      const storeExp = getField(analysis, '3_Store_Experience.Rating') || 'Medium';
+      const callExp = getField(analysis, '4_Call_Experience.Rating') || 'Medium';
       
-      // Determine lead type
+      // Normalize region: West/Central → West, N/A or unknown → South, standardize to North/South/East/West
+      // First check if MetaData.Call_Region is usable (not N/A, not null, not empty)
+      let regionSource = metadata.Call_Region;
+      if (!regionSource || regionSource === 'N/A' || regionSource.toString().trim() === '') {
+        regionSource = report.region;
+      }
+      
+      let region = 'South'; // Default to South if no valid region
+      if (regionSource && typeof regionSource === 'string') {
+        const regionStr = regionSource.trim();
+        const regionUpper = regionStr.toUpperCase();
+        
+        // Check exact matches first, then substring matches
+        if (regionUpper === 'NORTH' || regionUpper.includes('NORTH')) {
+          region = 'North';
+        } else if (regionUpper === 'SOUTH' || regionUpper.includes('SOUTH')) {
+          region = 'South';
+        } else if (regionUpper === 'EAST' || regionUpper.includes('EAST')) {
+          region = 'East';
+        } else if (regionUpper === 'WEST' || regionUpper.includes('WEST')) {
+          region = 'West';
+        } else if (regionUpper === 'NA' || regionUpper === 'N/A' || regionUpper === 'NONE' || regionUpper === '') {
+          region = 'South';
+        } else {
+          // Unknown region format, default to South
+          region = 'South';
+        }
+      }
+      
+      const storeName = report.store_name || 'Unknown';
+      
+      // Get consideration value from metadata
+      const considerationValue = metadata.Consideration_Value || 'N/A';
+      
+      // Duration from metadata or report
+      const durationSeconds = parseDurationToSeconds(report.duration, metadata.Call_Duration);
+      if (durationSeconds !== null && durationSeconds < 30) {
+        return null;
+      }
+      const duration = metadata.Call_Duration || formatDurationSeconds(report.duration);
+      
+      // Home Measurement Hook
+      const homeMeasurementRating = getField(analysis, '10_Invitations.Home_Measurement.Rating') || 'Low';
+      
+      // Determine lead type from call objective or intent
       let leadType = 'Sales Lead';
       const objType = callObjectiveType.toLowerCase();
-      if (objType.includes('post') || objType.includes('service') || objType.includes('complaint') || objType.includes('delivery')) {
-        leadType = 'Post-Sales';
+      const intentLower = intentRating.toLowerCase();
+      if (objType.includes('post') || objType.includes('service') || objType.includes('complaint') || 
+          intentLower.includes('purchased') || intentLower.includes('already')) {
+        leadType = 'Post Purchase';
       }
       
       // Check if already purchased
-      const isPurchased = objType.includes('already purchased') || objType.includes('post purchase');
+      const isPurchased = intentLower.includes('purchased') || intentLower.includes('already') || 
+                          objType.includes('post purchase');
       
-      // Determine invited to store
-      let invitedToStore = 'No';
-      if (typeof storeVisitRating === 'boolean') {
-        invitedToStore = storeVisitRating ? 'Yes' : 'No';
-      } else {
-        const rating = String(storeVisitRating).toLowerCase();
-        invitedToStore = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      // Normalize intent for display
+      let intent = normalizeRating(intentRating);
+      if (isPurchased) {
+        intent = 'N/A';
+      }
+      
+      // Determine measurement hook used (High/Medium = Yes, Low = No)
+      let measurementHookUsed = 'No';
+      if (leadType === 'Post Purchase') {
+        measurementHookUsed = 'N/A';
+      } else if (typeof homeMeasurementRating === 'string') {
+        const rating = homeMeasurementRating.toLowerCase();
+        measurementHookUsed = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
       }
       
       // Parse call date
       let callDate = null;
-      if (report.call_date) {
-        // Try parsing various formats
-        const dateStr = report.call_date;
-        if (dateStr.includes('-')) {
-          const parts = dateStr.split('-');
-          if (parts[0].length === 2) {
-            // DD-MM-YYYY format
-            callDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      const dateStr = report.call_date || report.created_date || report.analyzed_at || '';
+      if (dateStr) {
+        try {
+          if (dateStr.includes('T')) {
+            callDate = new Date(dateStr);
+          } else if (dateStr.includes('-')) {
+            const parts = dateStr.split('-');
+            if (parts[0].length === 2) {
+              // DD-MM-YYYY format
+              callDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            } else {
+              callDate = new Date(dateStr);
+            }
           } else {
             callDate = new Date(dateStr);
           }
-        } else {
-          callDate = new Date(dateStr);
+          // Validate the date
+          if (isNaN(callDate.getTime())) {
+            callDate = null;
+          }
+        } catch (e) {
+          callDate = null;
         }
-        if (isNaN(callDate.getTime())) callDate = null;
       }
-      if (!callDate && report.upload_timestamp) {
-        callDate = new Date(report.upload_timestamp);
+      
+      // Format consideration value for display
+      let valueDisplay = considerationValue;
+      let valueBucket = 'low';
+      const valLower = considerationValue.toLowerCase();
+      if (valLower.includes('50k') || valLower.includes('premium') || valLower.includes('king')) {
+        valueBucket = '50k';
+        if (!considerationValue.includes('k')) valueDisplay = '50k+';
+      } else if (valLower.includes('25k') || valLower.includes('queen')) {
+        valueBucket = '25k';
+        if (!considerationValue.includes('k')) valueDisplay = '25k to 50k';
+      } else if (valLower.includes('15k') || valLower.includes('double')) {
+        valueBucket = '15k';
+        if (!considerationValue.includes('k')) valueDisplay = '15k to 25k';
+      } else if (valLower.includes('single') || valLower.includes('budget')) {
+        valueBucket = 'low';
+        if (!considerationValue.includes('k')) valueDisplay = 'Below 15k';
       }
-      if (!callDate) callDate = new Date();
+      
+      // Extract city from store name or use region
+      let city = '';
+      if (storeName.includes(' ')) {
+        const parts = storeName.split(' ');
+        city = parts[parts.length - 1];
+      } else {
+        city = region !== 'Unknown' ? region : '';
+      }
       
       return {
         ...report,
-        callDate,
+        callObjectiveType,
+        intent,
+        intentRaw: intentRating,
+        storeExp: normalizeExperience(storeExp),
+        callExp: normalizeRating(callExp),
         region,
+        storeName,
+        city,
+        duration,
         leadType,
-        intent: normalizeRating(intent),
-        customerExp: normalizeRating(customerExp),
-        callObjective,
-        potentialValue: formatPotentialValue(potentialValue),
-        invitedToStore,
-        isPurchased
+        isPurchased,
+        measurementHookUsed,
+        callDate,
+        valueDisplay,
+        valueBucket
       };
-    });
+    }).filter(Boolean);
   }, [reports]);
 
   // Get unique regions and stores for filters
   const regions = useMemo(() => {
-    const uniqueRegions = [...new Set(processedReports.map(r => r.region).filter(r => r && r !== 'Unknown'))];
-    return ['All', ...uniqueRegions.sort()];
-  }, [processedReports]);
+    // Always show all four regions in fixed order
+    return ['All', 'North', 'South', 'East', 'West'];
+  }, []);
 
   const stores = useMemo(() => {
-    const uniqueStores = [...new Set(processedReports.map(r => r.store_name).filter(Boolean))];
+    const uniqueStores = [...new Set(processedReports.map(r => r.storeName).filter(Boolean))];
     return ['All', ...uniqueStores.sort()];
   }, [processedReports]);
 
@@ -201,7 +290,6 @@ const CallReportsList = () => {
     // External filter from aggregated dashboard
     if (filterIds && Array.isArray(filterIds) && filterIds.length > 0) {
       result = result.filter(r => filterIds.includes(r.call_id));
-      return result; // Skip other filters when using external filter
     }
 
     // Region filter
@@ -211,20 +299,27 @@ const CallReportsList = () => {
 
     // Store filter
     if (selectedStore !== 'All') {
-      result = result.filter(r => r.store_name === selectedStore);
+      result = result.filter(r => r.storeName === selectedStore);
+    }
+
+    // Consideration value filter
+    if (selectedValue !== 'All') {
+      result = result.filter(r => r.valueBucket === selectedValue);
     }
 
     // Time filter
     if (timeRange !== 'all') {
-      const days = parseInt(timeRange);
+      const days = parseInt(timeRange, 10);
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
       cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - days);
+      
       result = result.filter(r => {
         if (!r.callDate) return false;
-        const callDay = new Date(r.callDate);
-        callDay.setHours(0, 0, 0, 0);
-        return callDay >= cutoff;
+        const reportDate = new Date(r.callDate);
+        if (isNaN(reportDate.getTime())) return false;
+        reportDate.setHours(0, 0, 0, 0);
+        return reportDate >= cutoff;
       });
     }
 
@@ -238,14 +333,14 @@ const CallReportsList = () => {
     }
 
     return result;
-  }, [processedReports, filterIds, selectedRegion, selectedStore, timeRange, selectedIntent]);
+  }, [processedReports, filterIds, selectedRegion, selectedStore, selectedValue, timeRange, selectedIntent]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
     const total = filteredReports.length;
     const highIntent = filteredReports.filter(r => r.intent === 'High' && !r.isPurchased).length;
     const salesLeads = filteredReports.filter(r => r.leadType === 'Sales Lead').length;
-    const postPurchase = filteredReports.filter(r => r.leadType === 'Post-Sales' || r.isPurchased).length;
+    const postPurchase = filteredReports.filter(r => r.leadType === 'Post Purchase' || r.isPurchased).length;
     
     return {
       total,
@@ -267,12 +362,13 @@ const CallReportsList = () => {
   const handleResetFilters = () => {
     setSelectedRegion('All');
     setSelectedStore('All');
+    setSelectedValue('All');
     setTimeRange('30');
     setSelectedIntent('All');
     setCurrentPage(1);
     // Clear external filter
     if (filterIds) {
-      navigate('/GmbCalls', { replace: true });
+      navigate('/storewalkin-outbound-calls', { replace: true });
     }
   };
 
@@ -282,35 +378,41 @@ const CallReportsList = () => {
     const str = String(val).toUpperCase().trim();
     if (str.includes('HIGH') || str === 'H') return 'High';
     if (str.includes('LOW') || str === 'L') return 'Low';
-    return 'Medium';
+    if (str.includes('MEDIUM') || str === 'M') return 'Med';
+    return 'Med';
   }
 
-  function formatPotentialValue(val) {
-    if (!val || val === 'N/A') return 'N/A';
-    const str = String(val).toLowerCase();
-    if (str.includes('budget')) return 'Below 15k';
-    if (str.includes('premium')) return '50k+';
-    if (str.includes('50k') || str.includes('50000')) return '50k+';
-    if (str.includes('25k') || str.includes('25000')) return '25k to 50k';
-    if (str.includes('15k') || str.includes('15000')) return '15k to 25k';
-    // Check for range like "45000-67000"
-    const rangeMatch = val.match(/(\d+)-(\d+)/);
-    if (rangeMatch) {
-      const low = parseInt(rangeMatch[1]);
-      const high = parseInt(rangeMatch[2]);
-      if (high >= 50000) return '50k+';
-      if (high >= 25000) return '25k to 50k';
-      if (high >= 15000) return '15k to 25k';
-      return 'Below 15k';
-    }
-    return val;
+  function normalizeExperience(val) {
+    if (!val) return 'Avg';
+    const str = String(val).toUpperCase().trim();
+    if (str.includes('HIGH') || str.includes('GOOD') || str.includes('EXCELLENT')) return 'Good';
+    if (str.includes('LOW') || str.includes('POOR') || str.includes('BAD')) return 'Poor';
+    return 'Avg';
   }
 
-  function formatDuration(seconds) {
+  function formatDurationSeconds(seconds) {
     if (!seconds) return '00:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function parseDurationToSeconds(secondsValue, durationText) {
+    if (typeof secondsValue === 'number' && !Number.isNaN(secondsValue)) return secondsValue;
+    if (typeof secondsValue === 'string' && secondsValue.trim().match(/^\d+$/)) return parseInt(secondsValue, 10);
+    if (!durationText) return null;
+    const text = String(durationText).trim();
+    if (text.includes(':')) {
+      const parts = text.split(':').map(p => p.trim()).filter(Boolean);
+      if (parts.length === 3) {
+        return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(parts[2], 10);
+      }
+      if (parts.length === 2) {
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+      }
+    }
+    if (text.match(/^\d+$/)) return parseInt(text, 10);
+    return null;
   }
 
   function formatDate(date) {
@@ -331,20 +433,26 @@ const CallReportsList = () => {
 
   function getIntentDotColor(intent) {
     if (intent === 'High') return 'bg-emerald-500';
-    if (intent === 'Medium') return 'bg-amber-500';
+    if (intent === 'Med' || intent === 'Medium') return 'bg-amber-500';
     return 'bg-red-500';
   }
 
   function getExpColor(exp) {
-    if (exp === 'High') return 'text-emerald-600 font-bold';
-    if (exp === 'Medium') return 'text-yellow-600 font-bold';
+    if (exp === 'High' || exp === 'Good') return 'text-emerald-600 font-bold';
+    if (exp === 'Med' || exp === 'Medium' || exp === 'Avg') return 'text-gray-600 font-bold';
     return 'text-red-600 font-bold';
+  }
+
+  function getCallExpColor(exp) {
+    if (exp === 'High') return 'text-emerald-600 font-bold';
+    if (exp === 'Med' || exp === 'Medium') return 'text-yellow-600 font-bold';
+    return 'text-gray-600 font-bold';
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading call reports...</div>
+        <div className="text-gray-600">Loading store walk-in call reports...</div>
       </div>
     );
   }
@@ -372,28 +480,28 @@ const CallReportsList = () => {
               BACK TO DASHBOARD
             </Link>
             <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Fraunces', serif" }}>
-              GMB Inbound Calls
+              Store Walk-in Follow-up
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Live feed of customer inquiries to store numbers</p>
+            <p className="text-sm text-gray-500 mt-1">Central Sales outreach to customers who visited but didn't buy</p>
           </div>
           
           <div className="flex gap-3">
             <button
-              onClick={() => exportReportsAsCsv(filteredReports, 'gmb_calls_report.csv')}
+              onClick={() => exportReportsAsCsv(filteredReports, 'store_walkin_calls_report.csv')}
               className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
               Export CSV
             </button>
             <Link
-              to="/GmbCalls/upload"
+              to="/storewalkin-outbound-calls/upload"
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <Upload className="w-4 h-4" />
               Upload CSV
             </Link>
             <Link
-              to="/GmbCalls/analytics"
+              to="/storewalkin-outbound-calls/analytics"
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition shadow-sm flex items-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
@@ -412,16 +520,16 @@ const CallReportsList = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Calls</p>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Leads</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{kpis.total}</p>
             </div>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <Phone className="w-5 h-5" />
+            <div className="p-2 bg-gray-50 text-gray-600 rounded-lg">
+              <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">High Intent</p>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">High Intent %</p>
               <p className="text-2xl font-bold text-emerald-600 mt-1">{kpis.highIntentPercent}%</p>
             </div>
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -440,10 +548,10 @@ const CallReportsList = () => {
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
             <div>
               <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Post Purchase</p>
-              <p className="text-2xl font-bold text-gray-500 mt-1">{kpis.postPurchase}</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{kpis.postPurchase}</p>
             </div>
-            <div className="p-2 bg-gray-100 text-gray-500 rounded-lg">
-              <HelpCircle className="w-5 h-5" />
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+              <CheckCircle className="w-5 h-5" />
             </div>
           </div>
         </div>
@@ -502,10 +610,10 @@ const CallReportsList = () => {
               ))}
             </select>
 
-            {/* Time */}
+            {/* Consideration Value */}
             <select
-              value={timeRange}
-              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              value={selectedValue}
+              onChange={(e) => { setSelectedValue(e.target.value); setCurrentPage(1); }}
               className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               style={{
                 backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
@@ -514,11 +622,11 @@ const CallReportsList = () => {
                 backgroundSize: '1.5em 1.5em'
               }}
             >
-              <option value="1">Time: Last 1 Day</option>
-              <option value="7">Time: Last 7 Days</option>
-              <option value="30">Time: Last 30 Days</option>
-              <option value="90">Time: Last 3 Months</option>
-              <option value="all">Time: All Time</option>
+              <option value="All">Consideration Value: All</option>
+              <option value="50k">50k+</option>
+              <option value="25k">25k to 50k</option>
+              <option value="15k">15k to 25k</option>
+              <option value="low">Below 15k</option>
             </select>
 
             {/* Purchase Intent */}
@@ -535,9 +643,27 @@ const CallReportsList = () => {
             >
               <option value="All">Purchase Intent: All</option>
               <option value="High">High</option>
-              <option value="Medium">Medium</option>
+              <option value="Med">Medium</option>
               <option value="Low">Low</option>
               <option value="Purchased">Already Purchased</option>
+            </select>
+
+            {/* Time */}
+            <select
+              value={timeRange}
+              onChange={(e) => { setTimeRange(e.target.value); setCurrentPage(1); }}
+              className="bg-white border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 pr-8 rounded-lg appearance-none cursor-pointer shadow-sm hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              style={{
+                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em'
+              }}
+            >
+              <option value="7">Time: Last 7 Days</option>
+              <option value="30">Time: Last 30 Days</option>
+              <option value="90">Time: Last 3 Months</option>
+              <option value="all">Time: All Time</option>
             </select>
 
             <div className="ml-auto flex items-center gap-2">
@@ -558,22 +684,22 @@ const CallReportsList = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Potential Value</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Intent</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Store</th>
+                  <th className="px-4 py-3 text-left text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Consideration<br/>Value</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Purchase<br/>Intent</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Store Visit<br/>Experience</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
+                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Measurement<br/>Hook Used?</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {paginatedReports.length === 0 ? (
                   <tr>
-                    <td colSpan="11" className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan="10" className="px-4 py-8 text-center text-gray-400">
                       No calls match the current filters.
                     </td>
                   </tr>
@@ -583,35 +709,35 @@ const CallReportsList = () => {
                     return (
                       <tr 
                         key={report.call_id} 
-                        onClick={() => navigate(`/GmbCalls/${report.call_id}`)}
+                        onClick={() => navigate(`/storewalkin-outbound-calls/${report.call_id}`)}
                         className="hover:bg-gray-50 transition cursor-pointer"
                       >
                         {/* Call ID */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-left">
                           <span className="font-mono text-xs font-bold text-gray-500">
                             {report.call_id ? report.call_id.slice(-8).toUpperCase() : 'N/A'}
                           </span>
                         </td>
                         
                         {/* Date & Time */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-center">
                           <div className="text-sm font-semibold text-gray-900">{dateInfo.date}</div>
                           <div className="text-xs text-gray-500">{dateInfo.time}</div>
                         </td>
                         
                         {/* Store Name */}
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-gray-900">{report.store_name || 'Unknown'}</div>
-                          <div className="text-xs text-gray-500">{report.city}{report.state ? `, ${report.state.slice(0, 2).toUpperCase()}` : ''}</div>
+                        <td className="px-4 py-3 text-center">
+                          <div className="font-bold text-gray-900">{report.storeName}</div>
+                          <div className="text-xs text-gray-500">{report.city}</div>
                         </td>
                         
                         {/* Duration */}
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-sm text-gray-600">{formatDuration(report.duration_seconds)}</span>
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-mono text-sm text-gray-600">{report.duration}</span>
                         </td>
                         
                         {/* Lead Type */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase whitespace-nowrap ${
                             report.leadType === 'Sales Lead' 
                               ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
@@ -621,53 +747,48 @@ const CallReportsList = () => {
                           </span>
                         </td>
                         
-                        {/* Potential Value */}
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${report.potentialValue === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
-                            {report.potentialValue}
+                        {/* Consideration Value */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${report.valueDisplay === 'N/A' || report.leadType === 'Post Purchase' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
+                            {report.leadType === 'Post Purchase' ? 'N/A' : report.valueDisplay}
                           </span>
                         </td>
                         
-                        {/* Intent */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center">
-                            <span className={`h-2 w-2 rounded-full mr-2 ${getIntentDotColor(report.intent)}`}></span>
+                        {/* Purchase Intent */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center">
+                            <span className={`h-2 w-2 rounded-full mr-2 ${report.isPurchased ? 'bg-red-500' : getIntentDotColor(report.intent)}`}></span>
                             <span className="font-bold text-gray-700 text-sm">{report.intent}</span>
                           </div>
                         </td>
                         
-                        {/* Customer Exp */}
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${getExpColor(report.customerExp)}`}>
-                            {report.customerExp}
+                        {/* Store Visit Experience */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${getExpColor(report.storeExp)}`}>
+                            {report.storeExp}
                           </span>
                         </td>
                         
-                        {/* Call Objective */}
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-gray-700 max-w-[150px] truncate block" title={report.callObjective}>
-                            {report.callObjective}
+                        {/* Call Experience */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm ${getCallExpColor(report.callExp)}`}>
+                            {report.callExp}
                           </span>
                         </td>
                         
-                        {/* Invited to Store */}
-                        <td className="px-4 py-3">
-                          {report.invitedToStore === 'Yes' ? (
-                            <span className="text-sm font-bold text-green-600 flex items-center gap-1">
+                        {/* Measurement Hook Used */}
+                        <td className="px-4 py-3 text-center">
+                          {report.measurementHookUsed === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center justify-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                               </svg>
                               Yes
                             </span>
-                          ) : report.leadType === 'Post-Sales' ? (
-                            <span className="text-sm text-gray-400">N/A</span>
+                          ) : report.measurementHookUsed === 'N/A' ? (
+                            <span className="text-sm font-bold text-gray-400">N/A</span>
                           ) : (
-                            <span className="text-sm font-bold text-red-400 flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                              No
-                            </span>
+                            <span className="text-sm font-bold text-gray-400">No</span>
                           )}
                         </td>
                       </tr>
@@ -681,24 +802,8 @@ const CallReportsList = () => {
           {/* Pagination */}
           <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
             <p className="text-xs text-gray-500">
-              Showing <span className="font-bold">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredReports.length)}</span> of <span className="font-bold">{filteredReports.length}</span> results
+              Showing <span className="font-bold">all {filteredReports.length}</span> results
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-500 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Prev
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-900 disabled:opacity-50 hover:bg-gray-50 transition"
-              >
-                Next
-              </button>
-            </div>
           </div>
         </div>
 
@@ -707,4 +812,4 @@ const CallReportsList = () => {
   );
 };
 
-export default CallReportsList;
+export default StoreWalkinCallsList;

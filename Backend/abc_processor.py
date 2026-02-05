@@ -20,12 +20,33 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME_LITE = os.getenv("MODEL_LITE", "gemini-flash-lite-latest")
-MODEL_NAME_FULL = os.getenv("MODEL", "gemini-2.0-flash")
+MODEL_NAME_FULL = os.getenv("MODEL", "gemini-3-pro-preview")
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env file")
 
 genai.configure(api_key=GEMINI_API_KEY)
+
+
+def parse_duration_to_seconds(value) -> Optional[int]:
+  if value is None or value == "":
+    return None
+  try:
+    if isinstance(value, (int, float)) and not math.isnan(value):
+      return int(value)
+    s = str(value).strip()
+    if ":" in s:
+      parts = s.split(":")
+      parts = [p for p in parts if p != ""]
+      if len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+      if len(parts) == 2:
+        return int(parts[0]) * 60 + int(parts[1])
+    if s.isdigit():
+      return int(s)
+  except Exception:
+    return None
+  return None
 
 
 class AbcCSVValidator:
@@ -39,6 +60,7 @@ class AbcCSVValidator:
         'Lineitem price',
         'LeadCreatedDate',
         'CallStartDateTime',
+      'Date',
         'CallAudio'
         # 'is_Converted' is likely optional or derived
     ]
@@ -203,7 +225,16 @@ class AbcCallProcessor:
         city = str(row.get('Billing City', ''))
         audio_url = str(row.get('CallAudio', ''))
         agent_name = str(row.get('Agent_Name', row.get('AgentName', 'Unknown Agent')))  # Extract agent name from CSV
+        call_date = str(row.get('Date', row.get('CallStartDateTime', '')))
         call_id = f"abc_call_{uuid.uuid4().hex[:8]}" # Generate ID if not present
+
+        duration_seconds = parse_duration_to_seconds(
+            row.get('Duration', row.get('Call_Duration', row.get('CallDuration', None)))
+        )
+        if duration_seconds is not None and duration_seconds < 30:
+            print(f"[ABC] Row {row_num}: Duration {duration_seconds}s < 30s. Skipping.")
+            self.job_status["filtered_out"] += 1
+            return
 
         if not audio_url or pd.isna(audio_url) or audio_url == 'nan':
             self._add_error(row_num, phone, "Missing audio URL")
@@ -230,6 +261,7 @@ class AbcCallProcessor:
           "audio_url": audio_url,
           "recording_url": audio_url,  # For Drive upload compatibility
           "processed_at": datetime.now().isoformat(),
+          "call_date": call_date,
           "call_type_detected": call_type,
           "raw_data": row.to_dict()
         }
@@ -265,7 +297,7 @@ class AbcCallProcessor:
         customer_name = row.get('Customer_Name', 'Not Specified')
         cart_value = row.get('Lineitem price', 'Unknown')
         abandonment_date = row.get('LeadCreatedDate', 'Unknown')
-        call_date = row.get('CallStartDateTime', 'Unknown')
+        call_date = row.get('Date', row.get('CallStartDateTime', 'Unknown'))
         phone = row.get('Billing Phone', 'Unknown')
         city = row.get('Billing City', 'Unknown')
         locality = row.get('Locality', 'Unknown')
@@ -282,7 +314,7 @@ class AbcCallProcessor:
     "Call_Region": "String (North/South/East/West)",
     "Customer_Gender": "Male | Female | Unknown",
     "Customer_Age_Group": "Young Adult | Middle Aged | Senior | Unknown",
-    "Consideration_Value": "String ('Below 15k', '15k to 25k', '25k to 50k', '50k+')",
+    "Consideration_Value": "(REQUIRED)String ('Below 15k', '15k-25k', '25k-50k', '50k+')",
     "Call_Quality_Overall": "High | Medium | Low",
     "Call_Duration": "String",
     "Connected_to_Customer": true,
@@ -290,7 +322,7 @@ class AbcCallProcessor:
   },
   "Call_Summary": "String (Max 150 words - Focus on why they abandoned and the outcome)",
   "1_Call_Objective": {
-    "Type": "Sales Lead (Recovery) | Already Purchased | Service Query",
+    "Type": "(REQUIRED) Sales Lead (Recovery) | Already Purchased",
     "Objective_Phrase": "String"
   },
   "2_Intent_to_Purchase": {
@@ -375,7 +407,7 @@ class AbcCallProcessor:
   ],
   "14_Next_Actions": "String (e.g. WhatsApp Payment Link sent, Follow up tomorrow)",
   "15_End_to_End_NPS": {
-    "Score": "Integer (0-10)",
+    "Score": "(REQUIRED)Integer (0-10)",
     "Comment": "String (Inferred sentiment)"
   },
   "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
