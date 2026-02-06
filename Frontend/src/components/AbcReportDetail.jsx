@@ -447,6 +447,19 @@ const AbcReportDetail = () => {
     Agent_Nature: experienceSkills.Customer_Sentiment || 'Responsive'
   };
 
+  const getSkillRating = (skillValue, fallback = 'N/A') => {
+    if (!skillValue) return fallback;
+    if (typeof skillValue === 'object') return skillValue.Rating || skillValue.rating || fallback;
+    return skillValue;
+  };
+
+  const getSkillReason = (skillValue, explicitReason, fallback = 'No details available.') => {
+    if (skillValue && typeof skillValue === 'object') {
+      return skillValue.Reason || skillValue.reason || explicitReason || fallback;
+    }
+    return explicitReason || fallback;
+  };
+
   // Get NPS
   const npsScore = npsData.Score !== undefined ? npsData.Score : (experienceSkills.CSAT_Score || 'N/A');
   const npsComment = npsData.Comment || experienceSkills.Sentiment_Reason || '';
@@ -496,13 +509,44 @@ const AbcReportDetail = () => {
           <Link to="/abc-outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
             ← BACK TO ABC LEADS
           </Link>
-          <div className="flex gap-4">
-            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+          <div className="flex gap-3">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
               ID: {report.call_id}
+            </span>
+            <span className={`inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm ${
+              report.call_type_detected === 'POST_PURCHASE' || funnelStage === 'Already Purchased' ? 'text-purple-700' : 'text-blue-700'
+            }`}>
+              <span className="font-semibold">Lead:</span>&nbsp;{report.call_type_detected === 'POST_PURCHASE' || funnelStage === 'Already Purchased' ? 'Post-Purchase' : 'Sales'}
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Intent:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                purchaseIntentRating === 'High' ? 'bg-green-500' : 
+                purchaseIntentRating === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                purchaseIntentRating === 'High' ? 'text-green-700' : 
+                purchaseIntentRating === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {purchaseIntentRating}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Experience:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                experienceRating === 'High' ? 'bg-green-500' : 
+                experienceRating === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                experienceRating === 'High' ? 'text-green-700' : 
+                experienceRating === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {experienceRating}
+              </span>
             </span>
             <button 
               onClick={playAudio}
-              className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
+              className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition tracking-wide shadow-md"
             >
             LISTEN TO CALL
             </button>
@@ -536,6 +580,11 @@ const AbcReportDetail = () => {
               </div>
               
               <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-purple-600 uppercase tracking-wider font-bold block mb-1">Calling Agent</span>
+                  <span className="text-purple-700 font-semibold text-lg">{agentName}</span>
+                </div>
+
                 <div>
                   <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
                   <span className="text-gray-900 font-medium text-lg">{customerLocation} • {customerLanguage}</span>
@@ -897,23 +946,26 @@ const AbcReportDetail = () => {
             <div className="space-y-4 mb-8">
               <ExpandableCard
                 title="Sales Skills"
-                rating={mainSkills.Sales_Skills || 'N/A'}
+                rating={getSkillRating(mainSkills.Sales_Skills, 'N/A')}
               >
-                Agent's ability to recover the sale and handle objections effectively.
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Sales_Skills, mainSkills.Sales_Skills_Reason)}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Product Knowledge"
-                rating={mainSkills.Product_Knowledge || 'N/A'}
+                rating={getSkillRating(mainSkills.Product_Knowledge, 'N/A')}
               >
-                Understanding of product features and benefits during recovery.
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Product_Knowledge, mainSkills.Product_Knowledge_Reason)}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Upsell Skills"
-                rating={mainSkills.Upsell_Revenue_Skills || 'N/A'}
+                rating={getSkillRating(mainSkills.Upsell_Revenue_Skills, 'N/A')}
               >
-                Ability to suggest additional products or upgrades.
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Upsell_Revenue_Skills, mainSkills.Upsell_Revenue_Skills_Reason)}
               </ExpandableCard>
             </div>
 
@@ -923,20 +975,18 @@ const AbcReportDetail = () => {
             <div className="space-y-4">
               <ExpandableCard
                 title="Agent Nature"
-                rating={secondaryTraits.Agent_Nature || 'N/A'}
+                rating={getSkillRating(secondaryTraits.Agent_Nature, 'N/A')}
               >
-                {secondaryTraits.Agent_Nature === 'Proactive' 
-                  ? 'Takes initiative in guiding the customer through recovery.'
-                  : secondaryTraits.Agent_Nature === 'Responsive'
-                  ? 'Responds well to customer queries during recovery.'
-                  : 'Agent interaction style during the call.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(secondaryTraits.Agent_Nature, secondaryTraits.Agent_Nature_Reason)}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Objection Handling"
-                rating={secondaryTraits.Objection_Handling || 'N/A'}
+                rating={getSkillRating(secondaryTraits.Objection_Handling, 'N/A')}
               >
-                Ability to address customer concerns and barriers effectively.
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(secondaryTraits.Objection_Handling, secondaryTraits.Objection_Handling_Reason)}
               </ExpandableCard>
             </div>
           </div>

@@ -386,9 +386,9 @@ const GmbAggregatedDashboard = () => {
       Low: 'bg-[#852b26]',      // Maroon
     },
     'Already Purchased': {
-      High: 'bg-[#8cc63f]',     // Lime
-      Medium: 'bg-[#dcb336]',   // Mustard
-      Low: 'bg-[#d97029]',      // Orange
+      High: 'bg-[#6366f1]',     // Purple
+      Medium: 'bg-[#4f46e5]',   // Indigo
+      Low: 'bg-[#4338ca]',      // Deep indigo
     },
   };
 

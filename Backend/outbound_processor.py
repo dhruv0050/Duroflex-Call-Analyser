@@ -497,7 +497,9 @@ class OutboundCallUploadProcessor:
     "Score": "(REQUIRED)Integer (0-10)",
     "Comment": "String (For the Call Experience)"
   },
-  "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
+    "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer with timestamps.
+                      for example [Agent](0:02): Hello, thank you for calling Duroflex. I see you were interested in our mattresses. How can I assist you today?
+                      [Customer](0:05): Hi, yes I was looking at the Duroflex Sleepyhead mattress)"
 }"""
 
         # NOTE: This prompt is intentionally kept verbatim to the user-provided text.

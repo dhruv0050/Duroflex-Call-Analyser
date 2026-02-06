@@ -637,21 +637,20 @@ const GmbReportList = () => {
         )}
 
         {/* TABLE SECTION */}
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Consideration Value</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Intent</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Store</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Consideration Value</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Intent</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer Exp</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call Objective</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Store</th>
+                   <th className="sticky top-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invited to Video</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -760,7 +759,6 @@ const GmbReportList = () => {
                 )}
               </tbody>
             </table>
-          </div>
           
           {/* Pagination */}
           <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">

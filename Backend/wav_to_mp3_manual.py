@@ -8,7 +8,7 @@ import os
 # ==========================
 # CONFIG
 # ==========================
-WAV_URL = "https://recordings.dashloc.com/2026/01/4208/inbound/949699367917674394426958fc52e426e.wav"
+WAV_URL = "{Recording URL}"
 OUTPUT_MP3 = "output.mp3"
 BITRATE = 192  # kbps (use 256 or 320 if you want even closer quality)
 

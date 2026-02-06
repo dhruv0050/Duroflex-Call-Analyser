@@ -751,21 +751,20 @@ const StoreWalkinCallsList = () => {
         )}
 
         {/* TABLE SECTION */}
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Consideration<br/>Value</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Purchase<br/>Intent</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Store Visit<br/>Experience</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
-                  <th className="px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Measurement<br/>Hook Used?</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-left text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Call ID</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Store Name</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Duration</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Lead Type</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Consideration<br/>Value</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Purchase<br/>Intent</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Store Visit<br/>Experience</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Call<br/>Experience</th>
+                  <th className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-[0.7rem] font-bold text-gray-500 uppercase tracking-wider leading-tight">Measurement<br/>Hook Used?</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -869,7 +868,6 @@ const StoreWalkinCallsList = () => {
                 )}
               </tbody>
             </table>
-          </div>
           
           {/* Pagination */}
           <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">

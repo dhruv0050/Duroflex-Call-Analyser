@@ -14,12 +14,16 @@ import os
 import tempfile
 import time
 import uuid
+from io import BytesIO
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
 import google.generativeai as genai
+import numpy as np
+import soundfile as sf
+from lameenc import Encoder
 
 
 def sanitize_nan(obj):
@@ -42,6 +46,46 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(float(str(value).strip()))
     except Exception:
         return default
+
+
+WAV_TO_MP3_BITRATE = 192
+
+
+def _is_wav_audio(audio_data: bytes, source_url: Optional[str] = None) -> bool:
+    if audio_data and len(audio_data) >= 12 and audio_data[:4] == b"RIFF" and audio_data[8:12] == b"WAVE":
+        return True
+    url = (source_url or "").lower()
+    return url.endswith(".wav")
+
+
+def _convert_wav_to_mp3(audio_data: bytes) -> Tuple[Optional[bytes], Optional[str]]:
+    try:
+        audio, sample_rate = sf.read(BytesIO(audio_data), dtype="float32")
+
+        if audio.ndim == 1:
+            audio = audio[:, np.newaxis]
+
+        channels = audio.shape[1]
+
+        audio = np.clip(audio, -1.0, 1.0)
+        pcm16 = (audio * 32767).astype(np.int16)
+        pcm_bytes = pcm16.tobytes()
+
+        encoder = Encoder()
+        encoder.set_bit_rate(WAV_TO_MP3_BITRATE)
+        encoder.set_in_sample_rate(sample_rate)
+        encoder.set_channels(channels)
+        encoder.set_quality(0)
+
+        mp3_data = encoder.encode(pcm_bytes)
+        mp3_data += encoder.flush()
+
+        if not mp3_data:
+            return None, "WAV to MP3 conversion returned empty output"
+
+        return mp3_data, None
+    except Exception as exc:
+        return None, f"WAV to MP3 conversion failed: {exc}"
 
 
 def _detect_audio_filetype(audio_data: bytes, source_url: Optional[str] = None) -> Tuple[str, str]:
@@ -409,7 +453,9 @@ OUTPUT SCHEMA (JSON)
         "Score": "(REQUIRED)Integer (0-10)",
         "Comment": "String (Inferred sentiment)"
     },
-    "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer)"
+      "Transcript_Log": "String (Full Transcript with proper definition of what is said by Agent and Customer with timestamps.
+                      for example [Agent](0:02): Hello, thank you for calling Duroflex. I see you were interested in our mattresses. How can I assist you today?
+                      [Customer](0:05): Hi, yes I was looking at the Duroflex Sleepyhead mattress)"
 }
 '''
 
@@ -609,6 +655,14 @@ class CallUploadProcessor:
             if download_error:
                 job.add_error(row_num, store_name, f"Download: {download_error}")
                 return None, download_error
+
+            if _is_wav_audio(audio_data, source_url=url):
+                print("[AUDIO] Converting WAV to MP3 before Gemini upload...")
+                mp3_data, convert_error = _convert_wav_to_mp3(audio_data)
+                if convert_error:
+                    job.add_error(row_num, store_name, f"Conversion: {convert_error}")
+                    return None, convert_error
+                audio_data = mp3_data
 
             # 2. Analyze with Gemini
             analysis, gemini_error = self.analyzer.analyze_with_retry(

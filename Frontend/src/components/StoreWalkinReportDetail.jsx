@@ -556,13 +556,44 @@ const StoreWalkinReportDetail = () => {
           <Link to="/storewalkin-outbound-calls" className="text-base font-medium text-gray-600 hover:text-gray-900 transition tracking-wide">
             ← BACK TO WALK-IN LEADS
           </Link>
-          <div className="flex gap-4">
-            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+          <div className="flex gap-3">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
               ID: {report.call_id}
+            </span>
+            <span className={`inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm ${
+              report.call_type === 'POST_PURCHASE' ? 'text-purple-700' : 'text-blue-700'
+            }`}>
+              <span className="font-semibold">Lead:</span>&nbsp;{report.call_type === 'POST_PURCHASE' ? 'Post-Purchase' : 'Sales'}
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Intent:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                normalizeRating(intentRating) === 'High' ? 'bg-green-500' : 
+                normalizeRating(intentRating) === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                normalizeRating(intentRating) === 'High' ? 'text-green-700' : 
+                normalizeRating(intentRating) === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {normalizeRating(intentRating)}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Experience:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                normalizeRating(callExpRating) === 'High' ? 'bg-green-500' : 
+                normalizeRating(callExpRating) === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                normalizeRating(callExpRating) === 'High' ? 'text-green-700' : 
+                normalizeRating(callExpRating) === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {normalizeRating(callExpRating)}
+              </span>
             </span>
             <button 
               onClick={playRecording}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition tracking-wide shadow-md"
             >
               <Phone className="w-4 h-4" /> LISTEN TO CALL
             </button>
@@ -590,6 +621,11 @@ const StoreWalkinReportDetail = () => {
               </div>
               
               <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-purple-600 uppercase tracking-wider font-bold block mb-1">Calling Agent</span>
+                  <span className="text-purple-700 font-semibold text-lg">{metaData.Agent_Name || 'Unknown Agent'}</span>
+                </div>
+
                 <div>
                   <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
                   <span className="text-gray-900 font-medium text-lg">{customerLocation} • {customerLanguage}</span>
@@ -747,7 +783,7 @@ const StoreWalkinReportDetail = () => {
                       key={stage}
                       className={`font-semibold text-sm tracking-wide flex items-center justify-center py-3 px-5 border ${
                         index <= currentNarrowIndex
-                          ? 'bg-linear-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md'
                           : 'bg-gray-100 text-gray-500 border-gray-200'
                       }`}
                       style={{

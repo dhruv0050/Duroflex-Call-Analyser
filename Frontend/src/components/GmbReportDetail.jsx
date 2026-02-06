@@ -453,6 +453,19 @@ const GmbReportDetail = () => {
   // Extract agent evaluation from new schema (12_Agent_Evaluation)
   const mainSkills = agentEvaluation.Main_Skills || {};
   const secondaryTraits = agentEvaluation.Secondary_Traits || {};
+
+  const getSkillRating = (skillValue, fallback = 'N/A') => {
+    if (!skillValue) return fallback;
+    if (typeof skillValue === 'object') return skillValue.Rating || skillValue.rating || fallback;
+    return skillValue;
+  };
+
+  const getSkillReason = (skillValue, explicitReason, fallback = 'No details available.') => {
+    if (skillValue && typeof skillValue === 'object') {
+      return skillValue.Reason || skillValue.reason || explicitReason || fallback;
+    }
+    return explicitReason || fallback;
+  };
   
   // Unified accessors with new schema preference
   const relax = Object.keys(relaxFrameworkNew).length > 0 ? relaxFrameworkNew : (agent.RELAX_Framework || {});
@@ -484,16 +497,47 @@ const GmbReportDetail = () => {
           >
             ← BACK TO STORE CALLS
           </Link>
-          <div className="flex gap-4">
-            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-base text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
+          <div className="flex gap-3">
+            <span className="inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm text-gray-600 border border-gray-300 font-mono tracking-wider shadow-sm">
               ID: {report.call_id}
+            </span>
+            <span className={`inline-flex items-center px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm ${
+              (funnelAnalysis.Stage || customer.Customer_Stage_AIDA || '').toLowerCase().includes('purchased') ? 'text-purple-700' : 'text-blue-700'
+            }`}>
+              <span className="font-semibold">Lead:</span>&nbsp;{(funnelAnalysis.Stage || customer.Customer_Stage_AIDA || '').toLowerCase().includes('purchased') ? 'Post-Purchase' : 'Sales'}
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Intent:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                getRatingText(intentToPurchase.Rating) === 'High' ? 'bg-green-500' : 
+                getRatingText(intentToPurchase.Rating) === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                getRatingText(intentToPurchase.Rating) === 'High' ? 'text-green-700' : 
+                getRatingText(intentToPurchase.Rating) === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {getRatingText(intentToPurchase.Rating) || customer.Intent_to_Purchase_Rating || 'Unknown'}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-lg text-sm border border-gray-300 shadow-sm">
+              <span className="font-semibold text-gray-600">Experience:</span>
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                getRatingText(customerExperience.Rating || customer.Customer_Satisfaction_Score) === 'High' ? 'bg-green-500' : 
+                getRatingText(customerExperience.Rating || customer.Customer_Satisfaction_Score) === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+              }`}></span>
+              <span className={`font-bold ${
+                getRatingText(customerExperience.Rating || customer.Customer_Satisfaction_Score) === 'High' ? 'text-green-700' : 
+                getRatingText(customerExperience.Rating || customer.Customer_Satisfaction_Score) === 'Medium' ? 'text-yellow-700' : 'text-red-700'
+              }`}>
+                {getRatingText(customerExperience.Rating) || getRatingText(customer.Customer_Satisfaction_Score)}
+              </span>
             </span>
             {(report.driveLink || report.recording_url) && (
               <a
                 href={report.driveLink || report.recording_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-bold transition tracking-wide shadow-md"
+                className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition tracking-wide shadow-md"
               >
                 LISTEN TO CALL
               </a>
@@ -528,6 +572,11 @@ const GmbReportDetail = () => {
               </div>
               
               <div className="space-y-4 text-base">
+                <div>
+                  <span className="text-xs text-purple-600 uppercase tracking-wider font-bold block mb-1">Calling Agent</span>
+                  <span className="text-purple-700 font-semibold text-lg">{metadata.Agent_Name || functional.Agent_Name || 'Unknown Agent'}</span>
+                </div>
+
                 <div>
                   <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Location & Language</span>
                   <span className="text-gray-900 font-medium text-lg">
@@ -1155,23 +1204,26 @@ const GmbReportDetail = () => {
             <div className="space-y-4 mb-8">
               <ExpandableCard
                 title="Product Knowledge"
-                rating={mainSkills.Product_Knowledge || knowledge.Description_Quality_Rating || 'N/A'}
+                rating={getSkillRating(mainSkills.Product_Knowledge, knowledge.Description_Quality_Rating || 'N/A')}
               >
-                {mainSkills.Product_Knowledge || knowledge.Description_Quality_Reason || 'No assessment available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Product_Knowledge, mainSkills.Product_Knowledge_Reason, knowledge.Description_Quality_Reason || 'No assessment available.')}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Sales Skills"
-                rating={mainSkills.Sales_Skills || knowledge.Stock_Availability_Check_Rating || 'N/A'}
+                rating={getSkillRating(mainSkills.Sales_Skills, knowledge.Stock_Availability_Check_Rating || 'N/A')}
               >
-                {mainSkills.Sales_Skills || knowledge.Stock_Availability_Check_Reason || 'No assessment available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Sales_Skills, mainSkills.Sales_Skills_Reason, knowledge.Stock_Availability_Check_Reason || 'No assessment available.')}
               </ExpandableCard>
               
               <ExpandableCard
                 title="Upsell & Revenue Skills"
-                rating={mainSkills.Upsell_Revenue_Skills || 'N/A'}
+                rating={getSkillRating(mainSkills.Upsell_Revenue_Skills, 'N/A')}
               >
-                {mainSkills.Upsell_Revenue_Skills || 'No assessment available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(mainSkills.Upsell_Revenue_Skills, mainSkills.Upsell_Revenue_Skills_Reason, 'No assessment available.')}
               </ExpandableCard>
             </div>
 
@@ -1181,23 +1233,26 @@ const GmbReportDetail = () => {
             <div className="space-y-4">
               <ExpandableCard
                 title="Need Discovery"
-                rating={secondaryTraits.Need_Discovery || softSkills.Tone_and_Patience_Rating || 'N/A'}
+                rating={getSkillRating(secondaryTraits.Need_Discovery, softSkills.Tone_and_Patience_Rating || 'N/A')}
               >
-                {secondaryTraits.Need_Discovery || softSkills.Soft_Skills_Reasons?.[0] || 'No details available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(secondaryTraits.Need_Discovery, secondaryTraits.Need_Discovery_Reason, softSkills.Soft_Skills_Reasons?.[0] || 'No details available.')}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Objection Handling"
-                rating={secondaryTraits.Objection_Handling || softSkills.Hold_Management_Rating || 'N/A'}
+                rating={getSkillRating(secondaryTraits.Objection_Handling, softSkills.Hold_Management_Rating || 'N/A')}
               >
-                {secondaryTraits.Objection_Handling || softSkills.Soft_Skills_Reasons?.[1] || 'No details available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(secondaryTraits.Objection_Handling, secondaryTraits.Objection_Handling_Reason, softSkills.Soft_Skills_Reasons?.[1] || 'No details available.')}
               </ExpandableCard>
 
               <ExpandableCard
                 title="Agent Nature"
-                rating={secondaryTraits.Agent_Nature || softSkills.Agent_Language_Fluency_Score || 'N/A'}
+                rating={getSkillRating(secondaryTraits.Agent_Nature, softSkills.Agent_Language_Fluency_Score || 'N/A')}
               >
-                {secondaryTraits.Agent_Nature || softSkills.Soft_Skills_Reasons?.[2] || 'No details available.'}
+                <strong className="text-sm uppercase block mb-1 text-gray-600">Reason:</strong>
+                {getSkillReason(secondaryTraits.Agent_Nature, secondaryTraits.Agent_Nature_Reason, softSkills.Soft_Skills_Reasons?.[2] || 'No details available.')}
               </ExpandableCard>
             </div>
           </div>
@@ -1250,7 +1305,7 @@ const GmbReportDetail = () => {
               <div className="text-6xl font-bold text-green-700 mb-4">
                 {(() => {
                   // New schema has direct NPS score, legacy uses Customer_Satisfaction_Score
-                  if (npsScore.Score) return npsScore.Score;
+                  if (npsScore.Score !== undefined && npsScore.Score !== null) return npsScore.Score;
                   
                   const score = customerExperience.Rating || customer.Customer_Satisfaction_Score || 3;
                   // Convert 1-5 scale to NPS scale (0-10): multiply by 2
@@ -1260,7 +1315,7 @@ const GmbReportDetail = () => {
               </div>
               <p className="text-base font-bold text-green-700 uppercase tracking-wide mb-4">
                 {(() => {
-                  const npsValue = npsScore.Score || (() => {
+                  const npsValue = npsScore.Score !== undefined && npsScore.Score !== null ? npsScore.Score : (() => {
                     const score = customerExperience.Rating || customer.Customer_Satisfaction_Score || 3;
                     return Math.min(10, Math.round(score * 2));
                   })();
