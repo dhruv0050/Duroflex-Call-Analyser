@@ -383,15 +383,21 @@ OUTPUT SCHEMA (JSON)
     },
     "12_Agent_Evaluation": {
         "Main_Skills": {
-            "Product_Knowledge": "High | Medium | Low","Reason": "String (Evidence-based)"},
-            "Sales_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
-            "Upsell_Revenue_Skills": "High | Medium | Low","Reason": "String (Evidence-based)"},
+            "Product_Knowledge": "High | Medium | Low",
+            "Product_Knowledge_Reason": "String",
+            "Sales_Skills": "High | Medium | Low",
+            "Sales_Skills_Reason": "String",
+            "Upsell_Revenue_Skills": "High | Medium | Low",
+            "Upsell_Revenue_Skills_Reason": "String"
         },
         "Secondary_Traits": {
-            "Need_Discovery": "High | Medium | Low","Reason": "String (Evidence-based)"},
-            "Objection_Handling": "High | Medium | Low","Reason": "String (Evidence-based)"},
-            "Agent_Nature": "Proactive | Responsive | Passive","Reason": "String (Evidence-based)"}
-        }
+            "Need_Discovery": "High | Medium | Low",
+            "Need_Discovery_Reason": "String",
+            "Objection_Handling": "High | Medium | Low",
+            "Objection_Handling_Reason": "String",
+            "Agent_Nature": "Proactive | Responsive | Passive",
+            "Agent_Nature_Reason": "String"
+    }
     },
     "13_Agent_Learnings": [
         "String (Feedback 1)",
