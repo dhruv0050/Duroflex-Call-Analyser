@@ -412,30 +412,28 @@ const GmbReportDetail = () => {
   const npsScore = analysis['15_End_to_End_NPS'] || {};
   
   // Parse Transcript_Log - it's now a string instead of array
+  // Format: [Agent](MM:SS): message\n[Customer](MM:SS): message
   let transcript = [];
   const transcriptLog = analysis.Transcript_Log || '';
+  
   if (typeof transcriptLog === 'string' && transcriptLog.trim()) {
-    // Parse string transcript into array format
-    const lines = transcriptLog.split('\n').filter(line => line.trim());
-    lines.forEach(line => {
-      // Format: "Agent: text" or "Customer: text" or "[timestamp] Speaker: text"
-      const agentMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Agent:\s*(.+)$/i);
-      const customerMatch = line.match(/^(?:\[([^\]]+)\]\s*)?Customer:\s*(.+)$/i);
+    // Parse using regex to extract [Speaker](timestamp): message
+    const timestampRegex = /\[(\w+)\]\(([^)]+)\):\s*(.+?)(?=\[(?:Agent|Customer)\]|$)/gs;
+    let match;
+    
+    while ((match = timestampRegex.exec(transcriptLog)) !== null) {
+      const speaker = match[1]; // Agent or Customer
+      const timestamp = match[2]; // MM:SS
+      const message = match[3].trim();
       
-      if (agentMatch) {
+      if (message) {
         transcript.push({
-          Timestamp: agentMatch[1] || '',
-          Speaker: 'Agent',
-          Text: agentMatch[2].trim()
-        });
-      } else if (customerMatch) {
-        transcript.push({
-          Timestamp: customerMatch[1] || '',
-          Speaker: 'Customer',
-          Text: customerMatch[2].trim()
+          Speaker: speaker,
+          Timestamp: timestamp,
+          Text: message
         });
       }
-    });
+    }
   } else if (Array.isArray(transcriptLog)) {
     // Legacy format - array of objects
     transcript = transcriptLog;
@@ -1358,22 +1356,36 @@ const GmbReportDetail = () => {
             </div>
 
             {expandTranscript && (
-              <div className="max-h-[600px] overflow-y-auto p-8 bg-gray-50">
+              <div className="max-h-[600px] overflow-y-auto p-8 bg-gray-50 space-y-4">
                 {transcript.map((msg, i) => {
                   const isAgent = msg.Speaker === 'Agent';
+                  const formatTimestamp = (timeStr) => {
+                    if (!timeStr) return '';
+                    // Handle format like "0:06" or "1:30"
+                    if (typeof timeStr === 'string' && timeStr.includes(':')) {
+                      return timeStr;
+                    }
+                    return '';
+                  };
+                  
                   return (
-                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3 px-2`}>
                       <div className={`max-w-[75%] ${
                         isAgent 
                           ? 'bg-white border border-gray-200' 
                           : 'bg-green-100 border border-green-200'
-                      } rounded-2xl px-4 py-3 shadow-sm`}>
-                        <p className={`text-xs font-semibold mb-1 ${
+                      } rounded-2xl px-4 py-2 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1.5 ${
                           isAgent ? 'text-gray-600' : 'text-green-800'
-                        }`}>
-                          {msg.Speaker}
-                        </p>
-                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                        }`}>{msg.Speaker}</p>
+                        <p className={`text-base ${
+                          isAgent ? 'text-gray-800' : 'text-gray-900'
+                        } leading-relaxed`}>{msg.Text}</p>
+                        {msg.Timestamp && formatTimestamp(msg.Timestamp) && (
+                          <p className={`text-xs mt-1.5 ${
+                            isAgent ? 'text-gray-500' : 'text-green-700'
+                          }`}>{formatTimestamp(msg.Timestamp)}</p>
+                        )}
                       </div>
                     </div>
                   );

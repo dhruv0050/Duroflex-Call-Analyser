@@ -329,36 +329,22 @@ const StoreWalkinReportDetail = () => {
     String(narrowDownStage).toLowerCase().includes(s.toLowerCase().replace(' ', ''))
   );
 
-  // Parse transcript
+  // Parse transcript - Format: [Speaker](MM:SS): message\n[Speaker](MM:SS): message
   let transcriptItems = [];
-  if (typeof transcriptLog === 'string' && transcriptLog.length > 0) {
-    let parts = [];
-    if (transcriptLog.includes('Agent:') || transcriptLog.includes('Customer:')) {
-      parts = transcriptLog.split(/(?=(?:Agent|Customer):)/g).filter(Boolean);
-    } else if (transcriptLog.match(/[AC]:/)) {
-      parts = transcriptLog.split(/(?=[AC]:)/g).filter(Boolean);
-    } else {
-      parts = [transcriptLog];
+  if (typeof transcriptLog === 'string' && transcriptLog.trim()) {
+    const timestampRegex = /\[(\w+)\]\(([^)]+)\):\s*(.+?)(?=\[(?:Agent|Customer|System)\]|$)/gs;
+    let match;
+    while ((match = timestampRegex.exec(transcriptLog)) !== null) {
+      transcriptItems.push({
+        Speaker: match[1],
+        Timestamp: match[2],
+        Text: match[3].trim()
+      });
     }
-    transcriptItems = parts.map((part) => {
-      let speaker = 'Unknown';
-      let text = part.trim();
-      let match = part.match(/^([AC]):\s*(.*)$/s);
-      if (match) {
-        speaker = match[1] === 'A' ? 'Agent' : 'Customer';
-        text = match[2].trim();
-      } else {
-        match = part.match(/^(Agent|Customer):\s*(.*)$/is);
-        if (match) {
-          speaker = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-          text = match[2].trim();
-        }
-      }
-      return { Speaker: speaker, Text: text };
-    }).filter(item => item.Text.length > 0);
   } else if (Array.isArray(transcriptLog)) {
     transcriptItems = transcriptLog.map(item => ({
       Speaker: item.Speaker || item.speaker || 'Unknown',
+      Timestamp: item.Timestamp || item.timestamp || '',
       Text: item.Text || item.text || String(item),
     }));
   }
@@ -1015,22 +1001,36 @@ const StoreWalkinReportDetail = () => {
             </div>
 
             {expandTranscript && (
-              <div className="max-h-125 overflow-y-auto p-8 bg-gray-50">
+              <div className="max-h-125 overflow-y-auto p-8 bg-gray-50 space-y-4">
                 {transcriptItems.map((msg, i) => {
                   const isAgent = msg.Speaker?.toLowerCase().includes('agent');
+                  const formatTimestamp = (timeStr) => {
+                    if (!timeStr) return '';
+                    // Handle format like "0:06" or "1:30"
+                    if (typeof timeStr === 'string' && timeStr.includes(':')) {
+                      return timeStr;
+                    }
+                    return '';
+                  };
+                  
                   return (
-                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3 px-2`}>
                       <div className={`max-w-[75%] ${
                         isAgent 
                           ? 'bg-white border border-gray-200' 
                           : 'bg-green-100 border border-green-200'
-                      } rounded-2xl px-4 py-3 shadow-sm`}>
-                        <p className={`text-xs font-semibold mb-1 ${
+                      } rounded-2xl px-4 py-2 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1.5 ${
                           isAgent ? 'text-gray-600' : 'text-green-800'
-                        }`}>
-                          {msg.Speaker}
-                        </p>
-                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                        }`}>{msg.Speaker}</p>
+                        <p className={`text-base ${
+                          isAgent ? 'text-gray-800' : 'text-gray-900'
+                        } leading-relaxed`}>{msg.Text}</p>
+                        {msg.Timestamp && formatTimestamp(msg.Timestamp) && (
+                          <p className={`text-xs mt-1.5 ${
+                            isAgent ? 'text-gray-500' : 'text-green-700'
+                          }`}>{formatTimestamp(msg.Timestamp)}</p>
+                        )}
                       </div>
                     </div>
                   );

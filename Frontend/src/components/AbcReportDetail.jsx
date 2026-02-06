@@ -1088,63 +1088,45 @@ const AbcReportDetail = () => {
             <div className="max-h-[600px] overflow-y-auto p-8 space-y-4 bg-white">
               {typeof transcript === 'string' ? (
                 (() => {
-                  // Parse transcript string
+                  // Helper to format timestamp from MM:SS to readable format
+                  const formatTimestamp = (timeStr) => {
+                    if (!timeStr) return '';
+                    const parts = timeStr.split(':');
+                    const minutes = parseInt(parts[0]);
+                    const seconds = parseInt(parts[1]);
+                    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                  };
+
+                  // Parse transcript string with format: [Speaker](MM:SS): Message
                   let lines = [];
                   
-                  // Method 1: Check if it has " / " separator (previous format)
-                  if (transcript.includes(' / ')) {
-                    lines = transcript.split(' / ').filter(line => line.trim()).map((line, i) => ({
-                      text: line.trim(),
-                      speaker: i % 2 === 0 ? 'Agent' : 'Customer'
-                    }));
-                  } 
-                  // Method 2: Check if it has ". " and try to detect speaker changes intelligently
-                  else {
-                    // Split by sentence endings, then merge into conversational chunks
-                    const sentences = transcript.split(/(?<=[.!?])\s+/).filter(s => s.trim());
-                    let currentSpeaker = 'Agent'; // Assume agent starts
-                    let currentChunk = '';
+                  // Parse using regex to extract [Speaker](timestamp): message
+                  const timestampRegex = /\[(\w+)\]\(([^)]+)\):\s*(.+?)(?=\[(?:Agent|Customer)\]|$)/gs;
+                  let match;
+                  
+                  while ((match = timestampRegex.exec(transcript)) !== null) {
+                    const speaker = match[1]; // Agent or Customer
+                    const timestamp = match[2]; // MM:SS
+                    const message = match[3].trim();
                     
-                    sentences.forEach((sentence, i) => {
-                      const s = sentence.trim();
-                      if (!s) return;
-                      
-                      // Detect speaker change patterns
-                      // Agent patterns: formal, longer sentences, uses "sir", "ma'am", company name
-                      // Customer patterns: shorter responses, "okay", "yes", "no", informal
-                      const isLikelyCustomerResponse = (
-                        s.length < 50 && 
-                        (s.match(/^(okay|ok|yes|yeah|no|fine|hmm|ah|tell me|hello|welcome|avunandi|ledu|parledandi)/i) ||
-                         s.split(' ').length <= 5)
-                      );
-                      
-                      const isLikelyAgent = (
-                        s.includes('sir') || s.includes('ma\'am') || s.includes('Duroflex') ||
-                        s.includes('team') || s.includes('check') || s.includes('confirm') ||
-                        s.includes('address') || s.includes('order')
-                      );
-                      
-                      // Determine if we should switch speakers
-                      let shouldSwitch = false;
-                      if (currentSpeaker === 'Agent' && isLikelyCustomerResponse) {
-                        shouldSwitch = true;
-                      } else if (currentSpeaker === 'Customer' && isLikelyAgent) {
-                        shouldSwitch = true;
-                      }
-                      
-                      if (shouldSwitch && currentChunk) {
-                        lines.push({ text: currentChunk.trim(), speaker: currentSpeaker });
-                        currentSpeaker = currentSpeaker === 'Agent' ? 'Customer' : 'Agent';
-                        currentChunk = s;
-                      } else {
-                        currentChunk += (currentChunk ? ' ' : '') + s;
-                      }
-                      
-                      // Push remaining chunk at the end
-                      if (i === sentences.length - 1 && currentChunk) {
-                        lines.push({ text: currentChunk.trim(), speaker: currentSpeaker });
-                      }
-                    });
+                    if (message) {
+                      lines.push({
+                        speaker: speaker,
+                        timestamp: formatTimestamp(timestamp),
+                        text: message
+                      });
+                    }
+                  }
+                  
+                  // Fallback: if regex doesn't work, use old method
+                  if (lines.length === 0) {
+                    if (transcript.includes(' / ')) {
+                      lines = transcript.split(' / ').filter(line => line.trim()).map((line, i) => ({
+                        text: line.trim(),
+                        speaker: i % 2 === 0 ? 'Agent' : 'Customer',
+                        timestamp: ''
+                      }));
+                    }
                   }
                   
                   // Render parsed lines
@@ -1152,18 +1134,23 @@ const AbcReportDetail = () => {
                     const isAgent = line.speaker === 'Agent';
                     
                     return (
-                      <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                      <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3 px-2`}>
                         <div className={`max-w-[75%] ${
                           isAgent 
                             ? 'bg-white border border-gray-200' 
                             : 'bg-green-100 border border-green-200'
-                        } rounded-2xl px-4 py-3 shadow-sm`}>
-                          <p className={`text-xs font-semibold mb-1 ${
+                        } rounded-2xl px-4 py-2 shadow-sm`}>
+                          <p className={`text-xs font-semibold mb-1.5 ${
                             isAgent ? 'text-gray-600' : 'text-green-800'
-                          }`}>
-                            {line.speaker}
-                          </p>
-                          <p className="text-base text-gray-800 leading-relaxed">{line.text}</p>
+                          }`}>{line.speaker}</p>
+                          <p className={`text-base ${
+                            isAgent ? 'text-gray-800' : 'text-gray-900'
+                          } leading-relaxed`}>{line.text}</p>
+                          {line.timestamp && (
+                            <p className={`text-xs mt-1.5 ${
+                              isAgent ? 'text-gray-500' : 'text-green-700'
+                            }`}>{line.timestamp}</p>
+                          )}
                         </div>
                       </div>
                     );
@@ -1174,18 +1161,23 @@ const AbcReportDetail = () => {
                   const isAgent = msg.Speaker === 'Agent';
                   
                   return (
-                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+                    <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3 px-2`}>
                       <div className={`max-w-[75%] ${
                         isAgent 
                           ? 'bg-white border border-gray-200' 
                           : 'bg-green-100 border border-green-200'
-                      } rounded-2xl px-4 py-3 shadow-sm`}>
-                        <p className={`text-xs font-semibold mb-1 ${
+                      } rounded-2xl px-4 py-2 shadow-sm`}>
+                        <p className={`text-xs font-semibold mb-1.5 ${
                           isAgent ? 'text-gray-600' : 'text-green-800'
-                        }`}>
-                          {msg.Speaker}
-                        </p>
-                        <p className="text-base text-gray-800 leading-relaxed">{msg.Text}</p>
+                        }`}>{msg.Speaker}</p>
+                        <p className={`text-base ${
+                          isAgent ? 'text-gray-800' : 'text-gray-900'
+                        } leading-relaxed`}>{msg.Text}</p>
+                        {msg.Timestamp && (
+                          <p className={`text-xs mt-1.5 ${
+                            isAgent ? 'text-gray-500' : 'text-green-700'
+                          }`}>{msg.Timestamp}</p>
+                        )}
                       </div>
                     </div>
                   );
