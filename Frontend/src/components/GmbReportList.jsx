@@ -173,6 +173,7 @@ const GmbReportList = () => {
       const customerExp = getField(analysis, '3_Customer_Experience.Rating', 'Customer_Information.Customer_Satisfaction_Score') || 'Medium';
       const callObjective = getField(analysis, '1_Call_Objective.Objective_Phrase', 'Functional.Call_Objective_Theme') || 'N/A';
       const storeVisitRating = getField(analysis, '9_Invitations.Store_Visit.Rating', 'Agent_Areas.The_Invitation_to_Visit.Attempted') || 'Low';
+      const videoDemoRating = getField(analysis, '9_Invitations.Video_Demo.Rating') || 'Low';
       const region = getField(analysis, 'MetaData.Call_Region') || report.region || 'Unknown';
       
       // Get consideration value from metadata (prioritize metadata over product intelligence)
@@ -204,6 +205,15 @@ const GmbReportList = () => {
       } else {
         const rating = String(storeVisitRating).toLowerCase();
         invitedToStore = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
+      }
+      
+      // Determine invited to video demo
+      let invitedToVideo = 'No';
+      if (typeof videoDemoRating === 'boolean') {
+        invitedToVideo = videoDemoRating ? 'Yes' : 'No';
+      } else {
+        const rating = String(videoDemoRating).toLowerCase();
+        invitedToVideo = (rating === 'high' || rating === 'medium' || rating === 'h' || rating === 'm') ? 'Yes' : 'No';
       }
       
       // Parse call date
@@ -243,6 +253,7 @@ const GmbReportList = () => {
         considerationValue: valueData.display,
         valueBucket: valueData.bucket,
         invitedToStore,
+        invitedToVideo,
         isPurchased
       };
     }).filter(Boolean);
@@ -693,17 +704,6 @@ const GmbReportList = () => {
                           <span className="font-mono text-sm text-gray-600">{formatDuration(report.duration_seconds)}</span>
                         </td>
                         
-                        {/* Lead Type */}
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase whitespace-nowrap ${
-                            report.leadType === 'Sales Lead' 
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                              : 'bg-blue-100 text-blue-700 border border-blue-200'
-                          }`}>
-                            {report.leadType}
-                          </span>
-                        </td>
-                        
                         {/* Consideration Value */}
                         <td className="px-4 py-3">
                           <span className={`text-sm ${report.considerationValue === 'N/A' ? 'text-gray-400' : 'font-bold text-gray-900'}`}>
@@ -736,6 +736,27 @@ const GmbReportList = () => {
                         {/* Invited to Store */}
                         <td className="px-4 py-3">
                           {report.invitedToStore === 'Yes' ? (
+                            <span className="text-sm font-bold text-green-600 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Yes
+                            </span>
+                          ) : report.leadType === 'Post-Sales' ? (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          ) : (
+                            <span className="text-sm font-bold text-red-400 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              No
+                            </span>
+                          )}
+                        </td>
+                        
+                        {/* Invited to Video */}
+                        <td className="px-4 py-3">
+                          {report.invitedToVideo === 'Yes' ? (
                             <span className="text-sm font-bold text-green-600 flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
