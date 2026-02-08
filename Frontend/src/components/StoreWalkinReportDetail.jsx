@@ -87,8 +87,15 @@ const StoreWalkinReportDetail = () => {
   const pillar5Method = analysis.Pillar_5_Methodology || {};
   const summaryOld = analysis.Summary || {};
 
+  function maskPhoneNumber(value) {
+    if (!value) return '';
+    const digits = String(value).replace(/\D/g, '');
+    if (digits.length < 4) return String(value);
+    return `****${digits.slice(-4)}`;
+  }
+
   // Customer Name
-  const customerName = pickMeaningful(metaData.Customer_Name, report.customer_phone, 'Walk-in Customer');
+  const customerName = pickMeaningful(metaData.Customer_Name, maskPhoneNumber(report.customer_phone), 'Walk-in Customer');
   const customerLocation = pickMeaningful(metaData.Customer_Location, report.store_name, 'Unknown Store');
   const customerLanguage = pickMeaningful(metaData.Customer_Language, 'English');
   // Keep "Unknown" and "N/A" for Consideration Value (don't filter them out)
